@@ -1,0 +1,1 @@
+Activate the relevant adaptor by creating a symlink of chado.php or native.php to database.php
