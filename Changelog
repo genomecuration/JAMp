@@ -1,0 +1,16 @@
+Changelog
+
+Script:
+ 0.1 March13 - first version - populates an annotation database with known proteins (48Gb)
+ 0.2 July13 - associates new proteins with annotation database 
+ 0.3 Sep-Nov - added authorization
+             - added linkouts
+             - bug fix on CDS vs mRNA co-ordinates
+             - support genome-based gene prediction
+
+Support at alexie@butterflybase.org
+
+GUI:
+
+Support at 
+

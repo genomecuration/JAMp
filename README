@@ -1,0 +1,26 @@
+JAMP: Just Annotate My Proteins
+
+Current requirements
+* 40-50gb of disk space (for database of known proteins, mostly the indexes) 
+* PostGres (tested with 8.x and 9.x)
+* BioPerl and these CPAN modules
+  # (sudo) cpan Getopt::Long Pod::Usage Cwd File::Spec DBI XML::LibXML::Reader Digest::MD5
+
+Canberra, 28th August 2013
+
+Author and recipient of complaints
+
+ Alexie Papanicolaou
+
+        1 CSIRO Ecosystem Sciences, Canberra, Australia
+        alexie@butterflybase.org
+
+This software is released under the GNU General Public License version 3 (GPLv3).
+It is provided "as is" without warranty of any kind.
+You can find the terms and conditions at http://www.opensource.org/licenses/gpl-3.0.html.
+Please note that incorporating the whole software or parts of its code in proprietary software
+is prohibited under the current license.
+
+BUGS & LIMITATIONS
+
+See perldoc
