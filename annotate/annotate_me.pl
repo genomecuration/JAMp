@@ -9,6 +9,10 @@ Added authorization
 
 =head2 TODO
 
+NETWORK colour with black background
+support Graph::GML 
+come up with an example where there is a valid graph network
+
 ALlow for cd-hit clustering so that protein annotations are not inflated. Or perhaps we should impose cd-hit clustering?
 Accepting a cd-hit input can do two things:
  - store the clustering information
@@ -112,6 +116,7 @@ Analyses available:
      -dohhr       => Process HHblits files 
      -doipr       => Process InterProScan files
      -donetwork   => Process .network files
+     -nojson      => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
 
 Metadata can be added/controlled:
 
@@ -318,7 +323,7 @@ use Bio::Tools::SeqStats;
 #debug
 use Data::Dumper;
 my $cwd = getcwd;
-$|=1;
+$| = 1;
 
 =pod
 
@@ -346,7 +351,7 @@ my (
      $do_eggnog,      $drop_annot_database, $do_protein_ipr,
      $debug,          $database_tsv_file,   $do_chado,
      $do_inferences,  $dohelp,              $do_slow,
-     $delete_dataset, $do_protein_networks
+     $delete_dataset, $do_protein_networks, $nojson
 );
 my $blast_format             = 'blastxml';
 my $translation_table_number = 1;
@@ -418,6 +423,7 @@ my %NOTALLOWED_EVID = (
  'dohhr'          => \$do_protein_hhr,
  'doipr'          => \$do_protein_ipr,
  'donetwork'      => \$do_protein_networks,
+ 'nojson'         => \$nojson,
  'blast_format:s' => \$blast_format,
  'databases:s'    => \$database_tsv_file,
  'chado'          => \$do_chado,
@@ -696,14 +702,13 @@ sub create_new_annotation_db() {
   description text 
  );
  ' );
- 
- $dbh->do('
+
+ $dbh->do( '
  CREATE TABLE metadata_jslib (
   metadata_id integer primary key REFERENCES public.metadata(metadata_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
   json text NOT NULL
  );
-');
- 
+' );
 
  ################################# known proteins ################################
  $dbh->do("SET SEARCH_PATH='known_proteins");
@@ -1069,7 +1074,7 @@ ALTER TABLE ONLY gene_component ADD CONSTRAINT gene_component_c1 UNIQUE (gene_un
  $dbh->do( '
   CREATE TABLE gene_genomeloc (
     gene_genome_id serial primary key,
-    gene_uname varchar REFERENCES gene(uname) NOT NULL ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     genome_name_version varchar  NOT NULL, 
     parent_feature_uname varchar  NOT NULL,
     start integer default 1  NOT NULL, 
@@ -1086,7 +1091,7 @@ ALTER TABLE ONLY gene_genomeloc ADD CONSTRAINT gene_genomeloc_c1 UNIQUE (gene_un
  $dbh->do( '
   CREATE TABLE transcript (
     uname varchar UNIQUE primary key,
-    gene_uname varchar REFERENCES gene(uname) NOT NULL ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
     alias varchar,
     dbxref_id integer REFERENCES dbxref(dbxref_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     translation_table integer,
@@ -1109,7 +1114,7 @@ ALTER TABLE ONLY gene_genomeloc ADD CONSTRAINT gene_genomeloc_c1 UNIQUE (gene_un
 
  $dbh->do( '
   CREATE TABLE transcript_properties (
-    transcript_uname varchar REFERENCES transcript(uname) primary key  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    transcript_uname varchar primary key REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     udef_residues integer, 
     min_molweight float,
     max_molweight float,
@@ -1190,13 +1195,12 @@ CREATE TABLE inference_transcript (
 'CREATE INDEX inference_transcript_idx3 ON inference_transcript USING btree (known_protein_id);'
  );
 
-
  $dbh->do( '
 CREATE TABLE network (
  network_id serial primary key,
  network_type integer REFERENCES public.metadata(metadata_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
  description varchar,
- json text NOT NULL,
+ json text ,
  size integer DEFAULT 0
 );
 ' );
@@ -2249,24 +2253,45 @@ sub process_protein_network() {
  my $files     = shift;
  my $separator = shift;
  $separator = "\n" unless $separator;
+ my $network_type = shift;
+ my $description  = shift;
+
+ &process_protein_network_mcl( $dbh_store, $files, $separator, $description )
+   if ( $network_type eq 'MCL' );
+
+}
+
+sub process_protein_network_sif() {
+ 
+=cut
+
+tab delimited, 3 columns
+cds.comp5325_c0_seq1|m.4344     pp      cds.comp690_c0_seq1|m.162
+cds.comp53_c0_seq1|m.1  pp      cds.comp5758_c0_seq1|m.4627
+cds.comp5439_c0_seq1|m.4444
+
+
+=cut 
+ 
+ 
+}
+
+sub process_protein_network_mcl() {
+ my $dbh_store   = shift;
+ my $files       = shift;
+ my $separator   = shift;
+ my $description = shift;
+
  my $orig_sep = $/;
  $/ = $separator;
  my $record_number = int(0);
- 
+
  foreach my $infile (@$files) {
   next unless $infile && -s $infile && ( -s $infile ) >= 10;
   my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
   print "Processing $infile as a network result\n";
   open( IN, $infile ) || die("Cannot open $infile\n");
-  my $header = <IN>;
-  chomp($header);
-  die unless $header =~ /^#?Network_type\t(\S+)/;
-  my $network_type = $1;
-  my $description;
 
-  if ( $header =~ /Description\t(\S+)/ ) {
-   $description = $1;
-  }
   $dbh_store->begin_work;
   while ( my $network = <IN> ) {
    next if $network =~ /^\s*$/ || $network =~ /^#/;
@@ -2280,35 +2305,54 @@ sub process_protein_network() {
    @members = sort { $a cmp $b } (@members);
    my $json_data;
    my $json_metadata;
-   if ($network_type eq 'MCL'){
-    $json_data = &create_undirected_unweighted_network( \@members );
+
+   unless ($nojson) {
+#TODO colour with black background
+    my $animation = $network_size > 10 ? 'false' : 'true';
     my %hash = (
-  "backgroundGradient1Color" => "rgb(112,179,222)",
-  "backgroundGradient2Color" => "rgb(226,236,248)",
-  "gradient" => 'true',
-  "graphType" => "Network",
-  "indicatorCenter" => "rainbow",
-  "nodeFontColor" => "rgb(29,34,43)",
-  "showAnimation" => 'true'
+                 "backgroundGradient1Color" => "rgb(112,179,222)",
+                 "backgroundGradient2Color" => "rgb(226,236,248)",
+                 "gradient"                 => 'true',
+                 "preScaleNetwork"          => 'true',
+                 "graphType"                => "Network",
+                 "indicatorCenter"          => "rainbow",
+                 "nodeFontColor"            => "rgb(255,255,255)",
+                 "nodeFontSize"             => 15,
+                 "showNodeNameThreshold"    => 10,
+                 "edgeWidth"                => 1,
+                 "colorNodeBy"              => "group",
+                 "showAnimation"            => $animation
     );
-    $json_metadata = encode_json(\%hash);
+    $json_metadata = encode_json( \%hash );
+    $json_data     = &create_undirected_unweighted_network( \@members );
    }
-   my ($metadata_id,$network_id);
-   $sql_hash_ref->{'check_metadata'}->execute($network_type );
-   my $res        = $sql_hash_ref->{'check_metadata'}->fetchrow_arrayref();
-   if ($res){
-    $metadata_id = $res->[0];undef($res);
-   }else{
-     $sql_hash_ref->{'store_metadata'}->execute($network_type );
-     $sql_hash_ref->{'get_last_metadata_id'}->execute();
-     $res        = $sql_hash_ref->{'get_last_metadata_id'}->fetchrow_arrayref();
-     $metadata_id = $res->[0];undef($res);
-     $sql_hash_ref->{'store_metadata_js'}->execute($metadata_id, $json_metadata);
-   }  
-   $sql_hash_ref->{'store_network'}->execute( $metadata_id, $description, $json_data, $network_size );
+
+   my ( $metadata_id, $network_id );
+   $sql_hash_ref->{'check_metadata'}->execute('MCL');
+   my $res = $sql_hash_ref->{'check_metadata'}->fetchrow_arrayref();
+   if ($res) {
+    $metadata_id = $res->[0];
+    undef($res);
+   }
+   else {
+    $sql_hash_ref->{'store_metadata'}->execute('MCL');
+    $sql_hash_ref->{'get_last_metadata_id'}->execute();
+    $res         = $sql_hash_ref->{'get_last_metadata_id'}->fetchrow_arrayref();
+    $metadata_id = $res->[0];
+    undef($res);
+    $sql_hash_ref->{'store_metadata_js'}
+      ->execute( $metadata_id, $json_metadata )
+      if $json_metadata;
+   }
+
+   $sql_hash_ref->{'store_network'}
+     ->execute( $metadata_id, $description, $network_size );
    $sql_hash_ref->{'get_last_network_id'}->execute();
    $res        = $sql_hash_ref->{'get_last_network_id'}->fetchrow_arrayref();
-   $network_id = $res->[0];undef($res);
+   $network_id = $res->[0];
+   undef($res);
+   $sql_hash_ref->{'store_network_json'}->execute( $json_data, $metadata_id )
+     if $json_data;
 
    foreach my $transcript_uname (@members) {
     $sql_hash_ref->{'store_transcript_network'}
@@ -2319,8 +2363,9 @@ sub process_protein_network() {
   close IN;
   $dbh_store->commit;
  }
- 
+
  $/ = $orig_sep;
+
 }
 
 sub process_protein_ipr() {
@@ -2518,22 +2563,28 @@ sub prepare_native_inference_sqls() {
  $sql_hash{'store_inference_hit_strand'} = $dbh->prepare(
     "UPDATE inference_transcript SET strand=? WHERE inference_transcript_id=?");
 
- $sql_hash{'store_metadata'} = $dbh->prepare("INSERT INTO public.metadata (uname) VALUES  (?) ");
- 
+ $sql_hash{'store_metadata'} =
+   $dbh->prepare("INSERT INTO public.metadata (uname) VALUES  (?) ");
+
  $sql_hash{'get_last_metadata_id'} =
    $dbh->prepare("SELECT currval ('public.metadata_metadata_id_seq')");
 
  $sql_hash{'store_network'} = $dbh->prepare(
-   "INSERT INTO network (network_type,description,json,size) VALUES (?,?,?,?)");
+          "INSERT INTO network (network_type,description,size) VALUES (?,?,?)");
+ $sql_hash{'store_network_json'} =
+   $dbh->prepare("UPDATE network set json=? WHERE network_type=?");
+
  $sql_hash{'get_last_network_id'} =
    $dbh->prepare("SELECT currval ('network_network_id_seq')");
 
  $sql_hash{'store_transcript_network'} = $dbh->prepare(
    "INSERT INTO transcript_network (transcript_uname,network_id) VALUES (?,?)");
 
- $sql_hash{'store_metadata_js'} = $dbh-> prepare("INSERT INTO public.metadata_jslib (metadata_id,json) VALUES (?,?)");
+ $sql_hash{'store_metadata_js'} = $dbh->prepare(
+           "INSERT INTO public.metadata_jslib (metadata_id,json) VALUES (?,?)");
 
- $sql_hash{'check_metadata'} =$dbh-> prepare("SELECT metadata_id from public.metadata WHERE uname=?");
+ $sql_hash{'check_metadata'} =
+   $dbh->prepare("SELECT metadata_id from public.metadata WHERE uname=?");
 
  return \%sql_hash;
 
@@ -2612,9 +2663,7 @@ sub prepare_chado_inference_sqls() {
  );
  $sql_hash{'link_feature_to_library'} =
    $dbh->prepare('INSERT INTO library_feature (feature_id,library_id)');
-   
-   
-   
+
  return \%sql_hash;
 }
 
@@ -2877,8 +2926,8 @@ sub store_annotation_of_proteins() {
 
   &add_linkout( $dbh_store, $linkout_conf, $dataset_id ) if $linkout_conf;
  }
- $protein_fasta_file = '' if !$protein_fasta_file; # will grab everything!
- 
+ $protein_fasta_file = '' if !$protein_fasta_file;    # will grab everything!
+
  if ($do_protein_blasts) {
   print "Looking for BLAST files that match: $protein_fasta_file*blast*\n";
   my @files = glob("$protein_fasta_file*blast*");
@@ -3113,18 +3162,43 @@ Each node may have one parent under the property 'parentNode' and it has to matc
  my %json;
  for ( my $i = 0 ; $i < (@$members_ref) ; $i++ ) {
   my $member1 = $members_ref->[$i];
+  my %node_hash = ( 'id' => $member1 );
+  push( @{ $json{'nodes'} }, \%node_hash );
+  for ( my $k = $i + 1 ; $i < (@$members_ref) ; $k++ ) {
+   my $member2 = $members_ref->[$k] || last;
+   my %edge_hash = (
+    'id1' => $member1,
+    'id2' => $member2
+
+      #                     'value' => 1
+   );
+   push( @{ $json{'edges'} }, \%edge_hash );
+  }
+ }
+
+ return encode_json( \%json );
+}
+
+sub create_undirected_weighted_network() {
+
+ my $members_ref = shift;
+ my %json;
+ for ( my $i = 0 ; $i < (@$members_ref) ; $i++ ) {
+  my $member1 = $members_ref->[$i];
   my %node_hash = (
-                    'id'    => $member1
-#                    'name'  => $member1,
-#                    'group' => 1
+   'id' => $member1
+
+     #                    'name'  => $member1,
+     #                    'group' => 1
   );
   push( @{ $json{'nodes'} }, \%node_hash );
   for ( my $k = $i + 1 ; $i < (@$members_ref) ; $k++ ) {
    my $member2 = $members_ref->[$k] || last;
    my %edge_hash = (
-                     'id1'   => $member1,
-                     'id2'   => $member2
-#                     'value' => 1
+    'id1' => $member1,
+    'id2' => $member2
+
+      #                     'value' => 1
    );
    push( @{ $json{'edges'} }, \%edge_hash );
   }

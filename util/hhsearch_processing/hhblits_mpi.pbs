@@ -10,7 +10,7 @@ MPIRUN_EXEC=`which mpirun`
 MPIRUN_ARGS="-gmca mpi_warn_on_fork 0 -cpus-per-proc 1 -np $2 -machinefile workers.$PBS_JOBID.mpi"
 
 #your HHblits database
-DB=/home/pap056/30day/databases/hhsearch/uniprot20_2012_10_klust20_dc_2012_12_10
+DB=/home/pap056/30day/databases/hhsearch/uniprot20_2013_03/uniprot20_2013_03
 
 
 export OMP_NUM_THREADS=1
