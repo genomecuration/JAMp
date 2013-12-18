@@ -1,13 +1,19 @@
 #!/usr/bin/env perl
-#VERSION 0.3 November 2013
+#VERSION 0.4 December 2013
 
 =pod
+
+=begin comment
 
 =head1 Developer Notes
 
 Added authorization
 
 =head2 TODO
+
+NETWORK colour with black background
+support Graph::GML 
+come up with an example where there is a valid graph network
 
 ALlow for cd-hit clustering so that protein annotations are not inflated. Or perhaps we should impose cd-hit clustering?
 Accepting a cd-hit input can do two things:
@@ -41,7 +47,7 @@ SELECT pathway_id,up FROM pathways p JOIN genes_pathways gp ON p.puid=gp.puid JO
 SELECT ko_id,up FROM kos k JOIN kos_genes kg ON k.id=kg.ko_id JOIN genes_uniprots gu ON gu.gene_id=kg.gene_id;
 SELECT pathway_id,ko_id from pathways p JOIN kos_pathways kp ON kp.puid=p.puid
 
-=pod
+=end comment
 
 =head1 VERSION
 
@@ -70,8 +76,9 @@ Annotation database connection
    * -annot_dbname :s   => Name of postgres database
      -annot_host   :s   => Hostname, optional
      -annot_port   :i   => Port for database connection, optional
-     -annot_user   :s   => Username for database connection, optional
+     -annot_user   :s   => Username for database connection, optional. This is the user with full priviliges
      -annot_pass   :s   => Password for database connection, optional
+     -annot_read   :s   => Optionally, username who will be given SELECT permissions in the whole database 
 
 General options
 
@@ -112,6 +119,7 @@ Analyses available:
      -dohhr       => Process HHblits files 
      -doipr       => Process InterProScan files
      -donetwork   => Process .network files
+     -nojson      => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
 
 Metadata can be added/controlled:
 
@@ -127,6 +135,8 @@ The following metadata can be provided or are interactively asked during import:
      -dataset_type                    :s => What type is the dataset, e.g. RNASeq or 'genome annotation' 
  
 =head1 DESCRIPTION
+
+=head2 OVERVIEW
 
 This program does two things. The first step is creating a database linking known proteins with annotations. These are derived
 from a variety of sources and the purpose of having this local database is (step two) that you can rapidly annotate your own genes
@@ -246,19 +256,23 @@ Type is either 'gene', 'CDS' or 'hit'. It is used by the browser to specify whet
 The unique name needs to be unique within the dataset being loaded, but needs not be unique between datasets. 
 The last column can be either gene or transcript and is optional.  If not provided, gene is assumed.
 
-
 For example use this for hits of say Q5NGP7 (accessible via www.uniprot.org/uniprot/Q5NGP7). NB the forward slash at the end of the URL:
 
  hit UniProt    http://www.uniprot.org/uniprot/      The mission of UniProt is to provide the scientific community with a comprehensive, high-quality and freely accessible resource of protein sequence and functional information. 
 
 For JBrowse:
 
- gene JBrowse_mygenome   http://mygenome.org/jbrowse/?loc=   This is a description of the JBrowse of my genome.
+ gene JBrowse   http://mygenome.org/jbrowse/?loc=   This is a description of the JBrowse of my genome.
 
 Make sure that any URL options are before the key required for the query (loc in this case).
 For example, JBrowse is highly configurable and I highly recommend tracks=DNA at least (Annotations is from WebApollo), for example:
 
  gene JBrowse_mygenome   http://mygenome.org/jbrowse/?tracks=DNA%2CAnnotations&loc=   This is a description of the JBrowse of my genome.
+
+Once your file is created, provide it to the program with the option -linkout_conf. If you'd like the linkout to be specific to a dataset, also
+provide the relevant -dataset_uname. If you don't provide -dataset_uname then the linkout will be available to all datasets.
+
+The unique name needs to be unique within a name-dataset combination, so you can have a different 'jbrowse' link for each dataset.
 
 
 =head1 AUTHORS
@@ -270,18 +284,16 @@ For example, JBrowse is highly configurable and I highly recommend tracks=DNA at
 
 =head1 DISCLAIMER & LICENSE
 
-This software is released under the GNU General Public License version 3 (GPLv3).
+Copyright 2012-2014 the Commonwealth Scientific and Industrial Research Organization. 
+This software is released under the Mozilla Public License v.2.
+
 It is provided "as is" without warranty of any kind.
-You can find the terms and conditions at http://www.opensource.org/licenses/gpl-3.0.html.
-Please note that incorporating the whole software or parts of its code in proprietary software
-is prohibited under the current license.
+You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
+
 
 =head1 BUGS & LIMITATIONS
 
 No bugs known so far. 
-
-
-=head1 Developer Notes
 
 =cut
 
@@ -307,23 +319,15 @@ use GFF3_utils;
 use Carp;
 use Nuc_translator;
 
+use Data::Dumper;
+my $cwd = getcwd;
+
 # bioperl
 use Bio::SeqIO;
 use Bio::Tools::pICalculator;
 use Bio::Tools::SeqStats;
 
-#use Time::Progress;
-#use IO::Compress::Bzip2 qw(bzip2 $Bzip2Error);
-#use DBD::Pg qw(:pg_types);
-#debug
-use Data::Dumper;
-my $cwd = getcwd;
-$|=1;
-
-=pod
-
-
-=cut
+$| = 1;
 
 our $sql_hash_ref;
 my (
@@ -334,20 +338,24 @@ my (
      $contig_fasta_file,  $orf_gff_file, $genome_gff_file,
      $protein_fasta_file, $genome_fasta_file
 );
-
+my $max_network_size = 250;
 my $authorization_name = 'demo';
-my ( $annot_dbname, $annot_host,   $annot_dbport );
+my ( $annot_dbname, $annot_host, $annot_dbport, $annot_readuser );
 my ( $chado_dbname, $chado_dbhost, $chado_dbport );
 my ( $annot_username, $annot_password ) = ( $ENV{'USER'}, undef );
 my ( $chado_username, $chado_password ) = ( $ENV{'USER'}, undef );
-my ( $create_annot_database, $do_protein_hhr, $do_protein_blasts, $do_kegg );
+my ( @do_protein_hhr, @do_protein_blasts, @do_protein_networks,
+     @do_protein_ipr );
 my (
-     $do_uniprot,     $do_go,               $do_ec,
-     $do_eggnog,      $drop_annot_database, $do_protein_ipr,
-     $debug,          $database_tsv_file,   $do_chado,
-     $do_inferences,  $dohelp,              $do_slow,
-     $delete_dataset, $do_protein_networks
+     $create_annot_database, $do_uniprot,     $do_go,
+     $do_ec,                 $do_kegg,        $do_eggnog,
+     $drop_annot_database,   $debug,          $database_tsv_file,
+     $do_chado,              $do_inferences,  $dohelp,
+     $do_slow,               $delete_dataset, $nojson
 );
+
+my ( $network_description, $network_type );
+
 my $blast_format             = 'blastxml';
 my $translation_table_number = 1;
 my %accepted_linkout_types   = ( 'gene' => 1, 'hit' => 1, 'CDS' => 1 );
@@ -386,6 +394,7 @@ my %NOTALLOWED_EVID = (
  'annot_host:s'   => \$annot_host,
  'annot_port:i'   => \$annot_dbport,
  'annot_user:s'   => \$annot_username,
+ 'annot_read:s'   => \$annot_readuser,
  'annot_pass:s'   => \$annot_password,
 
  #chado database
@@ -414,10 +423,12 @@ my %NOTALLOWED_EVID = (
  'translation:i'  => \$translation_table_number,
  'delete:s'       => \$delete_dataset,
 
- 'doblast'        => \$do_protein_blasts,
- 'dohhr'          => \$do_protein_hhr,
- 'doipr'          => \$do_protein_ipr,
- 'donetwork'      => \$do_protein_networks,
+ 'doblast:s{,}'   => \@do_protein_blasts,
+ 'dohhr:s{,}'     => \@do_protein_hhr,
+ 'doipr:s{,}'     => \@do_protein_ipr,
+ 'donetwork:s{,}' => \@do_protein_networks,
+
+ 'nojson'         => \$nojson,
  'blast_format:s' => \$blast_format,
  'databases:s'    => \$database_tsv_file,
  'chado'          => \$do_chado,
@@ -437,8 +448,11 @@ my %NOTALLOWED_EVID = (
  'dataset_species:s'                 => \$dataset_species,
  'dataset_library:s'                 => \$dataset_library,
  'dataset_type:s'                    => \$dataset_type,
- 'linkout_conf:s'                    => \$linkout_conf
+ 'linkout_conf:s'                    => \$linkout_conf,
+ 'network_description:s'             => \$network_description,
+ 'network_type:s'                    => \$network_type
 );
+
 pod2usage "No annotation database name\n" unless $annot_dbname;
 pod2usage "A required file is missing\n"
   unless $dohelp
@@ -454,12 +468,10 @@ pod2usage "A required file is missing\n"
         && $genome_fasta_file )
    || $delete_dataset
    || $linkout_conf
-   || $do_protein_blasts
-   || $do_protein_hhr
-   || $do_protein_ipr
-   || $do_protein_networks
-
-;
+   || scalar(@do_protein_blasts) > 0
+   || scalar(@do_protein_hhr) > 0
+   || scalar(@do_protein_ipr) > 0
+   || scalar(@do_protein_networks) > 0;
 
 &check_required_files(
                        $protein_fasta_file, $contig_fasta_file,
@@ -500,10 +512,10 @@ die "BLAST format can only be 'blast' or 'blastxml'\n"
 
 # if we have files, we can store annotations by inference
 if (    ( $protein_fasta_file && -s $protein_fasta_file )
-     || $do_protein_blasts
-     || $do_protein_hhr
-     || $do_protein_ipr
-     || $do_protein_networks )
+     || scalar(@do_protein_blasts) > 0
+     || scalar(@do_protein_hhr) > 0
+     || scalar(@do_protein_ipr) > 0
+     || scalar(@do_protein_networks) > 0 )
 {
  &store_annotation_of_proteins();
 }
@@ -516,7 +528,6 @@ elsif ($linkout_conf) {
  else {
   &add_linkout( $dbh_store, $linkout_conf );
  }
-
 }
 
 print "\nDone!\n";
@@ -696,14 +707,13 @@ sub create_new_annotation_db() {
   description text 
  );
  ' );
- 
- $dbh->do('
+
+ $dbh->do( '
  CREATE TABLE metadata_jslib (
   metadata_id integer primary key REFERENCES public.metadata(metadata_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
   json text NOT NULL
  );
-');
- 
+' );
 
  ################################# known proteins ################################
  $dbh->do("SET SEARCH_PATH='known_proteins");
@@ -779,6 +789,9 @@ sub create_new_annotation_db() {
 }
 
 =pod
+
+=begin comment
+
  For chado these results will go into tables that have schemas identical to 
  analysis and analysisfeature but the feature will refer to the query not the
  hit. i will name these tables inference, inferencefeature and inferencefeature_dbxref
@@ -961,6 +974,8 @@ CREATE INDEX inferencefeature_dbxref_idx2 ON inferencefeature_dbxref USING btree
 
 =pod
 
+=begin comment
+
 The native schema is based on chado but not...
 The annotation database lives within the known_proteins schema
 then each dataset (a.k.a. experiment, aka report) lives within its own schema.
@@ -1069,7 +1084,7 @@ ALTER TABLE ONLY gene_component ADD CONSTRAINT gene_component_c1 UNIQUE (gene_un
  $dbh->do( '
   CREATE TABLE gene_genomeloc (
     gene_genome_id serial primary key,
-    gene_uname varchar REFERENCES gene(uname) NOT NULL ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     genome_name_version varchar  NOT NULL, 
     parent_feature_uname varchar  NOT NULL,
     start integer default 1  NOT NULL, 
@@ -1086,7 +1101,7 @@ ALTER TABLE ONLY gene_genomeloc ADD CONSTRAINT gene_genomeloc_c1 UNIQUE (gene_un
  $dbh->do( '
   CREATE TABLE transcript (
     uname varchar UNIQUE primary key,
-    gene_uname varchar REFERENCES gene(uname) NOT NULL ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
     alias varchar,
     dbxref_id integer REFERENCES dbxref(dbxref_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     translation_table integer,
@@ -1109,7 +1124,7 @@ ALTER TABLE ONLY gene_genomeloc ADD CONSTRAINT gene_genomeloc_c1 UNIQUE (gene_un
 
  $dbh->do( '
   CREATE TABLE transcript_properties (
-    transcript_uname varchar REFERENCES transcript(uname) primary key  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    transcript_uname varchar primary key REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     udef_residues integer, 
     min_molweight float,
     max_molweight float,
@@ -1190,13 +1205,12 @@ CREATE TABLE inference_transcript (
 'CREATE INDEX inference_transcript_idx3 ON inference_transcript USING btree (known_protein_id);'
  );
 
-
  $dbh->do( '
 CREATE TABLE network (
  network_id serial primary key,
  network_type integer REFERENCES public.metadata(metadata_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
  description varchar,
- json text NOT NULL,
+ json text ,
  size integer DEFAULT 0
 );
 ' );
@@ -1310,6 +1324,8 @@ sub prepare_ec() {
  @files_to_get = &get_www_files(@files_to_get);
 
 =pod
+
+=begin comment
 
  ID  Identification                         (Begins each entry; 1 per entry)
    DE  Description (official name)            (>=1 per entry)
@@ -1627,6 +1643,8 @@ sub prepare_kegg() {
  print "Preparing KEGG terms...\n";
 
 =pod
+
+=begin comment
 
 .mode tabs
 .output ko_terms.tsv # SELECT  id,name,definition from kos ; 
@@ -2041,8 +2059,15 @@ RECORD: while ( my $record = <IN> ) {
 
        #TODO parse descriptino to get the actual hit
 
-=cut
->UP20|VEGDUSABA|52|169 Ribosomal-protein-alanine acetyltransferase OX=345219; Ribosomal-protein-alanine acetyltransferase OX=665940; Ribosomal-protein-alanine acetyltransferase OX=1144311; Ribosomal-protein-alanine N-acetyltransferase OX=683837; Ribosomal-protein-alanine acetyltransferase OX=941639; Ribosomal-protein-alanine acetyltransferase OX=429009. [Clostridium sp. 7_3_54FAA.]|G5FC42 [Bacillus coagulans 36D1.]|G2TIN3 [Clostridium symbiosum WAL-14673.]|E9SUK0 [Clostridium symbiosum WAL-14163.]|E7GRC0 [Geobacillus kaustophilus (strain HTA426). GN=]|Q5L3F7 [Geobacillus sp. (strain Y412MC52). GN=]|E8SS21 [Geobacillus sp. (strain C56-T3). GN=]|D7CZ50 [Geobacillus sp. (strain Y412MC61). GN=]|C9RVJ0 [Megamonas funiformis YIT 11815.]|H3KA08 [Geobacillus thermoleovorans CCB_US3_UF5.]|G8N2C4 [Veillonella sp. oral taxon 780 str. F0422. GN=]|F9N5J0 [Veillonella sp. oral taxon 158 str. F0412. GN=]|E4LCI8 [Lysinibacillus fusiformis ZC1. GN=]|D7WLY9 [Megamonas hypermegale ART12/1.]|D4KGJ5 [Veillonella sp. ACP1. GN=]|J5APD2 [Veillonella atypica ACS-134-V-Col7a. GN=]|E1LBQ5 [Veillonella atypica ACS-049-V-Sch6. GN=]|E1L8F9 [Blautia hydrogenotrophica DSM 10507.]|C0CKZ7 [NBRC 102448/ NCIMB 2269) (Sporosarcina halophila). GN=]|I0JI14 [Solibacillus silvestris (strain StLB046) (Bacillus silvestris). GN=]|F2F6G0 [743B). GN=]|D9STI6 [Listeriaceae bacterium TTU M1-001.]|H7F3D1 [Mitsuokella multacida DSM 20544.]|C9KJT8 [Bacillus cereus Rock3-44. GN=]|C2W372 [Anaerococcus lactolyticus ATCC 51172. GN=]|C2BG71 [Roseburia inulinivorans DSM 16841.]|C0FWN0 [Selenomonas sp. oral taxon 149 str. 67H29BP. GN=]|E0NY02 [Moorella thermoacetica (strain ATCC 39073). GN=]|Q2RGJ2 [acidocaldarius). GN=]|F8ICI1 [27009 / DSM 446 / 104-1A) (Bacillus acidocaldarius). GN=]|C8WRZ6 [Alicyclobacillus acidocaldarius LAA1.]|B7DM88 [Selenomonas sp. FOBRC9. GN=]|J4KEM8 [Selenomonas artemidis F0399.]|E7N4H8 [Selenomonas sp. oral taxon 137 str. F0430. GN=]|E4LL31 [Selenomonas flueggei ATCC 43531.]|C4V0J9 [Selenomonas sp. FOBRC6. GN=]|J4QBV0 [Selenomonas noxia F0398.]|G5H2D3 [Selenomonas infelix ATCC 43532.]|G5GLE1 [Centipeda periodontii DSM 2778. GN=]|F5RNJ1 [Desulforudis audaxviator (strain MP104C). GN=]|B1I668 [Dethiobacter alkaliphilus AHT 1.]|C0GCU8 [Clostridium difficile 050-P50-2011.]|G6BHT1 [Clostridium difficile 002-P50-2011.]|G6B2Y2 [Clostridium difficile NAP07. GN=]|D5S4P6 [Clostridium difficile NAP08. GN=]|D5Q987 [Ammonifex degensii (strain DSM 10501 / KC4). GN=]|C9RAP4 [Acidaminococcus intestini (strain RyC-MR95). GN=]|G4Q923 [Acidaminococcus sp. D21.]|C0WAD0 [Clostridium asparagiforme DSM 15981.]|C0CVB7 [Bacillus coagulans (strain 2-6). GN=]|F7Z0E2 [100100 / SLCC 3954). GN=]|D3UQ33 [Brevibacillus sp. CF112. GN=]|J3BAL2.
+=pod
+
+=begin comment
+
+>UP20|VEGDUSABA|52|169 Ribosomal-protein-alanine acetyltransferase OX=345219; \
+ Ribosomal-protein-alanine acetyltransferase OX=665940; Ribosomal-protein-alanine acetyltransferase OX=1144311; Ribosomal-protein-alanine N-acetyltransferase OX=683837;
+ Ribosomal-protein-alanine acetyltransferase OX=941639; Ribosomal-protein-alanine acetyltransferase OX=429009. [Clostridium sp. 7_3_54FAA.]
+ |G5FC42 [Bacillus coagulans 36D1.]|G2TIN3 [Clostridium symbiosum WAL-14673.]|E9SUK0 [Clostridium symbiosum WAL-14163.]|E7GRC0 [Geobacillus kaustophilus (strain HTA426). GN=]
+ |Q5L3F7 [Geobacillus sp. (strain Y412MC52). GN=]|E8SS21 [Geobacillus sp. (strain C56-T3). GN=]|D7CZ50 [Geobacillus sp. (strain Y412MC61). GN=]   .....
 
 The OX (Organism taxonomy cross-reference) line is used to indicate the identifier of a specific organism in a taxonomic database. who knows what they are using....
 
@@ -2062,7 +2087,8 @@ P-value: The P-value is the E-value divided by the number of sequences in the da
 the probability that in a pairwise comparison a wrong hit will score at least this good.
 Score: the raw score, which does not include the secondary structure score.
     
-    assume NCBI ID
+* assume NCBI ID
+
 =cut
 
        $desc =~ s/^>(\S+)\s+//;
@@ -2117,7 +2143,8 @@ Score: the raw score, which does not include the secondary structure score.
      unless $database;
    if ( !$hash{$query}{'data'} ) {
 
-#	warn "Query $query had no hits.\n" if $debug;
+    warn "Query $query had no hits.\n" if $debug;
+
 # anything else we want to do: store that it has been searched and delete from hash.
 #	&_store_hhr_processed_no_hits( $query, $date_searched, $command,					$database );
     delete( $hash{$query} );
@@ -2249,24 +2276,152 @@ sub process_protein_network() {
  my $files     = shift;
  my $separator = shift;
  $separator = "\n" unless $separator;
+
+ if ( $network_type eq 'MCL' ) {
+  &process_protein_network_mcl( $dbh_store, $files, $separator );
+ }
+ else {
+  &process_protein_network_tab( $dbh_store, $files );
+ }
+}
+
+sub _flatten_network_edges() {
+
+
+}
+
+sub process_protein_network_tab() {
+
+ my $dbh_store = shift;
+ my $files     = shift;
+
+ my %js_hash = (
+                 "backgroundGradient1Color" => "rgb(10,10,10)",
+                 "backgroundGradient2Color" => "rgb(0,0,0)",
+                 "nodeFontColor"            => "rgb(255,255,255)",
+                 "gradient"                 => 'true',
+                 "preScaleNetwork"          => 'true',
+                 "graphType"                => "Network",
+                 "indicatorCenter"          => "rainbow",
+                 "nodeFontSize"             => 10,
+                 "showNodeNameThreshold"    => 30,
+                 "edgeWidth"                => 1,
+                 "colorNodeBy"              => "group",
+                 "colorEdgeBy"              => "value",
+                 "showAnimation"            => 'true'
+ );
+ my $json_metadata = encode_json( \%js_hash );
+ my ($metadata_id);
+ $sql_hash_ref->{'check_metadata'}->execute($network_type);
+ my $res = $sql_hash_ref->{'check_metadata'}->fetchrow_arrayref();
+ if ($res) {
+  $metadata_id = $res->[0];
+  undef($res);
+ }
+ else {
+  $sql_hash_ref->{'store_metadata'}->execute($network_type,$network_description);
+  $sql_hash_ref->{'get_last_metadata_id'}->execute();
+  $res         = $sql_hash_ref->{'get_last_metadata_id'}->fetchrow_arrayref();
+  $metadata_id = $res->[0];
+  undef($res);
+  $sql_hash_ref->{'store_metadata_js'}->execute( $metadata_id, $json_metadata )
+    if $json_metadata;
+ }
+
+ foreach my $infile (@$files) {
+  my ( %edges, $weighted );
+  next unless $infile && -s $infile && ( -s $infile ) >= 10;
+  my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
+  print "Processing $infile as a network result\n";
+  open( IN, $infile ) || die("Cannot open $infile\n");
+  while ( my $network = <IN> ) {
+   next if $network =~ /^\s*$/ || $network =~ /^#/;
+   chomp($network);
+   my @data = split( "\t", $network );
+   next unless $data[1];
+   if ( $data[2] && $data[2] =~ /^\d+$/ ) {
+    $weighted = 1 if !$weighted;
+    $edges{$data[0]}{$data[1]} = $data[2];
+    $edges{$data[1]}{$data[0]} = $data[2];
+   }else{
+    $edges{$data[0]}{$data[1]} = undef;
+    $edges{$data[1]}{$data[0]} = undef;
+   }
+  }
+  close IN;
+  print "Flattening ".scalar(keys %edges)." edges and preparing for database...\n";
+  my (@groups);
+  my %edges_process = %edges;
+  while (my ($start) = keys %edges_process) {
+   #http://stackoverflow.com/questions/19536347/perl-finding-sets-of-similar-association
+   my @seen  = ($start);
+   my @stack = ($start);
+   while (@stack) {
+     my $vertex = pop @stack;
+     my @reachable = keys %{ delete($edges_process{$vertex}) // {} };
+     delete $edges_process{$_}{$vertex} for @reachable;
+     push @seen, @reachable;
+     push @stack, @reachable;
+   }
+  push(@groups,\@seen);
+}
+ %edges_process=();
+ print "Done, processing up to ".scalar(@groups)." networks...\n";
+  my ($record_number);
+  $dbh_store->begin_work;
+  foreach my $group ( @groups ) {
+   my @members = &uniquefy_array($group);
+   my $network_size = scalar(@members);
+   next if !$network_size || $network_size < 2;
+   my $shall_I_jsonit = ( $nojson || scalar(@members) > $max_network_size ) ? 0 : 1;
+
+   if ($shall_I_jsonit) {
+    my $json_data;
+     $json_data = &create_undirected_weighted_network( \@members, \%edges )
+      if $weighted;
+    $json_data = &create_undirected_unweighted_network( \@members )
+      if !$weighted;
+    $sql_hash_ref->{'store_network_json'}
+      ->execute( $metadata_id, $network_size, $json_data )
+      if $json_data;
+      next if !$json_data;
+   }
+   else {
+    $sql_hash_ref->{'store_network_nojson'}->execute( $metadata_id,  $network_size );
+   }
+   $sql_hash_ref->{'get_last_network_id'}->execute();
+   $res = $sql_hash_ref->{'get_last_network_id'}->fetchrow_arrayref();
+   die "Could not store network!\n" unless $res;
+   my $network_id = $res->[0];
+   undef($res);
+
+   foreach my $transcript_uname (@members) {
+    $sql_hash_ref->{'store_transcript_network'}
+    ->execute( $transcript_uname, $network_id );
+   }
+   $record_number++;
+   print "Processed: $record_number\t\t\r";
+  }
+  print "\nStoring in database...\n";
+  $dbh_store->commit;
+ }
+}
+
+sub process_protein_network_mcl() {
+ my $dbh_store = shift;
+ my $files     = shift;
+ my $separator = shift;
+
  my $orig_sep = $/;
  $/ = $separator;
  my $record_number = int(0);
- 
+
  foreach my $infile (@$files) {
   next unless $infile && -s $infile && ( -s $infile ) >= 10;
   my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
   print "Processing $infile as a network result\n";
   open( IN, $infile ) || die("Cannot open $infile\n");
-  my $header = <IN>;
-  chomp($header);
-  die unless $header =~ /^#?Network_type\t(\S+)/;
-  my $network_type = $1;
-  my $description;
 
-  if ( $header =~ /Description\t(\S+)/ ) {
-   $description = $1;
-  }
   $dbh_store->begin_work;
   while ( my $network = <IN> ) {
    next if $network =~ /^\s*$/ || $network =~ /^#/;
@@ -2275,40 +2430,61 @@ sub process_protein_network() {
 
    chomp($network);
    my @members = split( "\t", $network );
+   my $shall_I_jsonit = ( $nojson || scalar(@members) > 50 ) ? 0 : 1;
    my $network_size = scalar(@members);
    next if !$network_size || $network_size < 2;
    @members = sort { $a cmp $b } (@members);
    my $json_data;
    my $json_metadata;
-   if ($network_type eq 'MCL'){
-    $json_data = &create_undirected_unweighted_network( \@members );
+
+   if ($shall_I_jsonit) {
     my %hash = (
-  "backgroundGradient1Color" => "rgb(112,179,222)",
-  "backgroundGradient2Color" => "rgb(226,236,248)",
-  "gradient" => 'true',
-  "graphType" => "Network",
-  "indicatorCenter" => "rainbow",
-  "nodeFontColor" => "rgb(29,34,43)",
-  "showAnimation" => 'true'
+                 "backgroundGradient1Color" => "rgb(10,10,10)",
+                 "backgroundGradient2Color" => "rgb(0,0,0)",
+                 "nodeFontColor"            => "rgb(255,255,255)",
+                 "gradient"                 => 'true',
+                 "preScaleNetwork"          => 'true',
+                 "graphType"                => "Network",
+                 "indicatorCenter"          => "rainbow",
+                 "nodeFontSize"             => 10,
+                 "showNodeNameThreshold"    => 30,
+                 "edgeWidth"                => 1,
+                 "colorNodeBy"              => "group",
+                 "colorEdgeBy"              => "value",
+                 "showAnimation"            => 'true'
     );
-    $json_metadata = encode_json(\%hash);
+    $json_metadata = encode_json( \%hash );
+    $json_data     = &create_undirected_unweighted_network( \@members );
    }
-   my ($metadata_id,$network_id);
-   $sql_hash_ref->{'check_metadata'}->execute($network_type );
-   my $res        = $sql_hash_ref->{'check_metadata'}->fetchrow_arrayref();
-   if ($res){
-    $metadata_id = $res->[0];undef($res);
-   }else{
-     $sql_hash_ref->{'store_metadata'}->execute($network_type );
-     $sql_hash_ref->{'get_last_metadata_id'}->execute();
-     $res        = $sql_hash_ref->{'get_last_metadata_id'}->fetchrow_arrayref();
-     $metadata_id = $res->[0];undef($res);
-     $sql_hash_ref->{'store_metadata_js'}->execute($metadata_id, $json_metadata);
-   }  
-   $sql_hash_ref->{'store_network'}->execute( $metadata_id, $description, $json_data, $network_size );
+
+   my ( $metadata_id, $network_id );
+   $sql_hash_ref->{'check_metadata'}->execute('MCL');
+   my $res = $sql_hash_ref->{'check_metadata'}->fetchrow_arrayref();
+   if ($res) {
+    $metadata_id = $res->[0];
+    undef($res);
+   }
+   else {
+    $sql_hash_ref->{'store_metadata'}->execute('MCL',$network_description);
+    $sql_hash_ref->{'get_last_metadata_id'}->execute();
+    $res         = $sql_hash_ref->{'get_last_metadata_id'}->fetchrow_arrayref();
+    $metadata_id = $res->[0];
+    undef($res);
+    $sql_hash_ref->{'store_metadata_js'}
+      ->execute( $metadata_id, $json_metadata )
+      if $json_metadata;
+   }
+
+   $sql_hash_ref->{'store_network_nojson'}
+     ->execute( $metadata_id, $network_size )
+     if !$json_data;
+   $sql_hash_ref->{'store_network_json'}
+     ->execute( $metadata_id, $network_size, $json_data )
+     if $json_data;
    $sql_hash_ref->{'get_last_network_id'}->execute();
    $res        = $sql_hash_ref->{'get_last_network_id'}->fetchrow_arrayref();
-   $network_id = $res->[0];undef($res);
+   $network_id = $res->[0];
+   undef($res);
 
    foreach my $transcript_uname (@members) {
     $sql_hash_ref->{'store_transcript_network'}
@@ -2319,8 +2495,9 @@ sub process_protein_network() {
   close IN;
   $dbh_store->commit;
  }
- 
+
  $/ = $orig_sep;
+
 }
 
 sub process_protein_ipr() {
@@ -2490,6 +2667,7 @@ sub prepare_native_inference_sqls() {
  );
  $sql_hash{'delete_inference'} =
    $dbh->prepare("DELETE FROM inference where filepath=? CASCADE");
+
  $sql_hash{'get_known_protein_id'} = $dbh->prepare(
 "SELECT uniprot_id from known_proteins.uniprot_id WHERE xref_accession=? AND xref_db=?"
  );
@@ -2507,33 +2685,41 @@ sub prepare_native_inference_sqls() {
    "UPDATE inference_transcript SET normscore=? WHERE inference_transcript_id=?"
  );
  $sql_hash{'store_inference_hit_identity'} = $dbh->prepare(
-    "UPDATE inference_transcript SET identity=? WHERE inference_transcript_id=?"
- );
+  "UPDATE inference_transcript SET identity=? WHERE inference_transcript_id=?");
+
  $sql_hash{'store_inference_hit_start'} = $dbh->prepare(
    "UPDATE inference_transcript SET hit_start=? WHERE inference_transcript_id=?"
  );
+
  $sql_hash{'store_inference_hit_stop'} = $dbh->prepare(
-    "UPDATE inference_transcript SET hit_stop=? WHERE inference_transcript_id=?"
- );
+  "UPDATE inference_transcript SET hit_stop=? WHERE inference_transcript_id=?");
+
  $sql_hash{'store_inference_hit_strand'} = $dbh->prepare(
     "UPDATE inference_transcript SET strand=? WHERE inference_transcript_id=?");
 
- $sql_hash{'store_metadata'} = $dbh->prepare("INSERT INTO public.metadata (uname) VALUES  (?) ");
- 
+ $sql_hash{'store_metadata'} =
+   $dbh->prepare("INSERT INTO public.metadata (uname,description) VALUES  (?,?) ");
+
  $sql_hash{'get_last_metadata_id'} =
    $dbh->prepare("SELECT currval ('public.metadata_metadata_id_seq')");
 
- $sql_hash{'store_network'} = $dbh->prepare(
-   "INSERT INTO network (network_type,description,json,size) VALUES (?,?,?,?)");
+ $sql_hash{'store_network_nojson'} = $dbh->prepare(
+          "INSERT INTO network (network_type,size) VALUES (?,?)");
+
+ $sql_hash{'store_network_json'} = $dbh->prepare(
+   "INSERT INTO network (network_type,size,json) VALUES (?,?,?)");
+
  $sql_hash{'get_last_network_id'} =
    $dbh->prepare("SELECT currval ('network_network_id_seq')");
 
  $sql_hash{'store_transcript_network'} = $dbh->prepare(
    "INSERT INTO transcript_network (transcript_uname,network_id) VALUES (?,?)");
 
- $sql_hash{'store_metadata_js'} = $dbh-> prepare("INSERT INTO public.metadata_jslib (metadata_id,json) VALUES (?,?)");
+ $sql_hash{'store_metadata_js'} = $dbh->prepare(
+           "INSERT INTO public.metadata_jslib (metadata_id,json) VALUES (?,?)");
 
- $sql_hash{'check_metadata'} =$dbh-> prepare("SELECT metadata_id from public.metadata WHERE uname=?");
+ $sql_hash{'check_metadata'} =
+   $dbh->prepare("SELECT metadata_id from public.metadata WHERE uname=?");
 
  return \%sql_hash;
 
@@ -2612,9 +2798,7 @@ sub prepare_chado_inference_sqls() {
  );
  $sql_hash{'link_feature_to_library'} =
    $dbh->prepare('INSERT INTO library_feature (feature_id,library_id)');
-   
-   
-   
+
  return \%sql_hash;
 }
 
@@ -2704,14 +2888,15 @@ sub store_native_genes() {
 
   my $seq = $seq_obj->get_sequence();
 
-  #DEBUG print "Adding gene $gene_uname\n";
+  print "Adding gene $gene_uname\n" if $debug;
   $sql_hash_ref->{'store_gene_name_seq'}
     ->execute( $gene_uname, $seq, md5_hex($seq) );
 
 # if there is a transcript for this 'gene' (it may actually be a contig of UTR/non-coding)
   foreach my $transcript_data ( @{ $orf_gff_data{$gene_uname} } ) {
 
-   #DEBUG     print "Adding mrna ".$transcript_data->{'transcript_uname'}."\n";
+   print "Adding mrna " . $transcript_data->{'transcript_uname'} . "\n"
+     if $debug;
 
    $sql_hash_ref->{'store_transcript'}->execute(
            $transcript_data->{'transcript_uname'}, $gene_uname,
@@ -2756,7 +2941,8 @@ sub do_copy_stdin() {
 
 sub add_linkout() {
 
-#  UniProt    http://www.uniprot.org/uniprot      The mission of UniProt is to provide the scientific community with a comprehensive, high-quality and freely accessible resource of protein sequence and functional information.
+#  UniProt    http://www.uniprot.org/uniprot      
+# The mission of UniProt is to provide the scientific community with a comprehensive, high-quality and freely accessible resource of protein sequence and functional information.
  my $dbh        = shift || die;
  my $conf_file  = shift;
  my $dataset_id = shift;
@@ -2825,6 +3011,8 @@ sub create_populate_annotation_database() {
  &prepare_go($dbh_create)                 if $do_go;
  &prepare_eggnog($dbh_create)             if $do_eggnog;
  &prepare_kegg($dbh_create)               if $do_kegg;
+
+ &postgres_permissions( $dbh_create, $annot_username, $annot_readuser );
  &disconnect_db($dbh_create);
 
 }
@@ -2877,32 +3065,32 @@ sub store_annotation_of_proteins() {
 
   &add_linkout( $dbh_store, $linkout_conf, $dataset_id ) if $linkout_conf;
  }
- $protein_fasta_file = '' if !$protein_fasta_file; # will grab everything!
- 
- if ($do_protein_blasts) {
-  print "Looking for BLAST files that match: $protein_fasta_file*blast*\n";
-  my @files = glob("$protein_fasta_file*blast*");
-  &process_protein_blast( $dbh_store, \@files ) if @files;
- }
- if ($do_protein_hhr) {
-  print "Looking for hhblits HHR files that match: $protein_fasta_file*.hhr\n";
-  my @files = glob("$protein_fasta_file*.hhr");
-  &process_protein_hhr( $dbh_store, \@files ) if @files;
- }
- if ($do_protein_networks) {
-  print "Looking for network files that match: $protein_fasta_file*.network\n";
-  my @files = glob("$protein_fasta_file*.network");
-  &process_protein_network( $dbh_store, \@files ) if @files;
- }
- if ($do_protein_ipr) {
-  print
-    "Looking for InterProScan files that match: $protein_fasta_file*ipr*xml\n";
-  my @files = glob("$protein_fasta_file*ipr*xml");
-  &process_protein_ipr( $dbh_store, \@files ) if @files;
- }
+ $protein_fasta_file = '' if !$protein_fasta_file;    # will grab everything!
 
+ if ( scalar(@do_protein_blasts) > 0 ) {
+  print "Processing BLASTs\n";
+  &process_protein_blast( $dbh_store, \@do_protein_blasts );
+ }
+ if ( scalar(@do_protein_hhr) > 0 ) {
+  print "Processing hhblits HHR files\n";
+  &process_protein_hhr( $dbh_store, \@do_protein_hhr );
+ }
+ if ( scalar(@do_protein_networks) > 0 ) {
+  print "Processing network files\n";
+  if ( $network_type && $network_description ) {
+   &process_protein_network( $dbh_store, \@do_protein_networks );
+  }
+  else {
+   warn
+"Cannot process network unless -network_description and -network_type are given\n";
+  }
+ }
+ if ( scalar(@do_protein_ipr) > 0 ) {
+  print "Processing InterProScan files\n";
+  &process_protein_ipr( $dbh_store, \@do_protein_ipr );
+ }
+ &postgres_permissions( $dbh_store, $annot_username, $annot_readuser );
  &disconnect_db($dbh_store);
-
 }
 
 sub process_cmd {
@@ -3057,74 +3245,17 @@ sub check_required_files() {
 }
 
 sub create_undirected_unweighted_network() {
-
-=cut
-
-{
-  'nodes': [
-    {
-      'id': 'Node1',
-      'color': 'rgb(255,0,0)',
-      'shape': 'circle',
-      'size': 1
-    },
-    {
-      'id': 'Node2',
-      'color': 'rgb(0,255,0)',
-      'shape': 'square',
-      'size': 1.5
-    },
-    {
-      'id': 'Node3',
-      'color': 'rgb(0,0,255)',
-      'shape': 'triangle',
-      'size': 2
-    }
-  ],
-  'edges': [
-    {
-      'id1': 'Node1',
-      'id2': 'Node2',
-      'color': 'rgb(125,125,0)',
-      'type': 'line'
-    },
-    {
-      'id1': 'Node1',
-      'id2': 'Node3',
-      'color': 'rgb(0,125,125)',
-      'type': 'squareHeadLine'
-    },
-    {
-      'id1': 'Node2',
-      'id2': 'Node3',
-      'color': 'rgb(125,0,125)',
-      'type': 'arrowHeadLine'
-    }
-  ]
-}
-
-The (nodes) property contains as it name indicates the nodes in the network. Each node must have a unique (id) property. Also, (color), (shape), (rotate), (pattern), (outline), (outlineWidth) and either (size) or (width) and (height) can be specified for each node. The (color) property is specified in an rgb format compatible with the <canvas> element. The (shape) must be one of the shapes in this library (see the options section). The rotation for the shape must be expressed in degrees. The (pattern) is either 'closed' or 'open'. The (size) is a multiplier and not the actual size of the node, for example, to make a node twice as big, the size should be set to 2. If you need more control over the shape then you need to specify (width) and (height). The (edges) property as you can imagine, contains the info for the edges in the network. Each edge must contain an (id1) and an (id2) properties which must match two nodes in the network. Similarly, you can specify the (color), the (width), which is the actual width of the line, the (cap) which could be 'butt', 'round' or 'square' and the line (type) which should be one of the types in this library (see the options section). The property (legend) is an object that contains the information for the nodes and edges and additional text.
-
-Each node may have one parent under the property 'parentNode' and it has to match a valid node id. This feature is useful if you want to group nodes together. You can assign a name and / or a label to each node. The order in which the text will be displayed is label or name or id.
-
-=cut
-
  my $members_ref = shift;
  my %json;
  for ( my $i = 0 ; $i < (@$members_ref) ; $i++ ) {
   my $member1 = $members_ref->[$i];
-  my %node_hash = (
-                    'id'    => $member1
-#                    'name'  => $member1,
-#                    'group' => 1
-  );
+  my %node_hash = ( 'id' => $member1 );
   push( @{ $json{'nodes'} }, \%node_hash );
   for ( my $k = $i + 1 ; $i < (@$members_ref) ; $k++ ) {
    my $member2 = $members_ref->[$k] || last;
    my %edge_hash = (
-                     'id1'   => $member1,
-                     'id2'   => $member2
-#                     'value' => 1
+                     'id1' => $member1,
+                     'id2' => $member2
    );
    push( @{ $json{'edges'} }, \%edge_hash );
   }
@@ -3132,3 +3263,109 @@ Each node may have one parent under the property 'parentNode' and it has to matc
 
  return encode_json( \%json );
 }
+
+sub create_undirected_weighted_network() {
+
+ my $members_ref = shift;
+ my $edges_ref   = shift;
+ my %json;
+ my $anything_connected;
+ for ( my $i = 0 ; $i < (@$members_ref) ; $i++ ) {
+  my $member1 = $members_ref->[$i];
+  my %node_hash = ( 'id' => $member1 );
+  push( @{ $json{'nodes'} }, \%node_hash );
+  for ( my $k = $i + 1 ; $i < (@$members_ref) ; $k++ ) {
+   my $member2 = $members_ref->[$k] || last;
+   my $edge;
+   if ( $edges_ref->{$member1}->{$member2} ) {
+    $edge = $edges_ref->{$member1}->{$member2};
+   }
+   elsif ( $edges_ref->{$member2}->{$member1} ) {
+    $edge = $edges_ref->{$member2}->{$member1};
+   }
+   next unless $edge;
+
+   $anything_connected++;
+   my %edge_hash = (
+                     'id1'   => $member1,
+                     'id2'   => $member2,
+                     'value' => $edge
+   );
+   push( @{ $json{'edges'} }, \%edge_hash );
+  }
+ }
+ 
+ if ($anything_connected){
+  return encode_json( \%json );
+ }
+}
+
+sub postgres_permissions() {
+ my $dbh_store = shift;
+ my $db_admin  = shift;
+ my $db_user   = shift;
+
+ my $function_grant = '
+ CREATE OR REPLACE FUNCTION pg_grant_select(TEXT) 
+RETURNS integer AS \'DECLARE obj record;
+num integer;
+BEGIN
+num:=0;
+FOR obj IN SELECT relname,nspname FROM pg_class c
+JOIN pg_namespace ns ON (c.relnamespace = ns.oid) WHERE
+relkind in (\'\'r\'\',\'\'v\'\',\'\'S\'\') AND
+nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'pg_temp_1\'\') AND 
+relname LIKE \'\'%\'\'
+LOOP
+EXECUTE \'\'GRANT SELECT ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' || $1;
+num := num + 1;
+END LOOP;
+FOR obj IN SELECT nspname FROM pg_namespace ns WHERE nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'public\'\',\'\'pg_temp_1\'\') LOOP
+EXECUTE \'\'GRANT USAGE ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' || $1;
+num := num + 1;
+END LOOP;
+RETURN num;
+END;
+\' LANGUAGE plpgsql ;
+';
+ my $function_admin = '
+CREATE OR REPLACE FUNCTION pg_grant_all(TEXT) 
+RETURNS integer AS \'DECLARE obj record;
+num integer;
+BEGIN
+num:=0;
+FOR obj IN SELECT relname,nspname FROM pg_class c
+JOIN pg_namespace ns ON (c.relnamespace = ns.oid) WHERE
+relkind in (\'\'r\'\',\'\'v\'\',\'\'S\'\') AND
+nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'pg_temp_1\'\') AND 
+relname LIKE \'\'%\'\'
+LOOP
+EXECUTE \'\'GRANT ALL ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' || $1;
+num := num + 1;
+END LOOP;
+FOR obj IN SELECT nspname FROM pg_namespace ns WHERE nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'public\'\',\'\'pg_temp_1\'\') LOOP
+EXECUTE \'\'GRANT ALL ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' || $1;
+num := num + 1;
+END LOOP;
+RETURN num;
+END;
+\' LANGUAGE plpgsql ;
+ ';
+ $dbh_store->do($function_admin);
+ $dbh_store->do($function_grant);
+
+ $dbh_store->do("SELECT pg_grant_all('$db_admin')")   if $db_admin;
+ $dbh_store->do("SELECT pg_grant_select('$db_user')") if $db_user;
+
+}
+
+sub uniquefy_array(){
+ my $ref = shift;
+ return unless $ref && scalar(@$ref)>0;
+ my %hash;
+ foreach my $r (@$ref){
+  $hash{$r}=1;
+ }
+ return keys %hash;
+}
+

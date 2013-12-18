@@ -10,6 +10,7 @@ NUMBERSPROCESSES=40
 PROTEIN_FILE=
 
 if [ ! -e $PROTEIN_FILE.db ]; then
+ sed -i '~s/\*$//' $PROTEIN_FILE
  ffindex_from_fasta $PROTEIN_FILE.db $PROTEIN_FILE.db.idx $PROTEIN_FILE
  mv $PROTEIN_FILE.db.idx $PROTEIN_FILE.db.idx.orig ; cp $PROTEIN_FILE.db.idx.orig $PROTEIN_FILE.db.idx.orig.notdone; ln -s $PROTEIN_FILE.db.idx.orig.notdone $PROTEIN_FILE.db.idx
 fi

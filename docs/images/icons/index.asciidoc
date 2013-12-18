@@ -1,0 +1,24 @@
+= Just_Annotate_My_proteins (JAMp) =
+Alexie Papanicolaou
+Functional annotation for protein datasets: Does what it reads on the tin.
+
+Whether working on a model species for biomedical, economical or evolutionary research, next-generation sequencing has enabled biologists to rapidly generate a reference sequence for downstream applications and hypotheses generation. With the exception of a limited number of species, functional annotation is conducted by _in-silico_ experiments based on sequence similarity. JAMp is a platform that allows biologists to reclaim the analysis of transcript reconstruction experiments by providing an automated, user-friendly overview of these _in-silico_ experiments.
+
+== How does it work ==
+
+* First, administrators install the software, including the annotation database and a website that drives the Graphical User Interface (GUI). This needs to occur only once and they are very simple
+** Administrators also have to install the HHblits software that we use for conducting the Hidden Markov searches. As a High Performance Computing (HPC) environment is required, your HPC administrators might be able to help (no compilation is required so that too ought to be simple - and we may be able to help)
+* Second, for every reference sequence (e.g. a Trinity RNA-Seq transcript assembly), users with some command of the Linux command line) conduct the _in-silico_ experiment (currently HHblits is supported). A perl script then stores the output and relevant metadata (e.g. name of species) into the JAMp database
+* The users (and the anyone with access to the website, such as paper reviewers and readers) use their browser to explore the functional annotations using a powerful yet intuitive GUI.
+
+Too easy!
+
+== Notes and caveats ==
+
+IMPORTANT: Overall, annotating with JAMp is significantly faster than annotating with the traditional BLASTx approach. This is especially true in the NGS era. In the past, transcriptomic projects were composed of a few hundred reliable genes and therefore tasks based on BLAST (e.g. BLAST2GO), were commonplace. In the RNAseq era, it is commonplace that dozens of thousands of high quality transcripts are reconstructed. Further, full genome sequencing (and gene model reconstruction) is now available for hundrends of species. Further, the so called non-model species are often significantly divergent from Arabidopsis, Fruitfly, Human/Mouse, Yeast etc that a model-based, recursive yet time-consuming searches are required (such PSI-BLAST or an HMM search). 
+
+How dow we address this problem? First, JAMp uses http://www.nature.com/nmeth/journal/v9/n2/full/nmeth.1818.html[HHblits], a HM model-based search software that searches your protein against Uniprot, builds an alignment and a model and then searches again. Importantly, thanks to the http://pubshare.genzentrum.lmu.de/scientific_computing/software/ffindex/[ffindex] software, we offer an MPI approach to running these _in-silico_ experiments. Sadly, because of the cost of creating a reliable infrastructure, we currently cannot offer this is as a service to public but a number of institutes host bioinformatics enabled HPC environments. Some, such as http://diagcomputing.org/[DIAG], the Data Intensive Academic Grid, are freely available to any life-science researcher. We are interested in being to deploy this on an Amazon cloud (I guess that a single analysis would be about $300) but we do not currently have the manpower to accomplish that.
+
+== What uses cases can JAMp accomodate? ==
+
+
