@@ -1,7 +1,7 @@
 <?php
 $database_adaptor = 'transcriptDB';
 $scriptDirBase = dirname(__FILE__).'/'.$database_adaptor;
-
+require($scriptDirBase.'/utils.inc');
 
 
 function getIds( $selections ){
@@ -11,7 +11,7 @@ function getIds( $selections ){
 	}
 	return $ids;
 }
-function mergeCvTermsSum( $merge , $ids){
+function mergeCvTermsSum( $merge , $ids, $cProp = 'count'){
 	$result = array();
 	foreach( $merge as $key => $library){
 		foreach ($library as $index => $term) {
@@ -19,29 +19,34 @@ function mergeCvTermsSum( $merge , $ids){
 			if( !$temp ){
 				$temp = array_fill_keys($ids, 0);
 			}
-			$temp [$key] = isset($term['count'])?$term['count']:'0';
+			$count = isset($term[$cProp])?$term[$cProp]:'0';
+			$prop = isset($term['proportion'])?$term['proportion']:'0';
+			$temp ["$key count"] = $count;
+			$temp ["$key proportion"] = $prop;
 			unset ( $term['count'] );
+			unset ( $term['proportion'] );
 			foreach ($term as $columnName => $value) {
-				if(is_array($value )){
+				if(is_array( $value )){
 					if( !isset( $temp[ $columnName ] ) ){
-						$temp[ $columnName ] = array();					
+						$temp[ $columnName ] = array();
 					}
 					$temp[ $columnName ] =  $temp[ $columnName ] + $value ;
 				} else {
 					$temp[ $columnName ] = $value;	
 				}
-				
+				// echo print_r($temp);
 			}
 			$result[ $term[ 'cvterm_id' ] ] =  $temp ;
 		}
 	}
+	// echo print_r($result);
 	return array_values( $result );
 }
 function sumColumns( $rows , $columns , $aggColumn = 'total'){
 	foreach ($rows as $index => $row) {
 		$total = 0;
 		foreach ($columns as $key => $column) {
-			$total += $row[$column];
+			$total += $row[$column.' count'];
 		}
 		$row[$aggColumn] = $total;
 		$rows[$index] = $row;
@@ -58,7 +63,44 @@ function chadoviewer() {
 	$selectedIds = json_decode( $_REQUEST['ids'] );
  	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
 	$id = $_REQUEST['id'];
+	$idFeature = $_REQUEST['feature_id'];
+	$idDataset = $_REQUEST['dataset_id'];
+	$idFilter = json_decode( $_REQUEST['filter'], TRUE );
 	header('Content-Type: application/json');
+	/**
+	 * check for ownership here. if true proceed otherwise sent 401 error code.
+	 */
+
+	$access = TRUE;
+	if(!empty( $id )){
+		$access &= hasAccess( $id );
+	}
+	if(!empty( $selectedIds )){
+		switch( $ds ){
+		 	case 'species':
+				break;
+			case 'library':
+				$access &= hasAccess( $selectedIds );
+				break;
+		 }
+
+	}
+	if(!empty( $idFeature )){
+		$access &= hasAccess( $idFeature );
+	}
+	if(!empty( $idDataset )){
+		$access &= hasAccess( $idDataset );
+	}
+	if(!empty( $idFilter )){
+		$idF = filterId( $idFilter );
+		$access &= hasAccess( $idF );
+	}	
+	if( !$access ){
+		header('HTTP/1.0 401');
+		echo "{ msg:'You are not Authorized!'}";
+		exit;
+	}
+	
 	switch ( $ds ) {
 		case 'library' :
 			$type = $_REQUEST['type'];
@@ -159,8 +201,13 @@ function chadoviewer() {
 					 */
 					 $data = array();
 					foreach ( $selectedIds as $key => $value ) {
-					  $data = array_merge( $data, listLibrary( $value ) );
-					  $data = array_merge( $data, addLibraryStats( $value , $data[0]['selection'] ) );
+						$meta = listLibrary( $value );
+						$data = array_merge( $data, $meta );
+						$stats = array();
+						if(count($meta)){
+							$stats =addLibraryStats( $value , $meta[0]['selection'] );
+						}
+						$data = array_merge( $data, $stats );
 					}
 					// $data = array( 'root' => $data );
 					break;
@@ -206,6 +253,7 @@ function chadoviewer() {
 								 * 		]
 								 */
 								// $data = cv( $id, $db, $selectedIds );
+								global $controlledVocabularies;
 								$data = $controlledVocabularies;
 								break;
 							case 'cv_term' :
@@ -240,9 +288,10 @@ function chadoviewer() {
 								 * 		]
 								 */
 								$cvTermsSumList = array();
-
 								foreach ( $selectedIds as $key => $value ) {
 									$cvTermsSumList[ $value ] = cvSummary( $value, $cv_id );
+									$total = totalTranscripts( $value );
+									$cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $value , $total );
 								}
 								$data = mergeCvTermsSum( $cvTermsSumList );
 								$data = sumColumns( $data, $selectedIds );
@@ -495,6 +544,7 @@ function chadoviewer() {
 								 * 			}
 								 * 		]
 								 */
+							 	global $controlledVocabularies;
 								$data = $controlledVocabularies;
 							  break;
 							case 'cv_term':
@@ -528,7 +578,9 @@ function chadoviewer() {
 								 */
 								$cvTermsSumList = array();
 								foreach ( $selectedIds as $key => $value ) {
-								  $cvTermsSumList[ $value ] = speciescvTermSummary( $value , $cv_id , $cv_name );								
+								  $cvTermsSumList[ $value ] = speciescvTermSummary( $value , $cv_id , $cv_name );
+								  $total = totalTrancsriptsSpecies( $value ); 
+						  		  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $value, $total, $value." count" );
 								}
 								$data = mergeCvTermsSum( $cvTermsSumList );
 								$data = sumColumns( $data, $selectedIds );
@@ -748,9 +800,13 @@ function chadoviewer() {
 					 * 	page number
 					 * @param limit
 					 * 	number of features per page
-					 *
+					 * @param text
+					 * 	values = [null , 'plain']
+					 * 	plain - returns only fasta text
+					 * 	null - returns json formatted fasta text
+					 * 
 					 * @return
-					 * 	format - fasta
+					 * 	text - plain
 					 * 	output format-
 					 * >IC7539AbApep21683
 					 * SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
@@ -759,8 +815,26 @@ function chadoviewer() {
 					 * LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
 					 * SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
 					 * TITIDRGILC
+					 * 
+					 * or 
+					 * text - null
+					 * [{fasta: ">IC7539AbApep21683
+					  SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
+					  KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
+					  YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
+					  LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
+					  SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
+					  TITIDRGILC"}]
 					 */
-					$data = featureFasta();
+					$data = featureFasta( $idFeature );
+					$data = $data['out'];
+					switch ( $_REQUEST['text']) {
+						case 'plain':
+							break;						
+						default:
+							$data = array( array( 'fasta' => $data ) );		
+							break;
+					}
 					break;
 				case 'annotations':
 					/**
@@ -777,6 +851,47 @@ function chadoviewer() {
 					 */
 					 $id = $_REQUEST['feature_id'];
 					 $data = getAnnotations($id);
+					break;
+				case 'network':
+					/**
+					 */
+					 $id = $_REQUEST['feature_id'];
+					 $data = getNetworkTree( $id );
+					 $data = array('text'=>'root', 'expanded'=>'true','children'=>$data);
+					break;
+				case 'networkjson':
+					/**
+					 */
+					 $id = $_REQUEST['network_id'];
+					 $dsId = $_REQUEST['dataset_id'];
+					 $data = getNetworkJson( $id, $dsId );
+					 $data = array('network_id'=>$id, 'json'=>$data);
+					break;
+				case 'networktranscripts':
+					 $id = $_REQUEST['network_id'];
+					 $dsId = $_REQUEST['dataset_id'];
+					 $data = getNetworkTranscripts( $id, $dsId );
+					 //$data = array('network_id'=>$id, 'json'=>$data);					
+					break;
+				case 'translate':
+					$gCode = $_REQUEST['geneticCode'];
+					if( empty( $gCode )){
+						$gCode = 1;
+					}
+					$data = featureFasta( $idFeature );
+					$data = translate_DNA_to_protein( $data['residues'], $gCode );
+					$data = chunk_split($data, 80, PHP_EOL);
+					switch ( $_REQUEST['text']) {
+						case 'plain':
+							break;						
+						default:
+							$data = array( array( 'fasta' => $data ) );		
+							break;
+					}
+					break;
+				case 'translationtable':
+					global $proteinMapping;
+					$data = $proteinMapping;
 					break;
 				default :
 					break;
@@ -824,9 +939,16 @@ function chadoviewer() {
 				// array( 'cvid'=>1,'cvtermid'=>2,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'gpase'),
 				// array('cvid'=>1,'cvtermid'=>5,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'cellular')
 			// );
-			$data = autocomplete( $_GET['query'] );
+			$data = autocomplete( $_GET['query'], $selectedIds );
 			break;	
-	}
+		case 'help':
+			$help = file_get_contents($scriptDirBase.'/help.inc');
+			$data = array(array('text'=>$help));
+			break;
+		case 'test':
+			$data = array(array('text'=>'test'));
+			break;
+}
   if( is_object( $data ) || is_array( $data )){
   	echo json_encode( $data );
   } else {

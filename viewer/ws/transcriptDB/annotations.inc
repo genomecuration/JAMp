@@ -1,46 +1,55 @@
 <?php
-require "utils.inc";
-function autocomplete( $value ){
+require_once( "utils.inc" );
+function autocomplete( $value, $ids ){
+	require "SqlQueries.inc";
 	$data = array();
-	array_push( $data,  goAutoComplete( $value ));
-	array_push( $data,  koAutoComplete( $value ));
-	array_push( $data,  eggnogAutoComplete( $value ));
-	array_push( $data,  enzymeAutoComplete( $value ));
-	array_push( $data,  pathwayAutoComplete( $value ));
+	$uniprotHits = array();
+	foreach ($ids as $key => $id) {
+		array_push( $uniprotHits, sprintf($sqlQueries['annotations']['uniprotHits'], $id ) );
+	}
+	$uniprotHits = join(' union ', $uniprotHits );	
+	array_push( $data,  goAutoComplete( $value, $uniprotHits ));
+	array_push( $data,  koAutoComplete( $value, $uniprotHits ));
+	array_push( $data,  eggnogAutoComplete( $value, $uniprotHits ));
+	array_push( $data,  enzymeAutoComplete( $value , $uniprotHits ));
+	array_push( $data,  pathwayAutoComplete( $value , $uniprotHits ));
 	return topX( $data, 10);
 }
-function goAutoComplete($value='')
+function goAutoComplete($value='', $uniprotHits)
 {
 	require "SqlQueries.inc";
-	$number = 'NULL';
-	if(is_numeric($value)){
-		$number = $value;
+	$number = "";
+	if( is_numeric($value) ){
+		$number = "known_proteins.go.go_id = $value";
+	} else {
+		$number = "name ilike '%$value%'";
 	}
-	$sql = sprintf($sqlQueries['annotations']['goauto'], $value , $number );
+	
+	$sql = sprintf( $sqlQueries['annotations']['goauto'], $number, $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 
 }
-function koAutoComplete( $value ){
+function koAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['koauto'], $value );
+	$sql = sprintf($sqlQueries['annotations']['koauto'], $value, $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
-function eggnogAutoComplete( $value ){
+function eggnogAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['eggnogauto'], $value );
+	$sql = sprintf($sqlQueries['annotations']['eggnogauto'], $value, $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
-function enzymeAutoComplete( $value ){
+function enzymeAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['enzymeauto'], $value );
+	$sql = sprintf($sqlQueries['annotations']['enzymeauto'], $value, $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
-function pathwayAutoComplete( $value ){
+function pathwayAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['pathwayauto'], $value );
+	$sql = sprintf($sqlQueries['annotations']['pathwayauto'], $value, $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }

@@ -43,48 +43,26 @@ function speciesblast ( $id ){
 }
 function speciescvTermSummary ( $id , $cv_id , $cv_name){
 	require('SqlQueries.inc');
+	require_once('const.inc');
+	global $own;
 	// iterate through a list of species
 	$ids = array();
 	$data = array();
 	$datasetIds = array();
-	$dsSql = sprintf($sqlQueries['species']['datasets'],$id);
+	$dsSql = sprintf($sqlQueries['species']['datasets'],$id, $own);
 	$ds = query_execute( NULL, $dsSql, NULL);
 	foreach ($ds as $index => $row) {
 		array_push( $datasetIds, $row['dataset_id'] ); 
 		$data[ $row['dataset_id'] ] = cvSummary($row['dataset_id'], $cv_id);
 	}
+// echo print_r($data);
 	$data = mergeCvTermsSum( $data );
-	$data = sumColumns( $data, $datasetIds , $id);
-	// echo print_r( $data );
-	// find data sets for a species
-	// union all
-	// concat dataset id to transcript id.
+	// echo print_r($data);
+	$data = sumColumns( $data, $datasetIds , "$id count");
 	
-	
-	
-  	// $limit = '';
-	  // if ( isset( $_REQUEST['limit'] ) ) {
-	    // $limit = $_REQUEST['limit'];
-	  // }
- 	// $facets = json_decode( $_REQUEST['facets']);
- 	// if ( $facets ){
- 		// $facets = refineSQL($id,null, $facets);
- 		// $facets = " feature_id in ($facets)";
- 	// } else {
- 		// $facets = '';
- 	// }
- 	// if( $facets ){
-// 
-	  // $librarySql = sprintf( $sqlQueries['species']['cvtermSummaryFacets'] , $id , $cv_name , $facets );
- 	// } else {
-// 
-	  // $librarySql = sprintf( $sqlQueries['species']['cvtermSummary'], $id , $cv_name );
- 	// }
-// 
-	  // $data = query_execute('chado', $librarySql , null);
 	  
 	$data = addProperty($data , 'highername' , array( $id => $id ));
-	  
+	// echo print_r( $data );  
 	  return $data;
 }
 ?>

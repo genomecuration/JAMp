@@ -33,7 +33,11 @@ function knownProteinHits($datasetId, $transcript){
 	foreach ($result as $key => $value) {
 		$start = (($value['fmin']-1)*3) + $transcript['fmin'];
 		$stop =  ($value['fmax']*3) + $transcript['fmin'];
-		$result[$key] = array_replace($value, array('fmin'=>$start, 'fmax'=>$stop,'metaname'=>'hit'));
+		if( preg_match ( '/,/' , $value['name'] ) ){
+			$value['list'] = $value['name'];
+			$value['name'] = "Many Hits ($start - $stop)";
+		}
+		$result[$key] = array_replace($value, array('fmin'=>$start, 'fmax'=>$stop,'metaname'=>'hit', 'grpName'=>"$start - $stop"));
 	}
 	return $result;
 }
@@ -45,7 +49,7 @@ function tracksTransform($result) {
 			$tracks -> $name = array();
 		}
 		// using coersion to convert to integer. This seems to be the fastest way to do it.
-		array_push( $tracks -> $name, array((0 + $value['fmin']), (0 + $value['fmax']),'score'=>$value['score'],'metaname' => $value['metaname']) );
+		array_push( $tracks -> $name, array((0 + $value['fmin']), (0 + $value['fmax']),'score'=>$value['score'],'metaname' => $value['metaname'],'grpName'=>$value['grpName']) );
 		// array_push($tracks -> $name, array((0 + $value['fmin']), (0 + $value['fmax'])));
 	}
 	// transform the above result
@@ -56,13 +60,18 @@ function tracksTransform($result) {
 		$score = $value[0]['score'];
 		unset( $value[0]['score']);
 		$metaname = $value[0]['metaname'];
-		unset( $value[0]['metaname']);
-		// echo $score." ";
-		if( $score ){
-			$red = intval($score * (255 / 100) );
-			$fill = "rgb($red,$red,$red)";
+		$grpName = $value[0]['grpName'];
+		unset( $value[0]['metaname'] );
+		switch ($metaname) {
+			case 'hit':
+				$fill = "rgb(256,256,256)";
+				break;
 		}
-		$track = array( 'id'=>$key, 'type'=>'box' , 'dir'=>'right','data' => array() , 'fill'=>$fill, 'metaname'=>$metaname );
+		// if( $score ){
+			// $red = intval($score * (255 / 100) );
+			// $fill = "rgb($red,$red,$red)";
+		// }
+		$track = array( 'id'=>$key, 'type'=>'box' , 'dir'=>'right','data' => array() , 'fill'=>$fill, 'metaname'=>$metaname, 'grpName' => $grpName );
 		foreach ($value as $index => $loc) {
 			$result = array('id' => ($key), 'data' => array ( $loc ));
 			array_push( $track['data'] , $result );
@@ -121,7 +130,6 @@ function enlargeBox( $tracks ){
 function addReferenceSequence( $id, $db ) {
 	$seq = getFeature($id, $db);
 	$len = strlen( $seq['nuc_sequence']);
-	// echo print_r( $seq );
 	$dna = array(array ( 'name' => $id, 'type' =>'sequence' , 'subtype'=>'DNA','data'=>array( array( 'id' =>$id , 'sequence' =>  $seq['nuc_sequence'] , 'fill' => 'rgb(255,255,51)', 'outline' => 'rgb(0,0,0)', 
                                                     'dir'=> 'right',
                                                     'offset'=> 1

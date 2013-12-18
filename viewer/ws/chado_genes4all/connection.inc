@@ -1,4 +1,5 @@
 <?php
-$conn_string = "host= port= dbname= user= password=";
+$db = "DBNAME";
+$conn_string = "CONNECTION STRING";
 $connect = pg_connect($conn_string) or die('Cannot connect to server');
 ?>

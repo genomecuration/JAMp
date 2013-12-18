@@ -1,4 +1,5 @@
 <?PHP
+global $controlledVocabularies;
 $controlledVocabularies = array(array( "cv_id"=>"1",
 								  				"name"=>"Molecular Function",
 								  				"title"=>"Molecular Function",
@@ -35,12 +36,49 @@ $controlledVocabularies = array(array( "cv_id"=>"1",
 								  				"dsid"=>"344",
 								  				"get"=>"cv_term"
 								  		));
+/**
+ * show data for this owner only
+ */
 global $own;
 $own = 'demo';
+/**
+ * an enumeration of id types
+ */
 class Type{
   // returns all libraries as a simple tree structure
   const gene = 1;
   // returns libraries organised according to organism
   const transcript = 2;
-} 
+}
+/**
+ * 
+ */
+ class CV{
+ 	
+ 	const nothit = 8;
+ }
+ 
+ /**
+  * protein translation mapping data.
+  */
+global $proteinMapping;
+$proteinMapping = array(
+	array( "id"=>1,"name"=>"Standard genetic code"),
+	array("id"=>2,"name"=>"Vertebrate Mitochondrial"),
+	array("id"=>3,"name"=>"Yeast Mitochondrial"),
+	array("id"=>4, "name"=>"Mold, Protozoan and Coelenterate Mitochondrial. Mycoplasma, Spiroplasma"),
+	array("id"=>5, "name"=>"Invertebrate Mitochondrial"),
+	array("id"=>6, "name"=>"Ciliate Nuclear; Dasycladacean Nuclear; Hexamita Nuclear"),
+	array("id"=>9, "name"=>"Echinoderm Mitochondrial"),
+	array("id"=>10, "name"=>"Euplotid Nuclear"),
+	array("id"=>11, "name"=>"Bacterial and Plant Plastid"),
+	array("id"=>12, "name"=>"Alternative Yeast Nuclear"),
+	array("id"=>13, "name"=>"Ascidian Mitochondrial"),
+	array("id"=>14, "name"=>"Flatworm Mitochondrial"),
+	array("id"=>15, "name"=>"Blepharisma Macronuclear"),
+	array("id"=>16, "name"=>"Chlorophycean Mitochondrial"),
+	array("id"=>21, "name"=>"Trematode Mitochondrial"),
+	array("id"=>22, "name"=>"Scenedesmus obliquus mitochondrial"),
+	array("id"=>23, "name" => "Thraustochytrium mitochondrial")
+);
 ?>

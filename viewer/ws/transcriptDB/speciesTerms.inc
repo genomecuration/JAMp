@@ -26,17 +26,18 @@ function listTerms ( $id , $ids) {
  */
 function featureSpeciesList($speciesIds) {
 	require ('SqlQueries.inc');
-
+	require_once('const.inc');
+	global $own;
 	$facets = json_decode($_REQUEST['facets'], TRUE);
 	// echo print_r($facets);
 	$page = paging($_REQUEST);
-	$facetsQueryArray = array();
 
 	$count = array();
 	$sqls = array();
 	foreach ($speciesIds as $key => $species) {
-		$dsSql = sprintf($sqlQueries['species']['datasets'], $species);
+		$dsSql = sprintf($sqlQueries['species']['datasets'], $species, $own);
 		$ds = query_execute(NULL, $dsSql, NULL);
+		$facetsQueryArray = array();
 		foreach ($ds as $index => $dsid) {
 			$id = $dsid['dataset_id'];
 			foreach ($facets as $index => $facet) {
@@ -63,9 +64,8 @@ function featureSpeciesList($speciesIds) {
 					case 7 :
 						$facetSql = koFeature($facet['value'], $id);
 						break;
-
-					default :
-						echo 'default';
+					case CV::nothit:
+						$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], $id);
 						break;
 				}
 				// echo $facetSql." sql";

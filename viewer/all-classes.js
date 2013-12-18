@@ -1,3 +1,18 @@
+/**
+JAMPS Viewer
+
+Authors
+
+ Temi Varghese and Alexie Papanicolaou
+
+        CSIRO Ecosystem Sciences
+        temi.varghese@csiro.au
+        alexie.papanicolaou@csiro.au
+
+Copyright 2012-2014 the Commonwealth Scientific and Industrial Research Organization.
+This software is released under the Mozilla Public License v.2.
+
+*/
 Ext.define('CV.config.ChadoViewer', {
   singleton : true,
   statics : {
@@ -1000,9 +1015,10 @@ Ext.define('CV.view.feature.Grid', {
   title : 'Features',
   store : 'CV.store.Features',
   columnLines : true,
-                                                         
+                                                                                 
   // width:'70%',
-  height:400,
+  emptyText: 'No transcripts found',
+  height:250,
   displayInfo:true,
   layout : 'fit',
   initComponent : function() {
@@ -1027,9 +1043,9 @@ Ext.define('CV.view.feature.Grid', {
       }],
       tbar : [{
         text:'Search',
-        tooltip:'Search using Id number',
+        tooltip:'Search using transcript identifier', 
         handler:function(){
-          Ext.Msg.prompt('Search', 'Please enter an Id for search:', function(btn, text){
+          Ext.Msg.prompt('Search', 'Please enter a transcript or gene identifier:', function(btn, text){
             if (btn == 'ok' && text){
                 // process text value and close...
                 that.store.clearFilter(true);
@@ -1039,38 +1055,13 @@ Ext.define('CV.view.feature.Grid', {
         }
       },{
         text : 'Clear',
+        tooltip:'Clear current transcript or gene selection',
         handler : function(button) {
           var grid = button.up('grid');
           that.store.clearFilter();
           grid.fireEvent('clearfilter');
         }
-      }, {
-        text : 'Selected filters',
-        tooltip : 'Display all active filters',
-        handler : function(button) {
-          var grid = button.up('grid'), data = grid.store.filters, i, list = [], filter
-          msg = '';
-          // console.log('filters active');
-          // console.log(data);
-          data && data.each(function(item) {
-            /*
-             * bug: https://trello.com/card/exposed-internal-identifiers/508f29e8db5c1ec748001a0e/13
-             * 
-             * if feauture_id is selected, do not show it in filter 
-             */
-            if( item.property != 'feature_id'){
-              list.push(item.property + ' : ' + item.value);
-            }
-          });
-          Ext.Msg.alert('Active Filter(s)', list.join(','));
-        }
       }
-      // ,{
-        // xtype:'autoannotations',
-        // region:'south',
-        // store:Ext.create('CV.store.Annotations'),
-        // width:300
-      // }
       ]
     });
     this.callParent(arguments);
@@ -1250,6 +1241,7 @@ Ext.define('CV.view.GenomeBrowser', {
   alias : 'widget.genomebrowser',
                                        
   title: 'Sequence Browser',
+  tooltip:'Shows relationship between a gene, transcripts and uniprot hits',
   gheight: 500,
   gwidth: 600,
   canvasXpressPadding:10,
@@ -1271,17 +1263,39 @@ Ext.define('CV.view.GenomeBrowser', {
    * linkout options
    */
   linkoutOptions : null,
+  store:'CV.store.GenomeTracks',
   linkOut: true,
   errorMsg:"<b>Error: sequence not provided</b>",
   events:{
     nodeclick:true,
-    newoptions:true
+    newoptions:true,
+    trackclick:true
+  },
+  /**
+   * canvasxpress options
+   */
+  options:{
+    graphType : 'Genome',
+    useFlashIE : true,
+    backgroundType : 'gradient',
+    backgroundGradient1Color : 'rgb(0,183,217)',
+    backgroundGradient2Color : 'rgb(4,112,174)',
+    oddColor : 'rgb(220,220,220)',
+    evenColor : 'rgb(250,250,250)',
+    missingDataColor : 'rgb(220,220,220)'
   },
   initComponent : function() {
     var canvasId = this.id + 'GenomeBrowser';
+    
+    if( typeof( this.store ) == 'string'){
+      this.store = Ext.create( this.store, {});
+      this.bindStore( this.store );
+    }
+    
     Ext.apply(this , {
       canvasId: canvasId,
-      html: '<canvas id="'+canvasId+'"  width="'+this.getGWidth() +'" height="'+ this.getGHeight() + '" ></canvas>',      
+      plugins:[Ext.create('CV.ux.Retry')],
+      html: '<canvas id="'+canvasId+'"  width="'+this.getGWidth() +'" height="'+ this.getGHeight() + '" ></canvas>'     
     });
     this.addListener('render', this.renderCanvas, this );
     this.addListener('resize', this.resizeHandler, this );
@@ -1296,6 +1310,12 @@ Ext.define('CV.view.GenomeBrowser', {
     this.callParent(arguments);
     // this.height = this.getHeight();
     // this.width = this.getWidth();
+  },
+  bindStore: function( store ){
+    if( store ){
+      this.store = store;
+      store.addListener('load', this.onload, this );
+    }
   },
   /**
    * this function creates linkout datastructure as understood by canvasxpress
@@ -1321,14 +1341,25 @@ Ext.define('CV.view.GenomeBrowser', {
   updateHtml:function(){
     this.update('<canvas id="'+this.canvasId+'"  width="'+this.getGWidth() +'" height="'+ this.getGHeight() + '" ></canvas>');
   },
+  load:function( id ){
+    if ( id ){
+      this.store.getProxy().setExtraParam('id',id);
+      this.store.load();
+    }
+  },
+  onload:function(store , records, success){
+    if( success ){
+      var record = records[0];
+      this.canvasData = record.get('tracks');
+      this.canvasOptions = this.options;
+      this.loadCanvas();
+    }
+  },  
   renderCanvas : function() {
     // this.updateSize();  
     // if( this.canvasData && this.canvasData.tracks[0].data[0].sequence ){
-      console.log('render canvas');
-      console.log( this );
       var that = this;
-      if( this.canvasData  ){
-        console.log('data section');
+      if( this.canvasData && this.rendered ){
         this.canvasData.links = {};
         this.canvasData.links = this.linkoutOptions ? this.linkoutOptions : {};
         // this.canvasData.links.uniprot = {
@@ -1337,29 +1368,37 @@ Ext.define('CV.view.GenomeBrowser', {
           // title: 'Uniprot',
           // icon: 'http://www.uniprot.org/images/logo_small.gif'
         // };
-       this.canvasXpress && this.canvasXpress.destroy();
+       this.canvasXpress && this.canvasXpress.destroy( this.canvasXpress );
+       this.updateHtml();
        this.canvasXpress = new CanvasXpress( this.canvasId , this.canvasData, this.canvasOptions,
          {
            click:function(o, e, t){
-             var links=[],link, params;
+             var links=[],link, params, uniprot;
              that.fireEvent( 'nodeclick', o );
-              if( that.linkOut ){
-                console.log( that.canvasXpress.data.links );
+             if( o && (o.length == 1) ){
+               switch(o[0].type){
+                 case 'box': 
+                  that.fireEvent( 'trackclick', o[0] );
+                  break;
+               }
+             }
+             if( that.linkOut ){
+               uniprot = o[0].id;
                for( var name in that.canvasXpress.data.links ){
                  link = that.canvasXpress.data.links[ name ];
-                 console.log(link);
-                 console.log(o[0].metaname);
                   if ( link.type == o[0].metaname ){
                     params = {};
                     params[ link.placeholder ] = o[0].id;
-                    links.push({
-                       source : link.name,
-                       params : params
-                    });
+                    if ( that.isUniprot( uniprot ) ){
+                      links.push({
+                         source : link.name,
+                         params : params
+                      });
+                    }
                   }
                }
                links.length && t.showLinkDiv(e, links, 'link');
-              }
+             }
            }
          });
          if( this.canvasOptions.dataset_id ) {
@@ -1368,9 +1407,16 @@ Ext.define('CV.view.GenomeBrowser', {
          } 
       }
   },
+  isUniprot:function( name ){
+    var matches;
+    name = name || '';
+    matches = name.match( /^[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]$/ );
+    if( matches && matches.length == 1 ){
+      return true;
+    }
+    return false;
+  },  
   loadCanvas:function(){
-    this.canvasXpress && this.canvasXpress.destroy();
-    this.updateHtml();
     this.renderCanvas();
   },
   updateSize:function( width , height ){
@@ -1394,25 +1440,61 @@ Ext.define('CV.view.GenomeBrowser', {
   }
 });
 
+Ext.define('CV.store.Base', {
+  extend: Ext.data.Store ,
+  constructor : function(config) {
+    this.proxy = this.proxy || {};
+    Ext.Object.merge(this.proxy, {
+        url : CV.config.ChadoViewer.self.baseUrl
+    });
+    this.callParent( arguments );
+  }
+});
+Ext.define('CV.store.Fasta',{
+  extend: CV.store.Base ,
+  fields:['fasta'],
+                             
+  autoLoad:false,
+  proxy:{
+    type:'ajax',
+    extraParams:{
+        ds : 'feature',
+        type : 'fasta',
+        feature_id : 0
+    },
+    reader:{
+      type:'json'
+    }
+  }
+});
 Ext.define('CV.view.feature.Fasta',{
   extend: Ext.panel.Panel ,
   alias:'widget.fastacontainer',
+                              
   // region:'east',
   title:'Sequence',
   // url to get the fasta file from
   url:null,
   layout:'fit',
   downloadId : 'downloadFasta',
+  store: 'CV.store.Fasta',
   // extra params to sent to the server
   extraParams:null,
+  /**
+   * feature id 
+   */
+  feature_id : null,
   initComponent:function (){
     this.url = CV.config.ChadoViewer.self.baseUrl;
     this.extraParams = CV.config.ChadoViewer.self.feature.fasta;
     this.get();
-
+    if( typeof ( this.store ) =='string' ){
+      this.store = Ext.create(this.store, {});
+      this.bindStore( this.store );
+    }
     Ext.apply( this , {
       plugins:[Ext.create('CV.ux.Retry')],
-      tbar:[{
+      bbar:[{
         xtype: 'box',
         id:this.downloadId,
         autoEl: {tag: 'a', href: this.getQueryString() , html: 'Download'},
@@ -1428,7 +1510,7 @@ Ext.define('CV.view.feature.Fasta',{
   },
   
   getQueryString :function() {
-    return this.url + '?' + Ext.Object.toQueryString( this.extraParams );
+    return this.url + '?text=plain&' + Ext.Object.toQueryString( this.store.getProxy().extraParams );
   },
   setDownload:function () {
     var download = Ext.get( this.downloadId );
@@ -1444,68 +1526,382 @@ Ext.define('CV.view.feature.Fasta',{
           this.setFasta( fasta );
         },
         scope:this
-      })
+      });
     }
   },
   setFasta:function( fasta ){
     this.update( '<pre>'+fasta+'</pre>' );
   },
-  load:function( featureId  ){
-    this.extraParams.feature_id = featureId;
-    this.get();
+  load:function( id , gCode ){
+    var store = this.store;
+    this.feature_id = id;
+    
+    id && store.getProxy().setExtraParam( 'feature_id', id );
+    gCode && store.getProxy().setExtraParam( 'geneticCode', gCode );
+    this.setLoading( true );
+    store.load();
     this.setDownload();
   },
   getFeature:function( ){
     return this.extraParams.feature_id;
-  }
-})
-
-Ext.define('CV.view.feature.SequenceView', {
-    extend: Ext.panel.Panel ,
-    alias:'widget.sequenceview',
-                                     
-    // title: 'Sequences',
-    height:'100%',
-    width:'80%',
-    defaults: {
-        // applied to each contained panel
-        bodyStyle: 'padding:15px',
-        overflowY:'auto'
-    },
-    layout: {
-        // layout-specific configs go here
-        type: 'accordion',
-        titleCollapse: true,
-        animate: true,
-        activeOnTop: false
-    },
-    items: [{
-      xtype:'fastacontainer',
-      active:true
-    }],
-    addGenomeBrowser:function( data , options ){
-     var genomebrowser = this.down('genomebrowser'), height = this.getHeight() , width = this.getWidth();
-     console.log('adding genome browser');
-     if ( genomebrowser ){
-       genomebrowser.canvasData = data;
-       genomebrowser.canvasOptions = options;
-       genomebrowser.loadCanvas();
-     } else {
-      this.add({
-        xtype:'genomebrowser',
-        canvasData:data,
-        canvasOptions:options,
-        // gheight:height//,
-        gwidth:width,
-        active:true
-      });
-      genomebrowser = this.down('genomebrowser');
-      // console.log( 'genome browser' );
-      // console.log( genomebrowser );
-      genomebrowser.expand();
-     }
+  },
+  bindStore:function( store ){
+    var that = this;
+    store = store || this.store;
+    if( store ){
+      store.addListener( 'load', function( store, records, success ){
+        if( success ){
+          var record = records[0];
+          that.setFasta( record.get( 'fasta' ) );
+        }
+        that.setLoading( false );
+      }, this );
+      store.addListener( 'clear', this.onClear, this );
     }
+  },
+  onClear: function(  ){
+    this.update('');
+  }
 });
+Ext.define('CV.store.Networks',{
+  extend :  Ext.data.TreeStore ,
+  fields:['text','networkid'],
+  proxy : {
+    type : 'ajax',
+    extraParams : {
+      ds : 'feature',
+      type : 'network',
+      feature_id : ''
+    }
+  },
+  autoLoad:true,
+  constructor : function(config) {
+    Ext.Object.merge(this.proxy, {
+      url : CV.config.ChadoViewer.self.baseUrl
+    });
+    this.callParent(arguments);
+  }
+});
+
+Ext.define('CV.view.feature.NetworkList',{
+  extend: Ext.tree.Panel ,
+                                 
+  alias:'widget.networklist',
+  store:'CV.store.Networks',
+  region:'west',
+  split:true,
+  width:200,
+  height:'100%',
+  rootVisible:false,
+  collapsed:false,
+  expandable:true,
+  title:'List of networks',
+  emptyText:'No networks found',
+  initComponent:function(  ){
+    if(typeof ( this.store ) == 'string'){
+      this.store = Ext.create(this.store,{});
+      this.store.load();
+    }
+    this.callParent( arguments );
+  }
+});
+
+Ext.define('CV.view.feature.NetworkCanvas', {
+  extend :  Ext.panel.Panel ,
+  region:'center',
+  alias:'widget.networkcanvas',
+  width:"100%",
+  height:'100%',
+  gheight: 500,
+  gwidth: 500,
+  canvasXpressPadding:10,
+  store:'CV.store.NetworkJson',
+  title:'Network diagram',
+  html:'Please choose a network id from the list on left',
+  /**
+   * this is the id of canvas div element for this panel.
+   */
+  canvasId:null,
+  canvasData:null,
+  canvasOptions:{
+    'backgroundGradient1Color': 'rgb(112,179,222)',
+    'backgroundGradient2Color': 'rgb(226,236,248)',
+    'gradient': true,
+    'graphType': 'Network',
+    'nodeFontColor': 'rgb(29,34,43)',
+    'showAnimation': true
+  },
+  /**
+   * canvasxpress instance
+   */
+  canvasXpress:null,
+  /**
+   * store that gets linkouts for this dataset.
+   */
+  optionsStore: null,
+  /**
+   * linkout options
+   */
+  linkoutOptions : null,
+  msg: 'creating',
+  linkOut: true,
+  errorMsg:"<b>Error: sequence not provided</b>",
+  events:{
+    nodeclick:true,
+    networkempty: true
+  },
+  initComponent : function() {
+    var canvasId = this.id + 'networkcanvas';
+    if ( typeof( this.store ) == 'string'){
+      this.store = Ext.create(this.store , {
+        listeners:{
+          load:this.createNetwork,
+          clear:this.onClear,
+          scope:this
+        }
+      });
+      this.store.load();
+    }
+    Ext.apply(this , {
+      canvasId: canvasId
+    });
+    this.addListener('render', this.renderCanvas, this );
+    this.addListener('resize', this.resizeHandler, this );
+    this.callParent(arguments);
+  },
+  /**
+   * this function creates linkout datastructure as understood by canvasxpress
+   */
+  createOptions:function(){
+    var options = {}, flag = false;
+    this.optionsStore.each(function( item ){
+      var option = item.getData();
+      options[ option.name ] = option;
+      flag = true;
+    });
+    this.linkoutOptions = options;
+    flag? this.fireEvent( 'newoptions' ):null;
+  },
+  updateHtml:function(){
+    this.update('<canvas id="'+this.canvasId+'"  width="'+this.getGWidth() +'" height="'+ this.getGHeight() + '" ></canvas>');
+  },
+  renderCanvas : function() {
+      var that = this;
+      if( this.canvasData  ){
+       this.canvasXpress && this.canvasXpress.destroy( this.canvasXpress );
+       this.canvasXpress = new CanvasXpress( this.canvasId, this.canvasData, this.canvasOptions ,{
+         click:function(o, e, t){
+           var id = o.nodes[0]['id'];
+           that.fireEvent( 'nodeclick', id );
+         }
+       });
+      }
+  },
+  loadCanvas:function(){
+    this.updateHtml();
+    this.renderCanvas();
+  },
+  updateSize:function( width , height ){
+    var canvas = Ext.get( this.canvasId );
+    canvas.setWidth( width );
+    canvas.setHeight( height );
+  },
+  resizeHandler: function ( ) {
+    if( this.rendered ){
+      var pRight = this.body.getPadding ( 'r'), pBottom = this.body.getPadding('b');
+      this.canvasXpress && this.canvasXpress.draw( this.getWidth() - 2*pRight - 2*this.canvasXpressPadding , this.getHeight() - 2*pBottom - 2*this.canvasXpressPadding);
+    }
+  },
+  getGWidth:function(){
+    var pRight = this.body?this.body.getPadding ( 'r'):this.canvasXpressPadding;
+    return this.getWidth() - 2*pRight - 2*this.canvasXpressPadding;
+  },
+  getGHeight:function(){
+    var pBottom = this.body?this.body.getPadding('b'):this.canvasXpressPadding;
+    return this.getHeight() - 2*pBottom - 2*this.canvasXpressPadding;
+  },
+  createNetwork:function( records ){
+    var rec = records.getAt(0), network;
+    if ( rec ){
+      network = rec.get( 'json' );
+      if( network ){
+        this.canvasData = JSON.parse( network );
+        this.rendered && this.loadCanvas(); 
+      } else {
+        this.update( "<h3>Network too large to display on canvas.</h3>");
+        this.fireEvent('networkempty');
+      }
+    }
+  },
+  clear:function(){
+    this.msg = 'clearing';
+    this.store.removeAll();
+  },
+  onClear:function(){
+    this.canvasXpress && this.canvasXpress.destroy( this.canvasXpress );
+    this.update('');
+  }
+});
+Ext.define('CV.store.Transcripts', {
+  extend: CV.store.Base ,
+  fields:['name','dataset_id'],
+                             
+  proxy:{
+    type:'ajax',
+    extraParams:{
+        ds : 'feature',
+        type : 'networktranscripts',
+        dataset_id: null,
+        network_id: null
+    },
+    reader:{
+      type:'json'
+    }
+  },
+  autoLoad:false
+});
+Ext.define('CV.view.feature.TranscriptList',{
+                                    
+  extend: Ext.grid.Panel ,
+  alias : 'widget.transcriptlist',
+  store: 'CV.store.Transcripts',
+  title:'Raw data',
+  columns:[{
+    dataIndex : 'name',
+    text : 'Name',
+    flex: 1,
+    renderer:function( id, grid , model ){
+      var dataset_id = model.get('dataset_id');
+      return "<a href='#feature/dataset_"+dataset_id+'.'+id+"'>"+ id +"</a>";
+    }
+  }],
+  initComponent:function(){
+    if ( typeof this.store == 'string'){
+      this.store = Ext.create(this.store);
+    }
+    this.callParent( arguments );
+  }
+});
+Ext.define("CV.view.feature.NetworkPanel",{
+  extend: Ext.container.Container ,
+  alias:'widget.networkpanel',
+                                                                                                            
+  title:'Network',
+  layout:'border',
+  tooltip:'Shows similar transcripts using a network',
+  items:[
+    {
+      xtype:'networklist'
+      
+    },{
+      xtype:'panel',
+      name:'networkviews',
+      region:'center',
+      layout:{
+        type:'accordion'
+      },
+      items:[
+        {
+          xtype:'networkcanvas'
+        },{
+          xtype:'transcriptlist'
+        }
+      ]
+    }
+  ]
+});
+Ext.define('CV.store.Translations', {
+  extend: CV.store.Base ,
+  fields:['id','name'],
+                             
+  proxy:{
+    type:'ajax',
+    extraParams:{
+        ds : 'feature',
+        type : 'translationtable'
+    },
+    reader:{
+      type:'json'
+    }
+  },
+  autoLoad:true
+});
+Ext.define('CV.view.feature.SequenceView', {
+  extend :  Ext.tab.Panel ,
+  alias : 'widget.sequenceview',
+                                                                                                
+  height : '100%',
+  width : '80%',
+  defaults : {
+    // applied to each contained panel
+    bodyStyle : 'padding:15px',
+    overflowY : 'auto'
+  },
+  initComponent : function() {
+    var store = Ext.create('CV.store.Translations', {
+      listeners : {
+        load : this.initialiseCombobox,
+        scope : this
+      }
+    });
+    this.addListener('beforerender', this.setActive, this);
+    Ext.apply(this, {
+      items : [{
+        xtype : 'panel',
+        title : 'Sequence',
+        tooltip:'View nucleotide and protein sequence',
+        layout : {
+          type : 'accordion',
+          titleCollapse : true,
+          animate : true,
+          multi : true
+        },
+        items : [{
+          xtype : 'fastacontainer',
+          title : 'Nucleotide',
+          id : 'nucleotide',
+          downloadId : 'downloadFasta'
+        }, {
+          xtype : 'fastacontainer',
+          store : 'CV.store.ProteinTranslation',
+          title : 'Protein',
+          id : 'proteintranslation',
+          downloadId : 'downloadProtein',
+          dockedItems : [{
+            xtype : 'combobox',
+            store : store,
+            name : 'translation',
+            valueField : 'id',
+            displayField : 'name',
+            fieldLabel : 'Protein Translation Table:',
+            labelWidth : 150,
+            matchFieldWidth : false,
+            queryMode : 'local',
+            forceSelection : true,
+            enableRegEx : true,
+            minWidth : 300,
+            maxWidth : 400
+          }]
+        }]
+      }, {
+        xtype : 'networkpanel'
+      }, {
+        xtype : 'genomebrowser'
+      }]
+    });
+    this.callParent(arguments);
+  },
+  setActive : function(data, options) {
+    var genomebrowser = this.down('genomebrowser');
+    this.setActiveTab(genomebrowser);
+  },
+  initialiseCombobox : function() {
+    var p = this.down('fastacontainer[id=proteintranslation]'), combo = p.down('combobox'), id;
+    id = p.store.getProxy().extraParams.geneticCode;
+    combo.setValue(id);
+  }
+});
+
 Ext.define("CV.model.Annotation", {
   extend:  Ext.data.Model ,
   fields: [
@@ -1528,7 +1924,8 @@ Ext.define('CV.store.Annotations', {
           totalProperty: 'totalCount'
       },
       extraParams:{
-        ds:'annotations'
+        ds:'annotations',
+        ids: null
       }
   },
   constructor : function(config) {
@@ -1604,7 +2001,8 @@ Ext.define('CV.view.feature.View', {
     var store = Ext.create('CV.store.Features'), metaStore, sequenceView, genomeBrowser, combo, treestore;
     var grid = Ext.create('CV.view.feature.Grid', {
       store : store,
-      region : 'north'
+      region : 'north',
+      split:true
     });
     metaStore = Ext.create('CV.store.FeatureMetadata');
     var metadataPanel = Ext.create('CV.view.feature.CvTermsGrid', {
@@ -1621,7 +2019,6 @@ Ext.define('CV.view.feature.View', {
 
     });
     // treestore.load();
-    console.log('finished loading');
     // combo = Ext.create('CV.view.feature.Annotations',{region:'south'});
     Ext.apply(this, {
 
@@ -1667,7 +2064,6 @@ Ext.define('CV.view.feature.View', {
     }
   }
 });
-
 /*!
  * CV.ux.Router
  * http://github.com/brunotavares/CV.ux.Router
@@ -2092,7 +2488,10 @@ Ext.define('CV.controller.Feature', {
     selector : 'featureview cvtermsgrid'
   },{
     ref:'fastaPanel',
-    selector :'featureview fastacontainer'
+    selector :'featureview fastacontainer[id=nucleotide]'
+  },{
+    ref:'proteinPanel',
+    selector :'featureview fastacontainer[id=proteintranslation]'
   },{
     ref:'genomePanel',
     selector :'featureview genomebrowser'
@@ -2102,6 +2501,21 @@ Ext.define('CV.controller.Feature', {
   },{
     ref:'annotations',
     selector : 'featureview featureannotations'
+  },{
+    ref:'networkcanvas',
+    selector: 'featureview networkcanvas'
+  },{
+    ref:'networklist',
+    selector: 'featureview networklist'
+  },{
+    ref:'translation',
+    selector:'featureview combobox[name=translation]'
+  },{
+    ref:'transcriptlist',
+    selector: 'featureview transcriptlist'
+  },{
+    ref:'networkviews',
+    selector: 'featureview networkpanel panel[name=networkviews]'
   }],
   // config
   name:'Feature',
@@ -2110,8 +2524,17 @@ Ext.define('CV.controller.Feature', {
   featureId : 'id',
   filterProperty:'name',
   featureIdProp:'feature_id',
+  btnTooltip: 'Get all transcripts from the database',
   //   this config decides if tree elements need to be selected
   item : null,
+  /**
+   * stores dataset id 
+   */
+  dataset: null,
+  /**
+   * 
+   */
+  store: 'CV.store.GenomeTracks',  
   init : function() {
     var treeView, gridView;
     gridView = Ext.create('CV.view.feature.View');
@@ -2126,6 +2549,23 @@ Ext.define('CV.controller.Feature', {
       'viewport > radiogroup > button[name=Feature]' : {
         render : this.headerInit,
         scope : this
+      },
+      'featureview genomebrowser':{
+        trackclick: this.showUniprotGroup,
+        nodeclick: this.findTrackId,
+        scope: this
+      },
+      'featureview networklist':{
+        select: this.transformSelection,
+        scope: this
+      },
+      'featureview networkcanvas':{
+        nodeclick: this.showDetails,
+        networkempty: this.rawdataFocus,
+        scope: this
+      },
+      'featureview combobox[name=translation]':{
+        select: this.translate
       }
     });
   },
@@ -2160,7 +2600,6 @@ Ext.define('CV.controller.Feature', {
       switch ( id ){
         case 'filter':
           filter = JSON.parse( decodeURIComponent( name ));
-                    // console.log ( decodeURIComponent( name ) );
           this.setFilters ( filter.items );
         break;
         default:
@@ -2187,7 +2626,7 @@ Ext.define('CV.controller.Feature', {
     this.getSequencePanel().disable();
     this.updateSelection( id , name);
   },
-  updateSelection : function( id  , name ) {
+  updateSelection : function( id, name ) {
     var url = this.uri;
     if( id && name ){
       url += '/' + id;
@@ -2195,38 +2634,43 @@ Ext.define('CV.controller.Feature', {
     CV.ux.Router.redirect(url);
   },
   treeSelect : function(item , name) {
-    var grid, panel, filter={}, metadataPanel, fasta, section, annot;
+    var grid, panel, filter={}, metadataPanel, fasta, section, annot,nl, protein;
     section = item? 'details': 'start';
     grid = this.getFeatureGrid();
     metadataPanel = this.getMetadataPanel();
     fasta = this.getFastaPanel();
     annot = this.getAnnotations();
+    protein = this.getProteinPanel();
     // make sure this is set since it will decide if the node is selected on tree panel.
     // It had to be done this way as some times tree takes long time to load. Hence search returns null.
     this.item = item;
+    /**
+     * disable network view panel
+     */
+    this.disableTranscriptNetworkVisualizer();
+
+    this.clear();
     switch( section ){
       case 'details':
-          // grid.plugins[0].clearFilters( );
           this.getSequencePanel().enable();
           grid.store.clearFilter( true );
-          grid.store.filter( this.featureIdProp , item );
-          // grid.store.filter( this.filterProperty , name );
-          // filter[ this.filterProperty ] = name;
-          // filter[ this.featureIdProp ] = item;
-          // grid.plugins[0].setFilters( filter );
-          // grid.store.load();
-          // get store from a datapanel using ref selection
-          // panel = this.getFeature();
-          
+          grid.store.filter( this.featureIdProp , item );          
 
           metadataPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
           metadataPanel.store.load();
+          
           annot.store.getProxy().setExtraParam(this.featureIdProp, item);
           annot.store.load();
+          
+          nl = this.getNetworklist();
+          nl.store.getProxy().setExtraParam('dataset_id', this.dataset );
+          nl.store.getProxy().setExtraParam('feature_id', item);
+          nl.store.load();
           //add track
           this.loadTracks( item );
           
           fasta.load( item );
+          protein.load ( item );
       break;
       case 'start':
           grid.store.clearFilter( true );
@@ -2237,44 +2681,150 @@ Ext.define('CV.controller.Feature', {
     }
   },
   loadTracks:function( id ){
-    var that = this, fetchTracks = function( resp ){
-      var sequence = resp.responseText, trackData, url;
-      trackData = Ext.JSON.decode( sequence );
-      console.log( trackData );
-      // sequence = this.fastaToSequence(sequence);
-      // trackData = this.createTrackData( sequence );
-      this.data =  trackData ;
-      
-      this.renderTracks( this.data, this.options);
-    };
-    url = CV.config.ChadoViewer.self.drupalBase +CV.config.ChadoViewer.self.genomeviewer.url;
-    this.options.dataset_id = id;
-    Ext.Ajax.request({
-      url:url+'?type=track&id='+id,
-      success: fetchTracks,
-      scope:this
-    });
+    var gp = this.getGenomePanel();
+    gp.load( id );
   },
   renderTracks:function( tracks  ){
     this.getSequencePanel().addGenomeBrowser(  tracks , this.options );
+  },
+  showUniprotGroup:function( track ){
+    var mp;
+    mp = this.getMetadataPanel();
+    if( track.grpName && mp.grpFeature && mp.store.count() ){
+      mp.grpFeature.collapseAll();
+      mp.grpFeature.expand(track.grpName, true);
+    }
+  },
+  transformSelection:function( tree , record ){
+    this.loadNetwork( undefined, [ record ] );
+  },
+  loadNetwork:function(rm, records){
+    var rec, id, networkid ;
+    if( records.length ){
+      networkid = records[0].get('networkid');
+      id = this.item;
+      if( networkid ){
+        this.enableTranscriptNetworkVisualizer();
+        this.getNetworklist().getSelectionModel().deselectAll();
+        // canvasxpress
+        this.getNetworkcanvas().store.getProxy().setExtraParam('network_id', networkid);
+        this.getNetworkcanvas().store.getProxy().setExtraParam('dataset_id', id);
+        this.getNetworkcanvas().store.load();
+        
+        // transcript data grid
+        this.getTranscriptlist().store.getProxy().setExtraParam('network_id', networkid);
+        this.getTranscriptlist().store.getProxy().setExtraParam('dataset_id', id);
+        this.getTranscriptlist().store.load();
+      }
+    }
+  },
+  showDetails : function( id, dataset ){
+    var newItem;
+    dataset = dataset || this.dataset;
+    dataset = dataset || this.getDataset( this.item );
+    newItem = dataset +'.' + id;
+    // dataset && this.treeSelect( dataset +'.' + id );
+    if( newItem !== this.item ){
+      dataset && this.updateSelection( newItem , dataset); 
+    }
+  },
+  getDataset: function( id ){
+    var dataset, match;
+    id = id || '';
+    if ( id ){
+      match = id.match(/dataset_([0-9]+)/);
+      dataset = match && match[0];
+      this.dataset = dataset;
+    }
+    return dataset;
+  },
+  translate:function(combo , recs ){
+    var pPanel = this.getProteinPanel(), rec = recs[0];
+    pPanel.load( null, rec.get('id') );
+  },
+  /**
+   * this function is used to clear all panel of their respective data.
+   */
+  clear: function(){
+    var ncanvas = this.getNetworkcanvas(),
+      annotations = this.getAnnotations(),
+      nlist = this.getNetworklist(),
+      fpanel = this.getFastaPanel(),
+      ppanel = this.getProteinPanel(),
+      rawdata = this.getTranscriptlist();
+    ncanvas.store.removeAll();
+    nlist.store.getRootNode().removeAll();
+    fpanel.store.removeAll(),
+    ppanel.store.removeAll();
+    rawdata.store.removeAll();
+    /**
+     * if childnodes are null extjs 4.2 crashes
+     */
+    annotations.store.getRootNode().removeAll();
+  },
+  /**
+   * 
+   */
+  findTrackId:function( track ){
+    if ( track[0].type == 'box' ){
+      switch( track[0].metaname ){
+        case 'transcript':
+        case 'gene':
+          this.showDetails( track[0].id );
+          break;
+      }
+    }
+  },
+  rawdataFocus:function(){
+    var views = this.getNetworkviews(),
+      comp = this.getTranscriptlist();
+    comp.rendered && comp.expand();
+  },
+  disableTranscriptNetworkVisualizer:function(){
+    var nv = this.getNetworkviews();
+    nv.disable();
+  },
+  enableTranscriptNetworkVisualizer:function(){
+    var nv = this.getNetworkviews();
+    nv.enable();
   }
-  //,
-  // selectNode : function() {
-    // if (this.item !== null) {
-      // var itemRecord,
-      // //         view = this.getLib(),
-      // tree = this.getTree(), sm = tree.getSelectionModel();
-      // itemRecord = tree.getStore().getRootNode().findChild(this.libraryId, this.item, true);
-      // itemRecord && itemRecord.parentNode.expand(true);
-      // itemRecord && sm.select(itemRecord, false, false);
-      // this.item = null;
-    // }
-  // }
 }); 
+Ext.define('CV.store.Help',{
+  extend: CV.store.Base ,
+  fields:['text'],
+                             
+  autoLoad:false,
+  proxy:{
+    type:'ajax',
+    extraParams:{
+        ds : 'help'
+    },
+    reader:{
+      type:'json'
+    }
+  }
+});
 Ext.define('CV.view.help.View',{
-  extend: Ext.container.Container ,
+  extend: Ext.panel.Panel ,
+                             
   alias:'widget.helpview',
-  html:'write something here!!'
+  html:'Loading help...',
+  store: 'CV.store.Help',
+  autoScroll: true,
+  overflowY: 'auto',
+  bodyStyle: 'padding:5px',
+  initComponent:function(){
+    if( typeof ( this.store ) =='string' ){
+      this.store = Ext.create(this.store);
+      this.store.addListener('load', this.load, this);
+      this.store.load();
+    }
+    this.callParent( arguments );
+  },
+  load:function( ){
+    var html = this.store.getAt(0).get('text');
+    this.update( html );
+  }
 });
 
 Ext.define('CV.controller.Help', {
@@ -2398,10 +2948,10 @@ Ext.define('CV.store.Facets',{
     var facets=[];
     this.each(function( item ){
       facets.push({property:'cvterm_id',value:item.get('cvterm_id'),'cv_id':item.get('cv_id')});
-    })
+    });
     return facets;
   }
-})
+});
 
 Ext.define('CV.model.CvTerm',{
   extend:  Ext.data.Model ,
@@ -2411,7 +2961,8 @@ Ext.define('CV.model.CvTerm',{
     "term",
     "vocabulary",
     "value",
-    "selection"
+    "selection",
+    'gr'
   ]
 });
 Ext.define('CV.store.CvTerms', {
@@ -2635,6 +3186,8 @@ Ext.define('CV.view.TagCloud',{
         d3.select( '#'+that.svgId )
         .append("svg")
         .attr("viewBox","0 0 "+ width +" "+ height)
+        .attr("height",height)
+        .attr("width",width)
         .append("g")
         .attr("transform", "translate("+width/2+','+height/2+")")
         .selectAll("text")
@@ -2653,7 +3206,7 @@ Ext.define('CV.view.TagCloud',{
         .text(function(d) { return d.text; });
     };
 
-    words = this.transform ( words );
+    words = this.transform ( words, true );
     words = this.normalizeSize( words );
 
     d3.layout.cloud()
@@ -2674,16 +3227,20 @@ Ext.define('CV.view.TagCloud',{
     return arr;
   },
   /**
-   * transform name and count to text and size respectively
+   * transform name and count to text and size respectively and 
+   * only includes top N words, where N is the maximum number of words 
+   * that can be displayed 
    */
-  transform:function( words ){
-    var result=[], key , value;
+  transform:function( words, topN ){
+    var result=[], key , value, word;
+    topN = topN || false;
     for( key in words ){
-      value = words [ key ];
-      // var word = { text: value.get('name') , size: value.get('count') , storeItem: value };
-      var word = { text: value.get('name') , size: value.get(this.countField) , storeItem: value };
-      result.push ( word );
+        value = words [ key ];
+        // var word = { text: value.get('name') , size: value.get('count') , storeItem: value };
+        word = { text: value.get('name') , size: value.get(this.countField) , storeItem: value };
+        result.push ( word );
     }
+    result = topN? result.splice( 0 , this.maxCategories) : result ;
     return result;
   },
   /**
@@ -2772,6 +3329,18 @@ Ext.define('CV.ux.Retry',{
   owner : null,
   success:true,
   loader:null,
+  messages:{
+    401:{
+      msgCls:'retry',
+      msg:'Unauthorized access',
+      useTargetEl:true
+    },
+    'default':{
+      msgCls:'customLoading',
+      msg:'Loading was unsuccessful. Tap here to retry.',
+      useTargetEl:true
+    }
+  },
   loaderConfig: {
     // autoShow: true,
     msgCls:'customLoading',
@@ -2794,7 +3363,11 @@ Ext.define('CV.ux.Retry',{
     });
     
     store && store.on({
-      load:this.retry,
+      load:this.loadHide,
+      scope: this
+    });
+    store && store.getProxy().on({
+      exception:this.onException,
       scope: this
     });
     this.loader = new CV.ux.RetryLoader( owner , this.loaderConfig );
@@ -2807,26 +3380,30 @@ Ext.define('CV.ux.Retry',{
       expand:this.displayMsg,
       scope:this
     });
-    // this.owner.addListener( 'show' , this.displayMsg , this );
-    // this.owner.on({
-      // // collapse:this.displayMsg,
-      // // // cannot use expand as component is not drawn          .
-      // // expand:this.displayMsg,
-      // // // expand: this.onShow,
-      // // afterrender:this.displayMsg,
-      // scope: this
-    // });
   },
-  retry:function( store , records , success, treeSuccess ){
+  onException:function( proxy, except, operation){
+    var resp;
+    switch( except.status ){
+      case 401:
+        this.loaderConfig = this.messages['401'];
+      break;
+      default: 
+        this.loaderConfig = this.messages.default;
+    }
+    this.success = false;
+    this.displayMsg();
+  },
+  loadHide:function( store , records , success, treeSuccess ){
     this.success = success;
     // a hack for tree store. success is the forth param!!!
     if ( success === null && !treeSuccess){
       this.success = treeSuccess;
     }
-    this.displayMsg();
+    if( this.success ){
+      this.hide();
+    }
   },
   displayMsg:function(){
-    console.log( this.owner) ;
     if( !this.success ){
       this.loader = this.owner.setLoading( this.loaderConfig );
       this.loader && this.bindLoader();
@@ -2853,7 +3430,6 @@ Ext.define('CV.ux.Retry',{
     });
   }
 });
-
 Ext.define('CV.view.FeatureGrid', {
   extend :  Ext.grid.Panel ,
   alias : 'widget.sequencesgrid',
@@ -2863,27 +3439,6 @@ Ext.define('CV.view.FeatureGrid', {
   store : 'CV.store.Features',
   columnLines : true,
                                                                         
-  // plugins : {
-    // ptype:'retry'
-  // },
-
-  // layout:'fit',
-  // width : 250,
-  // height : 400,
-  // viewConfig:{
-  // listeners:{
-    // hide:function(){
-      // console.log( 'hiding..' );
-    // },
-    // beforeitemdblclick:function(){
-      // console.log('beforeshow' );
-    // },
-    // itemdblclick  :function(){
-      // console.log('beforeshow' );
-    // }
-  // }
-  // ,
-  // },
   initComponent : function() {
     if ( typeof this.store === 'string') {
       this.store = Ext.create(this.store);
@@ -2902,45 +3457,14 @@ Ext.define('CV.view.FeatureGrid', {
     Ext.apply(this, {
       events : ['clearfilter'],
       plugins : [
-        // Ext.create('CV.ux.Retry',{        
-        // })
-        Ext.create('CV.ux.StatusMask',{
+        Ext.create('CV.ux.Retry',{
           store:this.store
         })
       ],
-      bbar : [pagingtoolbar]//,
-      // tbar : [
-      // {
-        // text : 'Clear selection',
-        // handler : function(button) {
-          // var grid = button.up('grid');
-          // grid.fireEvent('clearfilter');
-        // }
-      // }, {
-        // text : 'Selected filters',
-        // tooltip : 'Display all active filters',
-        // handler : function(button) {
-          // var grid = button.up('grid'), data = grid.store.filters, i, list = [], filter
-          // msg = '';
-          // console.log('filters active');
-          // console.log(data);
-          // data && data.each(function(item) {
-            // list.push(item.property + ' : ' + item.value);
-          // });
-          // Ext.Msg.alert('Active Filter(s)', list.join(','));
-        // }
-      // }]
+      bbar : [pagingtoolbar]
     });
     this.callParent(arguments);
   },
-  // retry:function( records , success ){
-    // if( !success ){
-      // this.setLoading({
-        // msgCls:'retry',
-        // msg:'Loading was unsuccessful. Tap here to retry.'
-      // });
-    // }
-  // },
   columns : [{
     text : 'Feature id',
     dataIndex : 'feature_id',
@@ -2966,78 +3490,6 @@ Ext.define('CV.view.FeatureGrid', {
       return msg;
     }
   } 
-  // {
-    // text : 'Unique name',
-    // dataIndex : 'uniquename',
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // hidden : true
-  // }, 
-  // {
-    // text : 'Type',
-    // dataIndex : 'type',
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // flex:1
-  // }//, 
-  // {
-    // text : 'Genus',
-    // dataIndex : 'genus',
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // hidden : true,
-    // // flex:1,
-    // renderer : function(value, meta, record) {
-      // var msg = '';
-      // if (value) {
-        // msg = '<a href="#species/' + record.get('organism_id') + '">' + value + '</a> ';
-      // }
-      // return msg;
-    // }
-  // }, {
-    // text : 'Species',
-    // dataIndex : 'species',
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // hidden : true,
-    // // flex:1,
-    // renderer : function(value, meta, record) {
-      // var msg = '';
-      // if (value) {
-        // msg = '<a href="#species/' + record.get('organism_id') + '">' + value + '</a> ';
-      // }
-      // return msg;
-    // }
-  // }, {
-    // text : 'Library name',
-    // dataIndex : 'libraries',
-    // sortable : false,
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // renderer : function(value, meta, record) {
-      // var msg = '';
-      // if (value) {
-        // msg = '<a href="#library/' + record.get('library_id') + '" onclick="return false">' + value + '</a> ';
-      // }
-      // return msg;
-    // },
-    // hidden : true,
-    // flex : 1
-  // }, {
-    // text : 'Source feature',
-    // sortable : false,
-    // dataIndex : 'srcuniquename',
-    // filter : {
-      // xtype : 'textfield'
-    // },
-    // hidden : true,
-    // flex : 1
-  // }
   ],
   clear:function(){
     if ( this.store ){
@@ -3093,8 +3545,7 @@ Ext.define('CV.view.PieChart', {
     showInLegend : true,
     tips : {
       trackMouse : true,
-      maxWidth : 140,
-      minWidth : 80,
+      minWidth: 250,
       renderer : function(storeItem, item) {
         this.setTitle(storeItem.get('name') + ' : ' + storeItem.get(item.series.field));
       }
@@ -3107,11 +3558,10 @@ Ext.define('CV.view.PieChart', {
     listeners:{
       itemclick:function( slice ){
         this.chart.fireEvent('itemclicked', slice.storeItem);
-        // console.log( slice );
       }
     }    
   }]
-})
+});
 Ext.define('CV.ux.InformationLoader',{
   extend: Ext.LoadMask ,
   msgCls:'information-loader',
@@ -3362,6 +3812,7 @@ Ext.define( 'CV.view.Tree' , {
   selModel:{
     mode:'MULTI'
   },
+  split: true,
   // loading message
   // viewConfig:{
     // loadMask:true
@@ -3380,11 +3831,10 @@ Ext.define( 'CV.view.Tree' , {
     this.callParent( arguments );
   },
   initComponent:function(){
-    this.addPlugin({
-      ptype:'statusmask',
+    this.addPlugin(Ext.create('CV.ux.Retry',{
       owner: this,
       store: this.store
-    });
+    }));
     
     this.callParent( arguments );
   },
@@ -3408,6 +3858,7 @@ Ext.define( 'CV.view.CvTabs', {
   height:'60%',
   activeItem:0,
   items : [],
+  tooltip:'Transcript summary generated with different controlled vocabularies',
   listeners:{
     /**
      * this listener reloads the tab when it becomes active provided the flag is set to true 
@@ -3458,6 +3909,7 @@ Ext.define('CV.view.MetaData', {
   title : 'Metadata',
   region : 'center',
   columnLines: true,
+  tooltip:'Metadata of selected library or species',
   // height : 400,
   store : 'CV.store.CvTerms',
   columns : [{
@@ -3540,7 +3992,6 @@ Ext.define('CV.view.MetaData', {
       features.createFilters();
       filter = this.filters.getFilter(id);
       if (!filter) {
-        console.log('no filter is available for the id' + id);
         return;
       }
     }
@@ -4397,7 +4848,7 @@ Ext.define('CV.view.Facets',{
 Ext.define('CV.view.View', {
   extend :  Ext.container.Container ,
   alias : 'widget.dsview',
-                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                   
   layout : 'border',
   // important params
   treeStore : null,
@@ -4438,76 +4889,68 @@ Ext.define('CV.view.View', {
   filters : [],
   events : ['facetschanged', 'configchanged'],
 
-  items : [{
-    xtype : 'dstree',
-    region : 'west'
-    // id : 'libraryTreeView',
-    // plugins:[{ptype:'statusmask', owner:treePanel}],
-  }, {
-    xtype : 'tabpanel',
-    region:'center',
-    items : [{
-      xtype : 'cvtabs'//,
-      // region : 'center'
-    }, {
-      xtype : 'metadatapanel'//,
-      // clear : function() {
-// 
-      // }
-    }]
-  }, {
-    xtype : 'panel',
-    // store:'',
-    // resizable:true,
-    split:true,
-    region : 'east',
-    width : 400,
-    layout: {
-        type: 'accordion',
-        titleCollapse: true,
-        animate: true,
-        multi: true
-    },
-    items : [{
-      xtype : 'sequencesgrid',
-      collapsed:false//,
-      // clear : function() {
-// 
-      // }
-    },{
-        xtype:'panel',
-        title:'Search terms',
-        collapsed:false,
-        bodyStyle: 'padding:15px',
-        items:[{
-          xtype:'autoannotations',
-          store:'CV.store.Annotations'//,
-        }]
-      },
- {
-      xtype : 'facetsgrid',
-      store : 'CV.store.Facets'
-      // ,
-      // bbar : [{
-      // xtype : 'button',
-      // text : 'Clear Facets',
-      // handler : me.clearSelection,
-      // scope : me
-      // }]
-    }
-      ]
-  }],
   initComponent : function() {
+    this.vStore = Ext.create('CV.store.ControlledVocabularies', {
+      autoLoad : false
+    });
+
+    Ext.apply(this, {
+      items : [{
+        xtype : 'dstree',
+        region : 'west'
+      }, {
+        xtype : 'tabpanel',
+        region : 'center',
+        name: 'annotationpanel',
+        items : [{
+          xtype : 'cvtabs',
+          store: this.vStore,
+          plugins : [Ext.create('CV.ux.Retry',{
+            store : this.vStore
+          })]
+        }, {
+          xtype : 'metadatapanel'
+        }]
+      }, {
+        xtype : 'panel',
+        name: 'statuspanel',
+        title:'Status',
+        split : true,
+        region : 'east',
+        width : 400,
+        collapsible:true,
+        layout : {
+          type : 'accordion',
+          titleCollapse : true,
+          animate : true,
+          multi : true
+        },
+        items : [{
+          xtype : 'sequencesgrid',
+          collapsed : false
+        }, {
+          xtype : 'panel',
+          title : 'Search terms',
+          collapsed : false,
+          bodyStyle : 'padding:15px',
+          items : [{
+            xtype : 'autoannotations',
+            store : 'CV.store.Annotations'//,
+          }]
+        }, {
+          xtype : 'facetsgrid',
+          store : 'CV.store.Facets'
+        }]
+      }]
+    });
     this.callParent(arguments);
     this.facetsParamArray = new Ext.util.MixedCollection();
   },
   afterRender : function() {
     var me = this, treeStore, treePanel, gridPanel, gridStore, bioStore, vStore, rec, graphPanel, sequencePanel = this.down('sequencesgrid'), metadataPanel = this.down('metadatapanel');
     //
-    vStore = Ext.create('CV.store.ControlledVocabularies', {
-      autoLoad : false
-    });
-    // // console.log ( dsConfig );
+    vStore = this.vStore;
+    this.graphPanel = this.down('cvtabs');
     vStore.getProxy().url = CV.config.ChadoViewer.self.baseUrl;
     vStore.getProxy().extraParams = this.dsConfig.graph.vocabulary;
     this.vStore = vStore;
@@ -4516,88 +4959,14 @@ Ext.define('CV.view.View', {
         me.addPanel();
       }
     });
-    //
-    // // create tree store
-    // this.treeStore = Ext.create('CV.store.Libraries', {
-    // proxy : {
-    // url : CV.config.ChadoViewer.baseUrl,
-    // extraParams : this.dsConfig.tree.extraParams,
-    // type : 'ajax'
-    // }
-    // });
-    // this.treeStore.getProxy().url = CV.config.ChadoViewer.baseUrl;
-    // this.treeStore.load();
-    //
-    // // treePanel = Ext.create('CV.view.Tree', {
-    // // // id : 'libraryTreeView',
-    // // // plugins:[{ptype:'statusmask', owner:treePanel}],
-    // // store : this.treeStore,
-    // // collapsible : true,
-    // // closeable : true
-    // // });
     this.treePanel = this.down('dstree');
     this.treeStore = this.treePanel.store;
-    // // treePanel = Ext.ComponentQuery.query('dstree' , this );
-    //
-    // this.treePanel = treePanel;
-    // // grid store
     this.gridStore = metadataPanel.store;
-    // this.gridStore = Ext.create('CV.store.CvTerms', {
-    // proxy : {
-    // type : 'ajax',
-    // url : CV.config.ChadoViewer.baseUrl,
-    // extraParams : Ext.clone(this.dsConfig.cv.extraParams),
-    // reader : {
-    // type : 'json',
-    // root : 'root',
-    // successProperty : false,
-    // totalProperty : false
-    // }
-    // }
-    // });
-    // stores.push(this.gridStore);
-    // sequencePanel = Ext.create('CV.view.FeatureGrid', {
-    // // region:'center',
-    // listeners : {
-    // headerfilterchange : this.updateFilter,
-    // scope : this
-    // }
-    // });
-    // this.facetsParamArray.push(sequencePanel.store);
     this.facetsParamArray.add(sequencePanel.store);
     this.addListener('configchanged', sequencePanel.store.changeExtraParams, sequencePanel.store);
     this.addListener('configchanged', vStore.changeExtraParams, vStore);
     this.addListener('configchanged', this.gridStore.changeExtraParams, this.gridStore);
-    //
-    // metadataPanel = Ext.create('CV.view.Grid', {
-    // store : this.gridStore
-    // })
-    // gridPanel = Ext.create('Ext.panel.Panel', {
-    // region : 'center',
-    // layout : 'accordion',
-    // items : [sequencePanel, metadataPanel],
-    // clear : function() {
-    // // var metadataPanel = this.down( 'metadatapanel' ), sequencePanel = this.down('sequencesgrid');
-    // this.items.each(function(item) {
-    // item.clear();
-    // });
-    // // sequencePanel.clear();
-    // // metadataPanel.clear();
-    // }
-    // });
-    // // this.addListener( 'facetschanged' , this.loadStore , sequencePanel.store );
-    // // create graph
-    // // graphPanel = Ext.create('CV.view.CvTabs', {
-    // // });
-    //
 
-    this.graphPanel = this.down('cvtabs');
-    //
-    this.graphPanel.addPlugin({
-      ptype : 'statusmask',
-      owner : this.graphPanel,
-      store : this.vStore
-    });
     this.facetsStore = this.down('facetsgrid').store;
     this.facetsStore.addListener({
       load : this.facetsUpdate,
@@ -4608,17 +4977,6 @@ Ext.define('CV.view.View', {
       },
       scope : this
     });
-    // this.facetsStore = Ext.create('CV.store.Facets', {
-    // listeners : {
-    // // load: this.facetsUpdate,
-    // datachanged : this.facetsUpdate,
-    // clear : function() {
-    // this.updateFacetsParam();
-    // this.fireEvent('facetschanged');
-    // },
-    // scope : this
-    // }
-    // });
     this.facetsGrid = this.down('facetsgrid');
     this.facetsGrid.addDocked({
       xtype : 'button',
@@ -4627,41 +4985,13 @@ Ext.define('CV.view.View', {
       handler : me.clearSelection,
       scope : me
     });
-    // // this.facetsGrid = Ext.create('CV.view.Facets', {
-    // // store : this.facetsStore,
-    // // bbar : [{
-    // // xtype : 'button',
-    // // text : 'Clear Facets',
-    // // handler : me.clearSelection,
-    // // scope : me
-    // // }]
-    // // });
-    // Ext.apply(this, {
-    // hideBorders : true,
-    // layout : 'border',
-    // region : 'center',
-    // deferredRender : false,
-    // items : [gridPanel, graphPanel, this.facetsGrid]
-    // });
     me.callParent(arguments);
-    //
-    // treePanel.addPlugin({
-    // ptype : 'statusmask',
-    // owner : treePanel,
-    // store : this.treeStore
-    // });
   },
   facetsUpdate : function(store, records, success) {
-    // if ( success ){
-    // this.facetsGrid.expand(true);
     this.updateFacetsParam();
     !this.changeDataSet && this.fireEvent('facetschanged');
-    // this.fireEvent('facetschanged', this.facetsStore );
-    // }
   },
   refine : function() {
-    // reload controlled vocabulary store and repopulate the graphs
-    // console.log(this.filters)
     this.vStore.getProxy().setExtraParam('filters', JSON.stringify(this.filters));
     this.vStore.getProxy().setExtraParam('facets', JSON.stringify(this.facets));
     this.vStore.load();
@@ -4675,7 +5005,6 @@ Ext.define('CV.view.View', {
       var proxy = item.getProxy();
       proxy && proxy.setExtraParam(param, value);
     });
-    // stores[0].load();
   },
   updateFacetsParam : function() {
     this.updateExtraParam('facets', JSON.stringify(this.facetsStore.getFacets()), this.facetsParamArray);
@@ -4685,20 +5014,12 @@ Ext.define('CV.view.View', {
     this.refine();
   },
   clearSelection : function() {
-    // var silent = false;
     this.clearFacets();
   },
   clearFacets : function(silent) {
     silent = silent || false;
-    // this.facets= [];
-    // this.facetsStore.removeAll(silent);
     this.facetsStore.removeAll();
-    // !silent && this.fireEvent('facetschanged', this.facets );
   },
-  // setFacets:function( facets ){
-  // // this.facets = facets;
-  // // this.fireEvent( 'facetschanged' , facets );
-  // },
   select : function(id) {
     if ( typeof id === "undefined") {
       return;
@@ -4707,7 +5028,6 @@ Ext.define('CV.view.View', {
   selectNode : function() {
     var node;
     node = this.treeStore.getById(this.treeid);
-    // this.treePanel.expandNode ( node );
     if (node) {
       this.treePanel.expandPath(node.getPath(this.fieldPath), this.fieldPath);
       this.treePanel.getSelectionModel().select(node);
@@ -4729,24 +5049,18 @@ Ext.define('CV.view.View', {
     this.treeid = id;
 
     if (!this.treeStore.isLoading()) {
-      // this.selectNode();
     } else {
-      // this.treeStore.addListener('load', this.selectNode, this);
     }
-    // node && node.parentNode.expand();
 
     // load grid store
     this.gridStore.getProxy().setExtraParam('id', id);
     this.gridStore.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
-    // console.log(this.gridStore.getProxy());
     this.gridStore.load();
 
     this.vStore.removeAll();
     this.vStore.getProxy().setExtraParam('id', id);
     this.vStore.load();
 
-    // this.addDbxref( id );
-    // this.addBlast( id );
   },
   convertToInt : function(id) {
     if (!isNaN(id)) {
@@ -4760,12 +5074,7 @@ Ext.define('CV.view.View', {
   clearGraphPanel : function() {
     var tempStore = this.graphPanel.items.getAt(0), tempStore = tempStore ? tempStore.store : null;
     this.graphPanel.disable();
-    // console.log(this.graphPanel);
-    // tempStore && console.log( tempStore.model );
     this.graphPanel.removeAll(true);
-    // console.log('after');
-    // tempStore && console.log( tempStore.model )
-    // console.log(this.graphPanel);
     this.graphPanel.enable();
   },
   visibleColumns : function(fields) {
@@ -4773,7 +5082,12 @@ Ext.define('CV.view.View', {
     for (i in fields ) {
       field = fields[i];
       columns.splice(1, 0, {
-        dataIndex : field['id'],
+        dataIndex : field['id'] + ' proportion',
+        text : field['text'] + ' proportion',
+        flex : 1
+      });
+      columns.splice(1, 0, {
+        dataIndex : field['id'] + ' count',
         text : field['text'],
         flex : 1
       });
@@ -4799,11 +5113,10 @@ Ext.define('CV.view.View', {
         name : 'highername',
         type : 'object',
         defaultValue : CV.config.ChadoViewer.getHigherNames()
-      },{
+      }, {
         name : 'cv_id',
         type : 'auto'
-      }], 
-      selected = CV.config.ChadoViewer.getOnlyIds(), id, columnSchema = {
+      }], selected = CV.config.ChadoViewer.getOnlyIds(), id, columnSchema = {
         name : undefined,
         type : 'integer',
         text : undefined
@@ -4811,33 +5124,24 @@ Ext.define('CV.view.View', {
       this.newFields = [];
       for (id in selected ) {
         column = Ext.clone(columnSchema);
-        column.name = selected[id];
+        column.name = selected[id] + " count";
+        this.newFields.push(column);
+        fields.push(column);
+
+        column = Ext.clone(columnSchema);
+        column.name = selected[id] + " proportion";
+        column.type = 'number';
         this.newFields.push(column);
         fields.push(column);
       }
-
       s = Ext.create('CV.store.FeatureCount', {
         fields : fields,
         listeners : {
           beforedestroy : this.removeFacetStore,
           scope : this
         }
-        // fields:[{
-        // name: 'cvterm_id',
-        // type: 'integer'
-        // },{
-        // name:'name' ,
-        // type: 'string'
-        // },{
-        // name: 'total',
-        // type: 'integer'
-        // },{
-        // name:'68',
-        // type:'integer'
-        // }]
       });
       //update facetArrayParam
-      // this.facetsParamArray.push(s);
       this.facetsParamArray.add(s);
       s.getProxy().url = CV.config.ChadoViewer.self.baseUrl;
       // this is done since extra params instance is same for all store instances CV.store.FeatureCount.
@@ -4847,18 +5151,12 @@ Ext.define('CV.view.View', {
       s.getProxy().setExtraParam('cv_name', rec.get('name'));
       s.getProxy().setExtraParam('get', rec.get('get'));
       s.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
-      // // store.load();
       dataPanel = this.createTab(s, rec);
 
-      // this.addListener( 'facetschanged', this.refreshDsview , this );
-
-      // this.graphPanel.add( dataPanel );
       tabs.push(dataPanel);
     }, this);
-    // console.log(tabs);
     this.graphPanel.add(tabs);
     this.graphPanel.setActiveTab(0);
-    // new Ext.LoadMask( tabs[0] , { store : tabs[0].store , useTargetEl : true});
     this.cvPanels = tabs;
   },
   loadingOn : function() {
@@ -4869,7 +5167,6 @@ Ext.define('CV.view.View', {
   },
   refreshDsview : function() {
     var that = this;
-    // this.graphPanel.active.store.load();
     this.graphPanel.items.each(function(item) {
       item.active.reloadStore = false;
       item.items.each(function(i) {
@@ -4890,49 +5187,39 @@ Ext.define('CV.view.View', {
     });
   },
   createTab : function(bioStore, rec) {
-    var columns, tab, tag = Ext.create('CV.view.TagCloud', {
+    var columns, tab, titles=[],title, oldTitles, index, tag = Ext.create('CV.view.TagCloud', {
       store : bioStore,
       listeners : {
         beforeshow : function() {
           this.setThreshold(tab);
-          // if( this.isVisible( true )){
-          // console.log('activate event');
-          // tab.setThreshold( 1 );
-          // hack to set redraw tag panel
-          // tag.draw();
-          // }
         }
       }
-      // setThreshold : function(chadopanel) {
-      // // chadopanel.setThreshold(chadopanel.minValue);
-      // chadopanel.setThreshold(200);
-      // }
     });
+    /**
+     * gets titles and adds proportions
+     */
+    oldTitles =CV.config.ChadoViewer.getIdsText();
+    for( index in oldTitles ){
+      title = oldTitles[ index ];
+      titles.push(title+' (count)');
+      titles.push(title + ' (percentage)');
+    }
     columns = this.visibleColumns(CV.config.ChadoViewer.self.selectedIds);
     var filtersCfg = {
-    ftype: 'filters',
-    autoReload: false,
-    local: true, 
-    filters: [{
-        type: 'string',
-        dataIndex: 'name'
+      ftype : 'filters',
+      autoReload : false,
+      local : true,
+      filters : [{
+        type : 'string',
+        dataIndex : 'name'
       }]
     };
-    columns[0].filter =  {
-          xtype : 'textfield'
-      };
+    columns[0].filter = {
+      xtype : 'textfield'
+    };
     if (!this.flag) {
-      // this.graphPanel.addPlugin({ ptype:'statusmask',owner: this.graphPanel , cmp : this.graphPanel , store:bioStore });
       this.flag = true;
     }
-    //,
-    // shouldRefresh = function ( ){
-    // if ( !this.filter ) {
-    // return false;
-    // }
-    // return true;
-    // }
-    // ;
 
     tab = Ext.create('CV.view.ChadoPanel', {
       title : rec.get('title'),
@@ -4940,60 +5227,22 @@ Ext.define('CV.view.View', {
       record : rec,
       store : bioStore,
       height : 400,
-      plugins : [Ext.create('CV.ux.StatusMask', {
-        ptype : 'statusmask',
-        // owner : tab,
+      plugins : [Ext.create('CV.ux.Retry', {
         store : bioStore
       })],
       listeners : {
-        // beforedestroy : function() {
-        // var dsview = Ext.ComponentQuery.query( 'libraryview' )[0];
-        // // dsview.removeListener( 'facetschanged' , dsview.loadStore , this.store );
-        // },
         setthreshold : function() {
-          // console.profile();
           this.active.setThreshold(this);
-          // console.profileEnd();
         }
-        //
-        // activate:function(){
-        // this.addListener('filtercomplete', tag.draw, tag);
-        // }
       },
-      // afterRender:function(){
-      // this.addListener('filtercomplete', tag.draw, tag);
-      // // this.callParent ( arguments );
-      // },
-      // defaults : {
-      // hideMode : 'display'
-      // },
-      // listeners:{
-      // render:function ( comp ) {
-      // comp.store.load();
-      // },
-      // filtercomplete: function (){
-      // this.items.each( function( item ) {
-      // item.filter = true;
-      // item.refresh();
-      // });
-      // }
-      // },
       autoDestroy : false,
-      // bindStoreToComp:function(){
-      // var that = this;
-      // this.items.each( function( item ) {
-      // item.bindStore( that.store );
-      // });
-      // },
       items : [tag, Ext.create('CV.view.BarChart', {
         store : bioStore,
         yField : CV.config.ChadoViewer.getOnlyIds(),
-        titles : CV.config.ChadoViewer.getIdsText(),
+        titles : titles,
         listeners : {
           beforeactivate : function() {
-            // console.profile();
             this.setThreshold(tab);
-            // console.profileEnd();
           }
         }
       }), Ext.create('CV.view.PieChart', {
@@ -5004,28 +5253,15 @@ Ext.define('CV.view.View', {
             this.setThreshold(tab);
           }
         }
-      }), Ext.create('CV.view.RawData', 
-      {
-        xtype:'rawdata',
+      }), Ext.create('CV.view.RawData', {
+        xtype : 'rawdata',
         store : bioStore,
         columns : columns,
-        features : [ filtersCfg ],
+        features : [filtersCfg],
         listeners : {
           /**
            * added this code in controller. faceting now can be switched on or off.
            */
-          // selectionchange: function( rowmodel , recs ) {
-          // var i , dsview = this.up('dsview'),  facets = dsview.facets || [],grid = dsview.down('sequencesgrid');
-          // if(  recs.length ) {
-          // facets.push({ property:'cvterm_id', value:recs[0].get('cvterm_id')});
-          // dsview.facetsStore.loadData([{'cvterm_id':recs[0].get('cvterm_id'),'name':recs[0].get('name'),'cv':tab.title}], true)
-          // // dsview.setFacets( facets );
-          // }
-          // },
-          // render:function(){
-          // console.log('raw data rendered');
-          // console.log( this.store , this.store.model , this.store.proxy.model );
-          // },
           beforeactivate : function() {
             this.setThreshold(tab);
           }
@@ -5033,18 +5269,8 @@ Ext.define('CV.view.View', {
         setThreshold : function(chadopanel) {
           chadopanel.setThreshold(chadopanel.minValue);
         }
-      }
-      )
-      ]
+      })]
     });
-    // this.graphPanel.add( tab );
-    // tab.addPlugin({
-    // ptype : 'statusmask',
-    // owner : tab,
-    // store : bioStore
-    // });
-    // tab.addListener('filtercomplete', tag.draw, tag);
-    // bioStore.addListener('load' , tab.bindStoreToComp , tab );
     return tab;
   },
   onRemoved : function() {
@@ -5062,7 +5288,6 @@ Ext.define('CV.view.View', {
     }
   }
 });
-
 Ext.define('CV.view.library.View', {
   extend :  CV.view.View ,
   alias : 'widget.libraryview',
@@ -5080,7 +5305,7 @@ Ext.define('CV.controller.Library', {
   views : ['CV.view.library.View'],
                                                                                                                                                                  
   /*
-   libraryView will store the instance of the library view
+   * libraryView will store the instance of the library view
    */
   libraryView : 'CV.view.library.View',
   // references to views that are controlled by this controller
@@ -5109,18 +5334,27 @@ Ext.define('CV.controller.Library', {
   }, {
     ref : 'cvtabs',
     selector : 'libraryview cvtabs'
+  }, {
+    ref : 'statuspanel',
+    selector : 'libraryview panel[name=statuspanel]'
+  }, {
+    ref : 'annotationpanel',
+    selector : 'libraryview tabpanel[name=annotationpanel]'
+  },{
+    ref: 'autoannotations',
+    selector:'libraryview autoannotations'
   }],
   // config
   name : 'Library',
   text:'Protein Annotations',
   uri : 'library',
   libraryId : 'id',
+  btnTooltip: 'Get a summary of transcripts based on experiments',
   //   this config decides if tree elements need to be selected
   item : null,
   init : function() {
     var treeView, gridView, controller = this;
     this.control({
-      // 'libraryview treepanel' : {
       'libraryview dstree' : {
         // select:this.treeSelect,
         selectionchange: this.multiSelectUri,
@@ -5188,6 +5422,7 @@ Ext.define('CV.controller.Library', {
     this.render(this.libraryView);
     this.clearSelection();
     if (idList && idList[0]) {
+      this.enable();
       switch ( idList[0].type ) {
         case 'library':
           id = idList[0].id;
@@ -5207,11 +5442,10 @@ Ext.define('CV.controller.Library', {
             this.treeSelect(id);
           }
           break;
-      }
+      } 
+    } else {
+        this.disable();
     }
-    // else {
-
-    // }
   },
   onFilterComplete : function() {
     var cvtabs = this.getCvtabs(), activeTab = cvtabs.getActiveTab(), cloud = activeTab && activeTab.down('tagcloud');
@@ -5219,7 +5453,7 @@ Ext.define('CV.controller.Library', {
   },
   onFacetsChanged : function() {
     var seqGrid = this.getSequencesGrid(), lib = this.getLib(), tabpanel = this.getCvtabs();
-    seqGrid.getStore().load();
+    seqGrid.getStore().loadPage(1);
     // load the graph( summary ) panels.
     // Ext.each( lib.facetsParamArray , function( store ){
     // store.load();
@@ -5232,7 +5466,6 @@ Ext.define('CV.controller.Library', {
     // });
   },
   graphSelection : function(slice) {
-    // console.log('pie selected is!');
     var dsview = this.getLib(), tab = dsview.down('cvtabs').getActiveTab();
     if ( tab && ( tab.othersRec !== slice )) {
       dsview.facetsStore.loadData([{
@@ -5252,7 +5485,7 @@ Ext.define('CV.controller.Library', {
           id : record.get(this.libraryId),
           type : record.get('type'),
           text : record.get('text')
-        }
+        };
         items.push( item );
       }
       // item.id = record.get(this.libraryId),
@@ -5270,7 +5503,7 @@ Ext.define('CV.controller.Library', {
     var validate, item,i;
     validate = this.validateSameType( items );
     validate = validate && this.validateJustUnknow( items );
-    return validate
+    return validate;
   },
   validateSameType:function( items ){
     var item, valid = true, prev;
@@ -5303,7 +5536,7 @@ Ext.define('CV.controller.Library', {
       Ext.Msg.show({
         title:'Error!',
         msg:'Multiple selection cannot be made with Unknow'
-      })
+      });
     }
     return valid;
   },
@@ -5313,13 +5546,22 @@ Ext.define('CV.controller.Library', {
       type : record.get('type'),
       name : record.get('name')
     },
-    // item.id = record.get(this.libraryId),
-    // item.type = 'library',
     url = this.uri + '/' + JSON.stringify([item]);
     CV.ux.Router.redirect(url);
   },
   treeSelect : function(item, idList) {
-    var id, value, grid, graph, graphStore, gridStore, itemRecord, panel, tree = this.getTree(), sm = tree.getSelectionModel(), view = this.getLib();
+    var id, 
+      value, 
+      grid, 
+      graph,
+      graphStore,
+      gridStore,
+      itemRecord,
+      panel,
+      tree = this.getTree(), 
+      sm = tree.getSelectionModel(), 
+      view = this.getLib(),
+      annot = this.getAutoannotations();
 
     panel = this.getLib();
     // panel.clearFacets(true);
@@ -5330,11 +5572,12 @@ Ext.define('CV.controller.Library', {
     // this.selectNode();
     this.selectNodes( idList );
     grid = this.getSequencesGrid();
-    // grid.store.getProxy().extraParams = CV.config.ChadoViewer.self.library.feature.extraParams;
-    // grid.store.getProxy().setExtraParam('view','library');
+
     grid.store.getProxy().setExtraParam('id', item);
     grid.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
 
+    annot.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
+    
     panel.setDS(item);
 
     //set page number to one on changing library
@@ -5362,23 +5605,16 @@ Ext.define('CV.controller.Library', {
         return true;
       }
     };
-    // store && this.treeLoaded(store);
     if (nodes && nodes.length ) {
       var itemRecord,
-      //         view = this.getLib(),
       tree = this.getTree(), sm = tree.getSelectionModel();
       for ( i in nodes ){
         node = nodes[i];
-        // itemRecord = tree.getStore().getRootNode().findChild(this.libraryId, node.id, true);
         itemRecord = tree.getStore().getRootNode().findChildBy( findFn, this, true );
         itemRecord && itemRecord.parentNode.expand( true );
         itemRecord && records.push( itemRecord );
       }
-      // store.getRootNode().expand();
-      // itemRecord && itemRecord.parentNode.expand(true);
-      // itemRecord && sm.select(records, false, false);
       records && sm.select( records, false, true );
-      // this.item = null;
     }
   },
   /*
@@ -5398,7 +5634,11 @@ Ext.define('CV.controller.Library', {
     this.getSequencesGrid().store.filter(filters);
   },
   clearSelection : function() {
-    var treePanel = this.getTree(), gridSeq = this.getSequencesGrid(), graph = this.getGraphPanel(), gridMeta = this.getMetadataPanel(), lib = this.getLib();
+    var treePanel = this.getTree(), 
+      gridSeq = this.getSequencesGrid(), 
+      graph = this.getGraphPanel(), 
+      gridMeta = this.getMetadataPanel(), 
+      lib = this.getLib();
     treePanel && treePanel.clear();
     gridSeq.clear();
     gridMeta.clear();
@@ -5415,6 +5655,22 @@ Ext.define('CV.controller.Library', {
       'cv_id' : slice.get('cvid')
     }], true);
 
+  },
+  /**
+   * disable views when library or species are not selected
+   */
+  disable:function(){
+    var tab = this.getAnnotationpanel(), accordion = this.getStatuspanel();
+    tab && tab.disable();
+    accordion && accordion.disable();
+  },
+  /**
+   * enable views when library or species are selected
+   */
+  enable:function(){
+    var tab = this.getAnnotationpanel(), accordion = this.getStatuspanel();
+    tab && tab.enable();
+    accordion && accordion.enable();
   }
 });
 
@@ -5506,7 +5762,6 @@ Ext.define('CV.view.de.Chosen', {
     text:'Name',
     dataIndex: 'name',
     renderer:function( rec ){
-      // console.log("<a href='#feature/dataset_16."+rec+"'>"+rec+"</a>");
       return "<a href='#feature/dataset_16."+rec+"'>"+rec+"</a>";
     }
   }],
@@ -5667,12 +5922,10 @@ Ext.define('CV.controller.DE', {
     this.render( view );
   },
   linkStore:function( deview ){
-    console.log( 'linking store');
     this.graphStore = deview.store;
   },
   loadStore:function( store , selected){
     if( this.graphStore ){
-      console.log()
       selected = selected[0];
       var gid = selected.get('gid')||1, deid = selected.get('pid')||1;
       this.graphStore.setExtraParam('pid', deid);
@@ -5681,13 +5934,11 @@ Ext.define('CV.controller.DE', {
     }
   },
   addNode:function( point ){
-    console.log( point.z.aliases[0] );
     var chosen = this.getChosen(), name = point.z.aliases[0], selections = [], cx ;
     chosen && chosen.store.loadData( [{ name : name }], true);    
     chosen.store.each(function( rec ){
       selections.push( rec.get('name') );
     });
-    console.log(this.getCX().canvasXpress);
     cx = this.getCX().canvasXpress;
     if( selections.length ){
       cx.selectDataPoint = selections;
@@ -5781,6 +6032,7 @@ Ext.define('CV.view.Viewport', {
         btn.text = value.text;
         btn.uri = value.uri;
         btn.id = value.uri + btn.id;
+        btn.tooltip = value.btnTooltip;
         return btn
     },
     autoLoad : false,
@@ -5994,34 +6246,12 @@ Ext.define('CV.store.Experiments', {
     this.callParent( arguments );
   }
 });
-Ext.define('CV.store.Fasta',{
-  extend: Ext.data.Store ,
-  fields:['fasta'],
-                                     
-  autoLoad:false,
-  remoteFilter:true,
-  remoteSort:true,
-  proxy:{
-    url:CV.config.ChadoViewer.self.baseUrl,
-    type:'ajax',
-    extraParams:{
-      type:'list',
-      view:'feature',
-      ds:'feature',
-      id:null,
-      facets:null
-    },
-    reader:{
-      type:'json',
-      root:'data'
-    }
-  }
-  });
 Ext.define('CV.store.FeatureMetadata', {
   extend :  Ext.data.Store ,
   model : 'CV.model.CvTerm',
                                                        
   autoLoad:false,
+  groupField:'gr',
   proxy : {
     type : 'ajax',
     extraParams:{
@@ -6044,6 +6274,35 @@ Ext.define('CV.store.FeatureMetadata', {
   }
 });
 
+Ext.define('CV.store.GenomeBase', {
+  extend: Ext.data.Store ,
+  constructor : function(config) {
+    var url = CV.config.ChadoViewer.self.drupalBase + CV.config.ChadoViewer.self.genomeviewer.url;
+    this.proxy = this.proxy || {};
+    Ext.Object.merge(this.proxy, {
+        url : url
+    });
+    this.callParent( arguments );
+  }
+});
+Ext.define('CV.store.GenomeTracks', {
+  extend: CV.store.GenomeBase ,
+                                   
+  fields:[{
+    name:'tracks',
+    type:'object'
+  }],
+  proxy:{
+    type:'ajax',
+    reader:{
+      type:'json'
+    },
+    extraParams:{
+      type: 'track',
+      id: null
+    }
+  }
+});
 Ext.define('CV.store.GraphData',{
   extend: Ext.data.Store ,
   model:'CV.model.GraphDatum',
@@ -6068,6 +6327,44 @@ Ext.define('CV.store.GraphData',{
   }
 })
 
+Ext.define('CV.store.NetworkJson', {
+  extend: Ext.data.Store ,
+  pageSize: 10,
+  fields:['network_id','json'],
+  proxy: {
+      type: 'ajax',
+      extraParams:{
+        type:'networkjson',
+        ds : 'feature',
+        network_id:null,
+        dataset_id:null
+      }
+  },
+  constructor : function(config) {
+    Ext.Object.merge(this.proxy, {
+        url : CV.config.ChadoViewer.self.baseUrl
+    });
+    this.callParent( arguments );
+  }
+});
+Ext.define('CV.store.ProteinTranslation', {
+  extend: CV.store.Base ,
+  fields:['fasta'],
+                             
+  proxy:{
+    type:'ajax',
+    extraParams:{
+        ds : 'feature',
+        type : 'translate',
+        feature_id : 0,
+        geneticCode: 1
+    },
+    reader:{
+      type:'json'
+    }
+  },
+  autoLoad:false
+});
 /**
  * The store used for feature
  */
@@ -6096,9 +6393,8 @@ Ext.define('CV.view.BarChart', {
   mixins : [ CV.ux.ThresholdFinder ],
   // i18n properties
   bottomAxeTitleText : "Terms",
-  leftAxeTitleText : "Count",
+  leftAxeTitleText : "Count & Percentage",
   menuTitle : 'Bar Chart',
-  theme : 'Red:gradients',
   legend : {
     position : 'top'
   },
@@ -6140,6 +6436,17 @@ Ext.define('CV.view.BarChart', {
     this.setLoading(false);
   },
   initComponent : function() {
+    // create y fields
+    var yFields = [], i, yField, ids={}, count , prop;
+    for( i in this.yField ){
+      yField = this.yField[i];
+      count = yField + ' count';
+      prop = yField + ' proportion';
+      yFields.push( count );
+      yFields.push( prop );
+      ids [ count ] = yField;
+      ids [ prop ] = yField;
+    }
     Ext.apply(this, {
       region : 'south',
       height : 400,
@@ -6149,15 +6456,26 @@ Ext.define('CV.view.BarChart', {
         type : 'Numeric',
         position : 'left',
         // fields : ['2', '68'],
-        label : {
-          renderer : Ext.util.Format.numberRenderer('0,0')
-        },
         title : this.leftAxeTitleText,
         grid : true,
         minimum : 0//,
         // TODO: not implemented in 4.2. ideally if others column number is large, logarithmic scaling should be used.
         //scale:'logarithmic'
-      }, {
+      }
+      // ,{
+        // type : 'Numeric',
+        // position : 'right',
+        // label : {
+          // renderer : Ext.util.Format.numberRenderer('0,0')
+        // },
+        // title : 'Proportion',
+        // grid : false,
+        // minimum : 0,
+        // maximum : 100
+        // // TODO: not implemented in 4.2. ideally if others column number is large, logarithmic scaling should be used.
+        // //scale:'logarithmic'
+      // }
+      , {
         type : 'Category',
         position : 'bottom',
         fields : ['name'],
@@ -6176,11 +6494,9 @@ Ext.define('CV.view.BarChart', {
         showInLegend: true,
         tips : {
           trackMouse : true,
-          width : 140,
-          //           height: 28,
+          minWidth: 250,
           renderer : function(storeItem, item) {
-            // console.log(item);
-            this.setTitle(storeItem.get('name') + ' - ' + storeItem.get(item.yField) +' <br/><i>('+storeItem.get('highername')[item.yField]+')</i>');
+            this.setTitle(storeItem.get('name') + ' - ' + storeItem.get( item.yField ) +' <br/><i>('+storeItem.get('highername')[item.series.yFieldIds[item.yField]]+')</i>');
           }
         },
         label : {
@@ -6188,51 +6504,22 @@ Ext.define('CV.view.BarChart', {
           field : 'left',
           renderer : Ext.util.Format.numberRenderer('0'),
           orientation : 'horizontal',
-          color : '#333',
           'text-anchor' : 'middle'
         },
         xField : 'name',
-        yField : this.yField,
+        yField : yFields,
+        libraryId : this.yField,
+        yFieldIds : ids,
         title: this.titles,
         listeners : {
           itemclick : function(slice) {
             this.chart.fireEvent('itemclicked', slice.storeItem);
-            // console.log(slice);
           }
         }
       }
-      // , {
-        // type : 'column',
-        // axis : 'right',
-        // highlight : true,
-        // tips : {
-          // trackMouse : true,
-          // width : 140,
-          // //           height: 28,
-          // renderer : function(storeItem, item) {
-            // this.setTitle(storeItem.get('name') + ': ' + storeItem.get('count'));
-          // }
-        // },
-        // label : {
-          // display : 'insideEnd',
-          // field : 'left',
-          // renderer : Ext.util.Format.numberRenderer('0'),
-          // orientation : 'horizontal',
-          // color : '#333',
-          // 'text-anchor' : 'middle'
-        // },
-        // xField : 'name',
-        // yField : ['count'],
-        // listeners : {
-          // itemclick : function(slice) {
-            // this.chart.fireEvent('itemclicked', slice.storeItem);
-            // console.log(slice);
-          // }
-        // }
-      // }
       ]
     });
-    delete this.yField;
+    // delete this.yField;
     this.addEvents('itemclicked');
     this.callParent(arguments);
   }
@@ -6253,7 +6540,6 @@ Ext.define('CV.view.MultiViewPanel', {
   alias : 'widget.multiviewpanel',
   active:null,
   initComponent : function() {
-    // console.log('multiview panel instance created ');
     var items = [], menu = {
       items : []
     }, that = this, item, index, title, cycle, handler, focusItem, prependText, slider;
@@ -6280,6 +6566,7 @@ Ext.define('CV.view.MultiViewPanel', {
     delete this.prependText;
 
     cycle = Ext.create('Ext.button.Cycle', {
+      tooltip:'Display the data in different visualization methods',
       prependText : prependText,
       showText : true,
       menu : menu,
@@ -6310,7 +6597,6 @@ Ext.define('CV.view.MultiViewPanel', {
     var that = this;
     return function() {
       that.active = comp;
-      // console.log('active comp set');
       that.layout.setActiveItem(comp);
       // comp.fireEvent('activate');
     }
@@ -6318,7 +6604,7 @@ Ext.define('CV.view.MultiViewPanel', {
   changeHandler : function(button, menuItem) {
     menuItem.handle();
   }
-})
+});
 Ext.define('CV.view.InputSlider', {
   extend: Ext.slider.Single ,
   // isFormField: true,
@@ -6328,7 +6614,6 @@ Ext.define('CV.view.InputSlider', {
   sliderField: null,
   initComponent: function() {
     // this.originalValue = this.value;
-    // console.log( this.width );
     // this.width += 80;
     this.callParent( arguments );
   }
@@ -6458,7 +6743,7 @@ Ext.define('CV.view.ChadoPanel', {
     slider = Ext.create('Ext.slider.Single', {
       width : 200,
      // value : 200,
-      // tipText : 'Catergorize items below the set value',
+      tooltip : 'Set cutoff using the slider',
       fieldLabel : this.fieldValue,
       increment : 1,
       listeners : {
@@ -6480,11 +6765,12 @@ Ext.define('CV.view.ChadoPanel', {
         padding: '5 5 0 5',
         width:30,
         hideTrigger:true,
+        tooltip:'Set cutoff to a specific value',
         listeners:{
           change : this.setValue,
           scope : this
         }
-      })
+    });
     // if (!this.tbar) {
       // // if tbar is not initilized
       // this.tbar = [];
@@ -6561,12 +6847,6 @@ Ext.define('CV.view.ChadoPanel', {
             });
           }
     });
-    // // loading mask handlers
-    // this.store.on({
-      // beforeload:this.loadingOn,
-      // load:this.loadingOff,
-      // scope:this
-    // });
  
     Ext.apply(this, {
       tbar:[{
@@ -6575,6 +6855,7 @@ Ext.define('CV.view.ChadoPanel', {
       items:[slider , this.sliderNumberField ,{
       xtype:'button',
       text:'Optimize',
+      tooltip:'Set cutoff to minimum permissible level of the current visualization',
       handler:function(){
        that.active.setThreshold( that ); 
       }      
@@ -6637,11 +6918,8 @@ Ext.define('CV.view.ChadoPanel', {
     // slider.setFieldLabel(this.fieldValue + newValue);
   },
   setSlider : function( store , records, success ) {
-    // console.profile();
-    // console.log('setSlider');
     var max, min, store, slider = this.slider, mid, that = this, myStore;
     if ( success ){
-      // console.profile();
       myStore = this.store;
       myStore.clearFilter(true);
       myStore.remove( [ this.othersRec ] );
@@ -6651,32 +6929,29 @@ Ext.define('CV.view.ChadoPanel', {
         // initialise to the first record's id value.
         myStore.each(function(rec)// go through all the records
         {
-          // if( rec !== that.otherRec ) {
             max = Math.max(max, rec.get(that.countField));
             min = Math.min(min, rec.get(that.countField));
-          // }
         });
         mid = Math.round((min + max ) / 2);
-        // myStore.add( [ this.othersRec ]);
         
         this.setMinValue(min);
         this.setMaxValue(max);
-        // this.setValue( this.slider , mid );
-        // console.profileEnd();
         this.fireEvent('setthreshold');
       }
     }
-    // console.profileEnd();
   },
   filter : function() {
     
     var store = this.store, othersRec = this.othersRec, thresh = this.threshold, that = this, counter = 0, counters = {},ids, i;
     ids = CV.config.ChadoViewer.getOnlyIds();
-    ids.push( that.countField );
+    
     // initialize counters
     for( i in ids ){
-      counters[ ids[i] ] = 0;
+      counters[ ids[i]+' count' ] = 0;
+      counters[ ids[i]+' proportion' ] = 0;
     }
+    // ids.push( that.countField );
+    counters[ that.countField ] = 0;
     // counters[ that.countField ] = 0;
     store.suspendEvents( true );
     // this.loadingOn();
@@ -6702,8 +6977,8 @@ Ext.define('CV.view.ChadoPanel', {
     });
     // console.profileEnd();
     for( i in counters ){
-      othersRec.set( i, counters[i] );
-    }    
+      othersRec.set( i, Ext.util.Format.number(counters[i],'0.00' ));
+    }
     // othersRec.set(that.countField, counter);
     store.add( [ this.othersRec ]);
     store.resumeEvents( );
@@ -6770,7 +7045,7 @@ Ext.define('CV.view.ChadoPanel', {
       this.el && this.el.unmask();
     }
   }
-})
+});
 Ext.define('CV.view.Chart', {
   extend: Ext.chart.Chart ,
   alias:'widget.libraryBar',
@@ -6988,24 +7263,12 @@ Ext.define('CV.view.RawData', {
   },
   columnLines: true,
   // plugins: 'bufferedrenderer',
-  columns : [
-  // {
-    // text : 'name',
-    // dataIndex : 'name',
-    // flex : 1
-  // }, {
-    // text : 'count',
-    // // dataIndex : 'count',
-    // dataIndex : 'total',
-    // flex : 1
-  // }
-  ],
+  columns : [],
   setThreshold:function( chadopanel ){
     chadopanel.setThreshold( 1 );
   },
   listeners:{
     // render:function(){
-      // console.log('activating function');
     // },
     // beforerender:function(){
 //       
@@ -7020,8 +7283,9 @@ Ext.define('CV.view.RawData', {
     // });
     this.callParent( this );
   }
-})
+});
 Ext.define('CV.view.feature.CvTermsGrid', {
+                                         
   extend: Ext.grid.Panel ,
   alias:'widget.cvtermsgrid',
   store:'CV.store.FeatureMetadata',
@@ -7030,7 +7294,10 @@ Ext.define('CV.view.feature.CvTermsGrid', {
   // collapsible:true,
   // collapsed:true,
   split:true,
-  // width:300,
+  /**
+   * property that stores group feature instance.
+   */
+  grpFeature:null,
   title : 'Metadata',
   columnLines:true,
   columns : [{
@@ -7049,12 +7316,15 @@ Ext.define('CV.view.feature.CvTermsGrid', {
     }    
   }],
   initComponent:function(){
+    var grp = Ext.create('Ext.grid.feature.Grouping',{   groupHeaderTpl: 'Group: {name} ({rows.length})' });
     Ext.apply(this, {
-     plugins:[Ext.create('CV.ux.Retry')]
+     plugins:[Ext.create('CV.ux.Retry')],
+     features:[grp],
+     grpFeature: grp
     });
     this.callParent(arguments); 
   }  
-})
+});
 Ext.define('CV.view.library.Chart', {
   extend: Ext.chart.Chart ,
   alias:'widget.libraryBar',
@@ -7187,7 +7457,6 @@ Ext.define( 'CV.view.library.Grid',{
       features.createFilters ();
       filter = this.filters.getFilter ( id );
       if ( !filter ) {
-        console.log ( 'no filter is available for the id' + id );
         return;
       }
     }
@@ -7218,7 +7487,6 @@ Ext.define( 'CV.view.library.Tree' , {
   width:400,
   rootVisible : true,
   initComponent:function (  ) {
-//     console.log ( this.store );
     this.callParent( arguments );
   },
   clear:function(){
@@ -7344,7 +7612,6 @@ Ext.define( 'CV.view.species.Grid',{
       features.createFilters ();
       filter = this.filters.getFilter ( id );
       if ( !filter ) {
-        console.log ( 'no filter is available for the id' + id );
         return;
       }
     }
@@ -7362,7 +7629,6 @@ Ext.define( 'CV.view.species.TreePanel' , {
   width:400,
   rootVisible : true,
   initComponent:function (  ) {
-    console.log ( this.store );
     this.callParent( arguments );
   },
   clear:function(){

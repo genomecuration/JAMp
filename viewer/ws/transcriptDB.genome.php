@@ -10,6 +10,22 @@ function genomeviewer ( ){
 	$id = $_REQUEST ['id'];
 	$ds = datasetType($id);
 	$id  = $ds['id'];
+	$dataset = $ds['dataset_id'];
+	
+		/**
+	 * check for ownership here. if true proceed otherwise sent 401 error code.
+	 */
+	$access = TRUE;
+	if(isset( $dataset )){
+		$access &= hasAccess( $dataset );
+	}
+	if( !$access ){
+		header('HTTP/1.0 401');
+		header('Content-Type: application/JSON');
+		echo "{ msg:'You are not Authorized!'}";
+		exit;
+	}
+	
 	// echo print_r($type);
 	switch ( $type ){
 		case 'sequence':
@@ -18,6 +34,7 @@ function genomeviewer ( ){
 		case 'track':
 			require_once( $database_adaptor. '/genomebrowser.inc' );
 			$data =  canvasTrack( $id, $ds );
+			$data = array( array( 'tracks' => $data ) );
 			break;
 		case 'config':
 			require_once( $database_adaptor. '/genomebrowser.inc' );
