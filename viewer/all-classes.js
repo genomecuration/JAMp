@@ -2006,12 +2006,11 @@ Ext.define('CV.view.feature.View', {
     });
     metaStore = Ext.create('CV.store.FeatureMetadata');
     var metadataPanel = Ext.create('CV.view.feature.CvTermsGrid', {
-      store : metaStore,
-      region : 'center'
+      store : metaStore
     });
     // fastaView = Ext.create ( 'CV.view.feature.Fasta');
     sequenceView = Ext.create('CV.view.feature.SequenceView', {
-      region : 'west',
+      region : 'center',
       disabled : true,
       split:true
     });
@@ -2021,10 +2020,14 @@ Ext.define('CV.view.feature.View', {
     // treestore.load();
     // combo = Ext.create('CV.view.feature.Annotations',{region:'south'});
     Ext.apply(this, {
-
       items : [grid, {
         xtype : 'panel',
-        region : 'center',
+        region : 'east',
+        title:'Metadata',
+        collapsible : true,
+        closeable : true,
+        split:true,
+        width:200,
         layout : {
           // layout-specific configs go here
           type : 'accordion',

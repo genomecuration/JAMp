@@ -880,7 +880,7 @@ function chadoviewer() {
 					}
 					$data = featureFasta( $idFeature );
 					$data = translate_DNA_to_protein( $data['residues'], $gCode );
-					$data = chunk_split($data, 80, PHP_EOL);
+					$data = chunk_split($data, 80, "\r\n");
 					switch ( $_REQUEST['text']) {
 						case 'plain':
 							break;						

@@ -39,6 +39,7 @@ $sqlQueries = array(
 	 * get all datasets
 	 * @param 1: owner name
 	 */
+	// 'datasets'=>'select * from datasets where owner =\'%1$s\' and dataset_id = %2$s',
 	'datasets'=>'select * from datasets where owner =\'%1$s\'',
 	/**
 	 * @param 1: dataset id
@@ -263,13 +264,13 @@ $sqlQueries = array(
 	   * @param 2: filtering terms
 	   * @param 3: organism id i.e. species name
 	   */
-	  'transcriptFilter'=>'select \'dataset_%1$s.\' || t.uname as feature_id, t.uname as name, t.uname as uniquename, g.nuc_sequence, \'nucleotide\' as type, \'dataset_%1$s.\' || g.uname as srcfeature, \'%3$s\' as organism_id, \'%1$s\' as datasetid, cds_start, cds_stop from dataset_%1$s.gene g join dataset_%1$s.transcript t on g.uname = t.gene_uname %2$s',
+	  'transcriptFilter'=>'select \'dataset_%1$s.\' || t.uname as feature_id, t.uname as name, t.uname as uniquename, g.nuc_sequence, \'transcript\' as type, \'dataset_%1$s.\' || g.uname as srcfeature, \'%3$s\' as organism_id, \'%1$s\' as datasetid, cds_start, cds_stop from dataset_%1$s.gene g join dataset_%1$s.transcript t on g.uname = t.gene_uname %2$s',
   	  /*
 	   * @param 1: dataset id
 	   * @param 2: filtering terms
 	   * @param 3: organism id i.e. species name
 	   */
-	  'geneFilter'=>'select \'dataset_%1$s.\' || t.uname as feature_id, t.uname as name, t.uname as uniquename, t.nuc_sequence, \'nucleotide\' as type, \'%3$s\' as organism_id, \'%1$s\' as datasetid  from dataset_%1$s.gene t %2$s',
+	  'geneFilter'=>'select \'dataset_%1$s.\' || t.uname as feature_id, t.uname as name, t.uname as uniquename, t.nuc_sequence, \'gene\' as type, \'%3$s\' as organism_id, \'%1$s\' as datasetid  from dataset_%1$s.gene t %2$s',
 	  /*
 	   * @param 1: dataset id
 	   * @param 2: filter string

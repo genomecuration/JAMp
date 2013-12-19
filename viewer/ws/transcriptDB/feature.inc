@@ -34,6 +34,7 @@ function featureList() {
 	$filter = filterWithSubQuery($filterArray, $translation, 'end');
 	// echo print_r( $filter );
 	$params = datasetType($_REQUEST['feature_id']);
+	// $datasetsSql = sprintf($sqlQueries['datasets'], $own, $dsType['dataset_id']);
 	$datasetsSql = sprintf($sqlQueries['datasets'], $own);
 	$datasets = query_execute(null, $datasetsSql);
 
@@ -102,7 +103,7 @@ function featureList() {
 			unset($data[$key]['datasetid']);
 			// unset( $data[$key]['nuc_sequence'] );
 			// add species name
-			$data[$key]['species'] = $datasets[0]['species_name'];
+			$data[$key]['species'] = $data[$key]['organism_id'];
 		}
 	}
 
@@ -217,8 +218,8 @@ function featureFasta( $id ) {
 		$fastaHeader = ">$name";
 		$sequence = $result[0]['residues'];
 		if ($sequence) {
-			$sequence = chunk_split($sequence, 80, PHP_EOL);
-			$out = $fastaHeader.PHP_EOL.$sequence.PHP_EOL;
+			$sequence = chunk_split($sequence, 80, "\r\n");
+			$out = $fastaHeader."\r\n".$sequence."\r\n";
 		} else {
 			$out = "no sequence record found for the feature";
 		}
