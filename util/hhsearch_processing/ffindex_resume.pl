@@ -10,6 +10,10 @@ $done_input =~s/\.idx$/.db/;
 my $counter=int(0);
 my (%hash_done,%hash_all);
 
+print "Processing $input_idx and $done_input_idx\n";
+
+die "Can't find one of the files\n" unless -s $input_idx && -s $done_input_idx;
+
 open (IN,"$input_idx") ||die;
 while (my $ln=<IN>){
         $ln=~/^(\d+)\s/ ||next;
@@ -23,7 +27,7 @@ foreach my $done (@files_done){
  open (IN,$done);
   while (my $ln=<IN>){
     $ln=~/^(\d+)\s/ ||next;
-    next if $ln=~/\b1$/;
+#if failed    next if $ln=~/\b1$/; 
     $hash_done{$1}=1;
   }
  close IN;

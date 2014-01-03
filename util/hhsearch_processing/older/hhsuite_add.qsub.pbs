@@ -1,0 +1,9 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=4:mem=15gb:NodeType=any -l walltime=3:00:00 -V
+#PBS -N addss -A sf-CSIRO
+#PBS -J 0-
+cd $PBS_O_WORKDIR
+
+INDEX_PADDED=`printf "%03d" $PBS_ARRAY_INDEX`
+~/software/trinityrnaseq_r2012-10-05/Inchworm/bin/ParaFly -CPU 4 -v -c multithread_addss.sh.$INDEX_PADDED -failed_cmds multithread_addss.sh.$INDEX_PADDED.failed
+

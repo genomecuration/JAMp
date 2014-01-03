@@ -1,0 +1,7 @@
+#!/bin/bash
+# it actually takes 12h easily...
+#PBS -l select=1:ncpus=4:mem=15gb:NodeType=any -l walltime=18:00:00 -V
+#PBS -N hhmdb -A sf-CSIRO
+cd $PBS_O_WORKDIR
+hhblitsdb.pl -o ~/30day/databases/hhsearch/genomes/DATABASE -ia3m .  -cpu $NCPUS
+rm -rf /tmp/pap056

@@ -1,0 +1,261 @@
+{
+    "projectName": "Project Name",
+    "licenseText": "Copyright(c) 2012 Company Name",
+    "builds": [
+        {
+            "name": "All Classes",
+            "target": "all-classes.js",
+            "options": {
+                "debug": true
+            },
+            "files": [
+                {
+                    "clsName": "CV.config.ChadoViewer",
+                    "name": "ChadoViewer.js",
+                    "path": "app/config/"
+                },
+                {
+                    "clsName": "CV.ux.Router",
+                    "name": "Router.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.ux.HeaderFilters",
+                    "name": "HeaderFilters.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.view.CvTabs",
+                    "name": "CvTabs.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.model.ControlledVocabulary",
+                    "name": "ControlledVocabulary.js",
+                    "path": "app/model/"
+                },
+                {
+                    "clsName": "CV.store.ControlledVocabularies",
+                    "name": "ControlledVocabularies.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.model.CvTerm",
+                    "name": "CvTerm.js",
+                    "path": "app/model/"
+                },
+                {
+                    "clsName": "CV.store.CvTerms",
+                    "name": "CvTerms.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.model.Facet",
+                    "name": "Facet.js",
+                    "path": "app/model/"
+                },
+                {
+                    "clsName": "CV.view.MultiViewPanel",
+                    "name": "MultiViewPanel.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.RawData",
+                    "name": "RawData.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.MetaData",
+                    "name": "MetaData.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.feature.Grid",
+                    "name": "Grid.js",
+                    "path": "app/view/feature/"
+                },
+                {
+                    "clsName": "CV.model.Feature",
+                    "name": "Feature.js",
+                    "path": "app/model/"
+                },
+                {
+                    "clsName": "CV.store.FeatureMetadata",
+                    "name": "FeatureMetadata.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.view.feature.CvTermsGrid",
+                    "name": "CvTermsGrid.js",
+                    "path": "app/view/feature/"
+                },
+                {
+                    "clsName": "CV.view.feature.Fasta",
+                    "name": "Fasta.js",
+                    "path": "app/view/feature/"
+                },
+                {
+                    "clsName": "CV.ux.RetryLoader",
+                    "name": "RetryLoader.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.ux.InformationLoader",
+                    "name": "InformationLoader.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.view.InputSlider",
+                    "name": "InputSlider.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.ux.ThresholdFinder",
+                    "name": "ThresholdFinder.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.view.GenomeBrowser",
+                    "name": "GenomeBrowser.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.feature.SequenceView",
+                    "name": "SequenceView.js",
+                    "path": "app/view/feature/"
+                },
+                {
+                    "clsName": "CV.ux.StoreUtil",
+                    "name": "StoreUtil.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.model.Library",
+                    "name": "Library.js",
+                    "path": "app/model/"
+                },
+                {
+                    "clsName": "CV.ux.StatusMask",
+                    "name": "StatusMask.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.store.Facets",
+                    "name": "Facets.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.view.Facets",
+                    "name": "Facets.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.ChadoPanel",
+                    "name": "ChadoPanel.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.PieChart",
+                    "name": "PieChart.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.BarChart",
+                    "name": "BarChart.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.feature.View",
+                    "name": "View.js",
+                    "path": "app/view/feature/"
+                },
+                {
+                    "clsName": "CV.store.Features",
+                    "name": "Features.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.view.TagCloud",
+                    "name": "TagCloud.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.store.Libraries",
+                    "name": "Libraries.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.view.Tree",
+                    "name": "Tree.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.Viewport",
+                    "name": "Viewport.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.controller.Feature",
+                    "name": "Feature.js",
+                    "path": "app/controller/"
+                },
+                {
+                    "clsName": "CV.store.FeatureCount",
+                    "name": "FeatureCount.js",
+                    "path": "app/store/"
+                },
+                {
+                    "clsName": "CV.view.help.View",
+                    "name": "View.js",
+                    "path": "app/view/help/"
+                },
+                {
+                    "clsName": "CV.ux.Retry",
+                    "name": "Retry.js",
+                    "path": "app/ux/"
+                },
+                {
+                    "clsName": "CV.controller.Help",
+                    "name": "Help.js",
+                    "path": "app/controller/"
+                },
+                {
+                    "clsName": "CV.view.FeatureGrid",
+                    "name": "FeatureGrid.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.View",
+                    "name": "View.js",
+                    "path": "app/view/"
+                },
+                {
+                    "clsName": "CV.view.library.View",
+                    "name": "View.js",
+                    "path": "app/view/library/"
+                },
+                {
+                    "clsName": "CV.controller.Library",
+                    "name": "Library.js",
+                    "path": "app/controller/"
+                }
+            ]
+        },
+        {
+            "name": "Application - Production",
+            "target": "app-all.js",
+            "compress": true,
+            "files": [
+                {
+                    "path": "",
+                    "name": "app.js"
+                },
+                {
+                    "path": "",
+                    "name": "all-classes.js"
+                }
+            ]
+        }
+    ],
+    "resources": []
+}
