@@ -787,7 +787,7 @@ The users (and the anyone with access to the website, such as paper reviewers an
 <div class="sect1">
 <h2 id="_controlled_vocabularies">Controlled Vocabularies</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the <a href="http://www.geneontology.org">Gene Ontology</a>. <a href="http://www.chem.qmul.ac.uk/iubmb/enzyme/‎">Enzyme Classification</a> (currently primarily for bacteria), <a href="http://eggnog.embl.de">EggNOG</a> and <a href="http:www.genome.jp/kegg/‎">Kyoto Encyclopedia of Genes and Genomes</a> (KEGG).</p></div>
+<div class="paragraph"><p>We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the <a href="http://www.geneontology.org">Gene Ontology</a>. <a href="http://www.chem.qmul.ac.uk/iubmb/enzyme/">Enzyme Classification</a> (currently primarily for bacteria), <a href="http://eggnog.embl.de">EggNOG</a> and <a href="http:www.genome.jp/kegg/">Kyoto Encyclopedia of Genes and Genomes</a> (KEGG).</p></div>
 <div class="admonitionblock">
 <table><tr>
 <td class="icon">
@@ -815,7 +815,7 @@ The users (and the anyone with access to the website, such as paper reviewers an
 <div class="sect1">
 <h2 id="_what_uses_cases_does_jamp_accomodate">What uses cases does JAMp accomodate?</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Basically, <em>Just_Annotate_My_proteins</em> does exactly what it reads on the tin! You give it a protein FASTA file and it annotates it with functional terms. The terms are derived from the <a href="http://www.ncbi.nlm.nih.gov/pubmed‎">literature</a> and the <a href="http://en.wikipedia.org/wiki/Biocurator">biocuration</a> teams working on linking known proteins with these terms. The use cases therefore are not restricted but we routinely use it for annotating:</p></div>
+<div class="paragraph"><p>Basically, <em>Just_Annotate_My_proteins</em> does exactly what it reads on the tin! You give it a protein FASTA file and it annotates it with functional terms. The terms are derived from the <a href="http://www.ncbi.nlm.nih.gov/pubmed">literature</a> and the <a href="http://en.wikipedia.org/wiki/Biocurator">biocuration</a> teams working on linking known proteins with these terms. The use cases therefore are not restricted but we routinely use it for annotating:</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
@@ -823,6 +823,18 @@ Transcriptome experiments that produce a reference sequence (an assembly)
 </p>
 </li>
 </ul></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_obtaining_jamg">Obtaining JAMg</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>Currently only distributed through the author.</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_running_jamg">Running JAMg</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>See README in distribution.</p></div>
 </div>
 </div>
 <div class="sect1">
@@ -841,7 +853,8 @@ alexie.papanicolaou@csiro.au</tt></pre>
 </div></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>This software is released under the Mozilla Public License v.2. You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
+<pre><tt>Copyright CSIRO 2013-2014.
+This software is released under the Mozilla Public License v.2. You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
 It is provided "as is" without warranty of any kind.</tt></pre>
 </div></div>
 </div>
@@ -850,7 +863,7 @@ It is provided "as is" without warranty of any kind.</tt></pre>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2013-12-11 15:44:52 EST
+Last updated 2013-12-23 15:50:25 EST
 </div>
 </div>
 </body>

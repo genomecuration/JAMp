@@ -21,7 +21,7 @@ Like most bioinformatic software, JAMp and its dependencies must first be instal
 Too easy!
 
 == Controlled Vocabularies == 
-We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the http://www.geneontology.org[Gene Ontology]. http://www.chem.qmul.ac.uk/iubmb/enzyme/‎[Enzyme Classification] (currently primarily for bacteria), http://eggnog.embl.de[EggNOG] and http:www.genome.jp/kegg/‎[Kyoto Encyclopedia of Genes and Genomes] (KEGG).
+We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the http://www.geneontology.org[Gene Ontology]. http://www.chem.qmul.ac.uk/iubmb/enzyme/[Enzyme Classification] (currently primarily for bacteria), http://eggnog.embl.de[EggNOG] and http:www.genome.jp/kegg/[Kyoto Encyclopedia of Genes and Genomes] (KEGG).
 
 WARNING: Users must understand a bit about the process of electronic inference. We have an unknown protein and we wish to infer what it may do. We don't have any functional data so we look for (using a software, i.e. ''in-silico''), a 'similar' known protein that has experimental evidence. We then infer that our protein has the same function. JAMP ensures that only known proteins with real experimental evidence are used in this inference, in other words, we are being careful not to do a double inference: assigning a function to our unknown protein because it is similar to another protein that has no experimental data but is similar to one that does. In theory this reduces the sensitivity of our search but the way we populate the database and identify our similar known proteins is not by BLAST but by a Hidden Markov search which is far more sensitive (see below).
 
@@ -31,9 +31,17 @@ IMPORTANT: Overall, annotating with JAMp is significantly faster than annotating
 How dow we address this problem? First, JAMp uses http://www.nature.com/nmeth/journal/v9/n2/full/nmeth.1818.html[HHblits], a HM model-based search software that searches your protein against Uniprot, builds an alignment and a model and then searches again. Importantly, thanks to the http://pubshare.genzentrum.lmu.de/scientific_computing/software/ffindex/[ffindex] software, we offer an MPI approach to running these _in-silico_ experiments. Sadly, because of the cost of creating a reliable infrastructure, we currently cannot offer this is as a service to public but a number of institutes host bioinformatics enabled HPC environments. Some, such as http://diagcomputing.org/[DIAG], the Data Intensive Academic Grid, are freely available to any life-science researcher. We are interested in being to deploy this on an Amazon cloud (I guess that a single analysis would be about $300) but we do not currently have the manpower to accomplish that.
 
 == What uses cases does JAMp accomodate? == 
-Basically, _Just_Annotate_My_proteins_ does exactly what it reads on the tin! You give it a protein FASTA file and it annotates it with functional terms. The terms are derived from the http://www.ncbi.nlm.nih.gov/pubmed‎[literature] and the http://en.wikipedia.org/wiki/Biocurator[biocuration] teams working on linking known proteins with these terms. The use cases therefore are not restricted but we routinely use it for annotating:
+Basically, _Just_Annotate_My_proteins_ does exactly what it reads on the tin! You give it a protein FASTA file and it annotates it with functional terms. The terms are derived from the http://www.ncbi.nlm.nih.gov/pubmed[literature] and the http://en.wikipedia.org/wiki/Biocurator[biocuration] teams working on linking known proteins with these terms. The use cases therefore are not restricted but we routinely use it for annotating:
 
 * Transcriptome experiments that produce a reference sequence (an assembly)
+
+== Obtaining JAMg
+ 
+Currently only distributed through the author.
+ 
+== Running JAMg
+
+See README in distribution.
 
 
 == Authors & license ==
@@ -46,6 +54,7 @@ Copyright 2012-2014 the http://csiro.au[Commonwealth Scientific and Industrial R
  temi.varghese@csiro.au
  alexie.papanicolaou@csiro.au
 
+ Copyright CSIRO 2013-2014.
  This software is released under the Mozilla Public License v.2. You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
  It is provided "as is" without warranty of any kind.
 
