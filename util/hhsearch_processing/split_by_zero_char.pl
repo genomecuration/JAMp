@@ -7,8 +7,9 @@ my ($counter);
 my $file = shift || die;
 open (IN,$file);
 
-mkdir ("unpack") unless -d "unpack";
-my @todelete = glob("unpack/*");
+my $output_dir = $file . "_unpack";
+mkdir ($output_dir) unless -d $output_dir;
+my @todelete = glob("$output_dir/*");
 foreach (@todelete){unlink("$_");}
 
 my $orig_sep = $/;
@@ -20,9 +21,11 @@ while (my $record=<IN>){
 	chomp($record);
 	$record=~/^[>#]?(\S+)/;
 	my $id = $1;
-#	warn "$id already written out. Skipping.\n" if -s "unpack/$id";
-	next  if -s "unpack/$id";
-	open (OUT,">unpack/$id");
+	$id=~s/\s+/_/g;
+	$id=~s/\//-/g;
+#	warn "$id already written out. Skipping.\n" if -s "$output_dir/$id";
+	next  if -s "$output_dir/$id";
+	open (OUT,">$output_dir/$id") ||die "Can't create output for file $id ".$!;
 	print OUT $record;
 	close OUT;
 }

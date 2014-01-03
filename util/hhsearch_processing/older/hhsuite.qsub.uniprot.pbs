@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=7:mem=19gb:NodeType=any -l walltime=12:00:00 -V
+#PBS -N hsearch -A sf-CSIRO
+#PBS -J 0-
+cd $PBS_O_WORKDIR
+
+INDEX_PADDED=`printf "%03d" $PBS_ARRAY_INDEX`
+transfer_uniprot_hhm.sh $PBS_ARRAY_INDEX
+
+
+ParaFly -CPU 4 -v -c multithread.unip.sh.$INDEX_PADDED -failed_cmds multithread.unip.sh.$INDEX_PADDED.failed
+

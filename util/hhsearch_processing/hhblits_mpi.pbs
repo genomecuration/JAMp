@@ -17,8 +17,8 @@ export OMP_NUM_THREADS=1
 cd $PBS_O_WORKDIR
 cat ${PBS_NODEFILE} > workers.$PBS_JOBID.mpi
 $MPIRUN_EXEC $MPIRUN_ARGS ffindex_apply_mpi \
-  -d "$1"_out2.db \
-  -i "$1"_out2.db.idx \
+  -d "$1"_out.db \
+  -i "$1"_out.db.idx \
   $1 \
   $1.idx \
   -- hhblits -maxmem 5 -d $DB -n 2 -mact 0.3 -cpu 1 -i stdin -o stdout -oa3m stdout -e 0.0001 -id 100 -p 60 -E 1E-03 -z 0 -b 0 -v 0
