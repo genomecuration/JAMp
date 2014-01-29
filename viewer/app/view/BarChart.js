@@ -7,7 +7,7 @@ Ext.define('CV.view.BarChart', {
   leftAxeTitleText : "Count & Percentage",
   menuTitle : 'Bar Chart',
   legend : {
-    position : 'top'
+    position : 'right'
   },
   /*
    * this variable is used to control the categories rendered on the panel.
@@ -106,8 +106,13 @@ Ext.define('CV.view.BarChart', {
         tips : {
           trackMouse : true,
           minWidth: 250,
+          fontSize: 11,
           renderer : function(storeItem, item) {
+            var len;
             this.setTitle(storeItem.get('name') + ' - ' + storeItem.get( item.yField ) +' <br/><i>('+storeItem.get('highername')[item.series.yFieldIds[item.yField]]+')</i>');
+            len = (this.title || '' ).length;
+            // fontsize is a parameter given at tooltip creation
+            this.setWidth( len*this.fontSize/2 );
           }
         },
         label : {

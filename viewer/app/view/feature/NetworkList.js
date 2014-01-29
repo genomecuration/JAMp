@@ -9,6 +9,7 @@ Ext.define('CV.view.feature.NetworkList',{
   height:'100%',
   rootVisible:false,
   collapsed:false,
+  collapsible:true,
   expandable:true,
   title:'List of networks',
   emptyText:'No networks found',

@@ -2,25 +2,15 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
-<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.6" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="generator" content="AsciiDoc 8.5.2" />
 <title>Just_Annotate_My_proteins (JAMp)</title>
 <style type="text/css">
-/* Shared CSS for AsciiDoc xhtml11 and html5 backends */
-
-/* Default font. */
-body {
-  font-family: Georgia,serif;
-}
-
-/* Title font. */
-h1, h2, h3, h4, h5, h6,
-div.title, caption.title,
-thead, p.table.header,
-#toctitle,
-#author, #revnumber, #revdate, #revremark,
-#footer {
-  font-family: Arial,Helvetica,sans-serif;
+/* Debug borders */
+p, li, dt, dd, div, pre, h1, h2, h3, h4, h5, h6 {
+/*
+  border: 1px solid red;
+*/
 }
 
 body {
@@ -45,8 +35,13 @@ strong {
   color: #083194;
 }
 
+tt {
+  color: navy;
+}
+
 h1, h2, h3, h4, h5, h6 {
   color: #527bbd;
+  font-family: sans-serif;
   margin-top: 1.2em;
   margin-bottom: 0.5em;
   line-height: 1.3;
@@ -64,11 +59,9 @@ h3 {
 h3 + * {
   clear: left;
 }
-h5 {
-  font-size: 1.0em;
-}
 
 div.sectionbody {
+  font-family: serif;
   margin-left: 0;
 }
 
@@ -84,44 +77,45 @@ p {
 ul, ol, li > p {
   margin-top: 0;
 }
-ul > li     { color: #aaa; }
-ul > li > * { color: black; }
 
 pre {
   padding: 0;
   margin: 0;
 }
 
-#author {
+span#author {
   color: #527bbd;
+  font-family: sans-serif;
   font-weight: bold;
   font-size: 1.1em;
 }
-#email {
+span#email {
 }
-#revnumber, #revdate, #revremark {
+span#revnumber, span#revdate, span#revremark {
+  font-family: sans-serif;
 }
 
-#footer {
+div#footer {
+  font-family: sans-serif;
   font-size: small;
   border-top: 2px solid silver;
   padding-top: 0.5em;
   margin-top: 4.0em;
 }
-#footer-text {
+div#footer-text {
   float: left;
   padding-bottom: 0.5em;
 }
-#footer-badges {
+div#footer-badges {
   float: right;
   padding-bottom: 0.5em;
 }
 
-#preamble {
+div#preamble {
   margin-top: 1.5em;
   margin-bottom: 1.5em;
 }
-div.imageblock, div.exampleblock, div.verseblock,
+div.tableblock, div.imageblock, div.exampleblock, div.verseblock,
 div.quoteblock, div.literalblock, div.listingblock, div.sidebarblock,
 div.admonitionblock {
   margin-top: 1.0em;
@@ -141,6 +135,7 @@ div.content { /* Block element content. */
 /* Block element titles. */
 div.title, caption.title {
   color: #527bbd;
+  font-family: sans-serif;
   font-weight: bold;
   text-align: left;
   margin-top: 1.0em;
@@ -162,15 +157,13 @@ div.content + div.title {
 
 div.sidebarblock > div.content {
   background: #ffffee;
-  border: 1px solid #dddddd;
-  border-left: 4px solid #f0f0f0;
+  border: 1px solid silver;
   padding: 0.5em;
 }
 
 div.listingblock > div.content {
-  border: 1px solid #dddddd;
-  border-left: 5px solid #f0f0f0;
-  background: #f8f8f8;
+  border: 1px solid silver;
+  background: #f4f4f4;
   padding: 0.5em;
 }
 
@@ -178,8 +171,8 @@ div.quoteblock, div.verseblock {
   padding-left: 1.0em;
   margin-left: 1.0em;
   margin-right: 10%;
-  border-left: 5px solid #f0f0f0;
-  color: #888;
+  border-left: 5px solid #dddddd;
+  color: #777777;
 }
 
 div.quoteblock > div.attribution {
@@ -187,9 +180,8 @@ div.quoteblock > div.attribution {
   text-align: right;
 }
 
-div.verseblock > pre.content {
-  font-family: inherit;
-  font-size: inherit;
+div.verseblock > div.content {
+  white-space: pre;
 }
 div.verseblock > div.attribution {
   padding-top: 0.75em;
@@ -262,12 +254,35 @@ div.compact div, div.compact div {
   margin-bottom: 0.1em;
 }
 
+div.tableblock > table {
+  border: 3px solid #527bbd;
+}
+thead, p.table.header {
+  font-family: sans-serif;
+  font-weight: bold;
+}
 tfoot {
   font-weight: bold;
 }
 td > div.verse {
   white-space: pre;
 }
+p.table {
+  margin-top: 0;
+}
+/* Because the table frame attribute is overriden by CSS in most browsers. */
+div.tableblock > table[frame="void"] {
+  border-style: none;
+}
+div.tableblock > table[frame="hsides"] {
+  border-left-style: none;
+  border-right-style: none;
+}
+div.tableblock > table[frame="vsides"] {
+  border-top-style: none;
+  border-bottom-style: none;
+}
+
 
 div.hdlist {
   margin-top: 0.8em;
@@ -324,25 +339,18 @@ span.footnote, span.footnoteref {
   min-width: 100px;
 }
 
-div.colist td {
-  padding-right: 0.5em;
-  padding-bottom: 0.3em;
-  vertical-align: top;
-}
-div.colist td img {
-  margin-top: 0.3em;
-}
 
 @media print {
-  #footer-badges { display: none; }
+  div#footer-badges { display: none; }
 }
 
-#toc {
+div#toc {
   margin-bottom: 2.5em;
 }
 
-#toctitle {
+div#toctitle {
   color: #527bbd;
+  font-family: sans-serif;
   font-size: 1.1em;
   font-weight: bold;
   margin-top: 1.0em;
@@ -365,181 +373,51 @@ div.toclevel4 {
   margin-left: 6em;
   font-size: 0.9em;
 }
+/* Workarounds for IE6's broken and incomplete CSS2. */
 
-span.aqua { color: aqua; }
-span.black { color: black; }
-span.blue { color: blue; }
-span.fuchsia { color: fuchsia; }
-span.gray { color: gray; }
-span.green { color: green; }
-span.lime { color: lime; }
-span.maroon { color: maroon; }
-span.navy { color: navy; }
-span.olive { color: olive; }
-span.purple { color: purple; }
-span.red { color: red; }
-span.silver { color: silver; }
-span.teal { color: teal; }
-span.white { color: white; }
-span.yellow { color: yellow; }
-
-span.aqua-background { background: aqua; }
-span.black-background { background: black; }
-span.blue-background { background: blue; }
-span.fuchsia-background { background: fuchsia; }
-span.gray-background { background: gray; }
-span.green-background { background: green; }
-span.lime-background { background: lime; }
-span.maroon-background { background: maroon; }
-span.navy-background { background: navy; }
-span.olive-background { background: olive; }
-span.purple-background { background: purple; }
-span.red-background { background: red; }
-span.silver-background { background: silver; }
-span.teal-background { background: teal; }
-span.white-background { background: white; }
-span.yellow-background { background: yellow; }
-
-span.big { font-size: 2em; }
-span.small { font-size: 0.6em; }
-
-span.underline { text-decoration: underline; }
-span.overline { text-decoration: overline; }
-span.line-through { text-decoration: line-through; }
-
-
-/*
- * xhtml11 specific
- *
- * */
-
-tt {
-  font-family: monospace;
-  font-size: inherit;
-  color: navy;
+div.sidebar-content {
+  background: #ffffee;
+  border: 1px solid silver;
+  padding: 0.5em;
 }
-
-div.tableblock {
-  margin-top: 1.0em;
-  margin-bottom: 1.5em;
-}
-div.tableblock > table {
-  border: 3px solid #527bbd;
-}
-thead, p.table.header {
-  font-weight: bold;
+div.sidebar-title, div.image-title {
   color: #527bbd;
-}
-p.table {
-  margin-top: 0;
-}
-/* Because the table frame attribute is overriden by CSS in most browsers. */
-div.tableblock > table[frame="void"] {
-  border-style: none;
-}
-div.tableblock > table[frame="hsides"] {
-  border-left-style: none;
-  border-right-style: none;
-}
-div.tableblock > table[frame="vsides"] {
-  border-top-style: none;
-  border-bottom-style: none;
-}
-
-
-/*
- * html5 specific
- *
- * */
-
-.monospaced {
-  font-family: monospace;
-  font-size: inherit;
-  color: navy;
-}
-
-table.tableblock {
-  margin-top: 1.0em;
-  margin-bottom: 1.5em;
-}
-thead, p.tableblock.header {
+  font-family: sans-serif;
   font-weight: bold;
-  color: #527bbd;
-}
-p.tableblock {
-  margin-top: 0;
-}
-table.tableblock {
-  border-width: 3px;
-  border-spacing: 0px;
-  border-style: solid;
-  border-color: #527bbd;
-  border-collapse: collapse;
-}
-th.tableblock, td.tableblock {
-  border-width: 1px;
-  padding: 4px;
-  border-style: solid;
-  border-color: #527bbd;
+  margin-top: 0.0em;
+  margin-bottom: 0.5em;
 }
 
-table.tableblock.frame-topbot {
-  border-left-style: hidden;
-  border-right-style: hidden;
-}
-table.tableblock.frame-sides {
-  border-top-style: hidden;
-  border-bottom-style: hidden;
-}
-table.tableblock.frame-none {
-  border-style: hidden;
+div.listingblock div.content {
+  border: 1px solid silver;
+  background: #f4f4f4;
+  padding: 0.5em;
 }
 
-th.tableblock.halign-left, td.tableblock.halign-left {
-  text-align: left;
-}
-th.tableblock.halign-center, td.tableblock.halign-center {
-  text-align: center;
-}
-th.tableblock.halign-right, td.tableblock.halign-right {
+div.quoteblock-attribution {
+  padding-top: 0.5em;
   text-align: right;
 }
 
-th.tableblock.valign-top, td.tableblock.valign-top {
-  vertical-align: top;
+div.verseblock-content {
+  white-space: pre;
 }
-th.tableblock.valign-middle, td.tableblock.valign-middle {
-  vertical-align: middle;
-}
-th.tableblock.valign-bottom, td.tableblock.valign-bottom {
-  vertical-align: bottom;
+div.verseblock-attribution {
+  padding-top: 0.75em;
+  text-align: left;
 }
 
-
-/*
- * manpage specific
- *
- * */
-
-body.manpage h1 {
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
-  border-top: 2px solid silver;
-  border-bottom: 2px solid silver;
-}
-body.manpage h2 {
-  border-style: none;
-}
-body.manpage div.sectionbody {
-  margin-left: 3em;
+div.exampleblock-content {
+  border-left: 3px solid #dddddd;
+  padding-left: 0.5em;
 }
 
-@media print {
-  body.manpage div#toc { display: none; }
-}
+/* IE6 sets dynamically generated links as visited. */
+div#toc a:visited { color: blue; }
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
+window.onload = function(){asciidoc.footnotes();}
 var asciidoc = {  // Namespace.
 
 /////////////////////////////////////////////////////////////////////
@@ -601,25 +479,6 @@ toc: function (toclevels) {
   }
 
   var toc = document.getElementById("toc");
-  if (!toc) {
-    return;
-  }
-
-  // Delete existing TOC entries in case we're reloading the TOC.
-  var tocEntriesToRemove = [];
-  var i;
-  for (i = 0; i < toc.childNodes.length; i++) {
-    var entry = toc.childNodes[i];
-    if (entry.nodeName == 'div'
-     && entry.getAttribute("class")
-     && entry.getAttribute("class").match(/^toclevel/))
-      tocEntriesToRemove.push(entry);
-  }
-  for (i = 0; i < tocEntriesToRemove.length; i++) {
-    toc.removeChild(tocEntriesToRemove[i]);
-  }
-
-  // Rebuild TOC entries.
   var entries = tocEntries(document.getElementById("content"), toclevels);
   for (var i = 0; i < entries.length; ++i) {
     var entry = entries[i];
@@ -647,44 +506,24 @@ toc: function (toclevels) {
  */
 
 footnotes: function () {
-  // Delete existing footnote entries in case we're reloading the footnodes.
-  var i;
-  var noteholder = document.getElementById("footnotes");
-  if (!noteholder) {
-    return;
-  }
-  var entriesToRemove = [];
-  for (i = 0; i < noteholder.childNodes.length; i++) {
-    var entry = noteholder.childNodes[i];
-    if (entry.nodeName == 'div' && entry.getAttribute("class") == "footnote")
-      entriesToRemove.push(entry);
-  }
-  for (i = 0; i < entriesToRemove.length; i++) {
-    noteholder.removeChild(entriesToRemove[i]);
-  }
-
-  // Rebuild footnote entries.
   var cont = document.getElementById("content");
+  var noteholder = document.getElementById("footnotes");
   var spans = cont.getElementsByTagName("span");
   var refs = {};
   var n = 0;
   for (i=0; i<spans.length; i++) {
     if (spans[i].className == "footnote") {
       n++;
-      var note = spans[i].getAttribute("data-note");
-      if (!note) {
-        // Use [\s\S] in place of . so multi-line matches work.
-        // Because JavaScript has no s (dotall) regex flag.
-        note = spans[i].innerHTML.match(/\s*\[([\s\S]*)]\s*/)[1];
-        spans[i].innerHTML =
-          "[<a id='_footnoteref_" + n + "' href='#_footnote_" + n +
-          "' title='View footnote' class='footnote'>" + n + "</a>]";
-        spans[i].setAttribute("data-note", note);
-      }
+      // Use [\s\S] in place of . so multi-line matches work.
+      // Because JavaScript has no s (dotall) regex flag.
+      note = spans[i].innerHTML.match(/\s*\[([\s\S]*)]\s*/)[1];
       noteholder.innerHTML +=
         "<div class='footnote' id='_footnote_" + n + "'>" +
         "<a href='#_footnoteref_" + n + "' title='Return to text'>" +
         n + "</a>. " + note + "</div>";
+      spans[i].innerHTML =
+        "[<a id='_footnoteref_" + n + "' href='#_footnote_" + n +
+        "' title='View footnote' class='footnote'>" + n + "</a>]";
       var id =spans[i].getAttribute("id");
       if (id != null) refs["#"+id] = n;
     }
@@ -704,36 +543,13 @@ footnotes: function () {
       }
     }
   }
-},
-
-install: function(toclevels) {
-  var timerId;
-
-  function reinstall() {
-    asciidoc.footnotes();
-    if (toclevels) {
-      asciidoc.toc(toclevels);
-    }
-  }
-
-  function reinstallAndRemoveTimer() {
-    clearInterval(timerId);
-    reinstall();
-  }
-
-  timerId = setInterval(reinstall, 500);
-  if (document.addEventListener)
-    document.addEventListener("DOMContentLoaded", reinstallAndRemoveTimer, false);
-  else
-    window.onload = reinstallAndRemoveTimer;
 }
 
 }
-asciidoc.install();
 /*]]>*/
 </script>
 </head>
-<body class="article">
+<body>
 <div id="header">
 <h1>Just_Annotate_My_proteins (JAMp)</h1>
 <span id="author">Alexie Papanicolaou</span><br />
@@ -741,19 +557,14 @@ asciidoc.install();
 <span id="revdate">25 November 2013</span>
 </div>
 <div id="content">
-<div class="sect1">
 <h2 id="_introduction">Introduction</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>Whether working on a model species for biomedical, economical or evolutionary research, next-generation sequencing has enabled biologists to rapidly generate a reference sequence for downstream applications and hypotheses generation. With the exception of a limited number of species, functional annotation is conducted by <em>in-silico</em> experiments based on sequence similarity. JAMp is a platform that allows biologists to reclaim the analysis of transcript reconstruction experiments by providing an automated, user-friendly overview of these <em>in-silico</em> experiments.</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_how_does_it_look">How does it look?</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>A core element of JAMp is its rich Graphical User Interface (GUI). Such interfaces are important not only because they allow biologists to explore their data without using the command line and spreadsheets but because it provide a vastly more efficient human-machine interface (i.e. yes, many expert bioinformaticians also use GUIs to conduct analyses!). See <a href="http://annotation.insectacentral.org/demo">this demo</a>.</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_how_does_it_work">How does it work</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>Like most bioinformatic software, JAMp and its dependencies must first be installed before end-users can use it. The process is by itself simple but Linux system administration is often an onerous task so feel free to ask our <a href="mailto:jamps-users@lists.sourceforge.net">user mailing list</a> if you require help.</p></div>
@@ -783,8 +594,6 @@ The users (and the anyone with access to the website, such as paper reviewers an
 </ul></div>
 <div class="paragraph"><p>Too easy!</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_controlled_vocabularies">Controlled Vocabularies</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the <a href="http://www.geneontology.org">Gene Ontology</a>. <a href="http://www.chem.qmul.ac.uk/iubmb/enzyme/">Enzyme Classification</a> (currently primarily for bacteria), <a href="http://eggnog.embl.de">EggNOG</a> and <a href="http:www.genome.jp/kegg/">Kyoto Encyclopedia of Genes and Genomes</a> (KEGG).</p></div>
@@ -797,8 +606,6 @@ The users (and the anyone with access to the website, such as paper reviewers an
 </tr></table>
 </div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_high_performance_computing">High-Performance Computing</h2>
 <div class="sectionbody">
 <div class="admonitionblock">
@@ -811,8 +618,6 @@ The users (and the anyone with access to the website, such as paper reviewers an
 </div>
 <div class="paragraph"><p>How dow we address this problem? First, JAMp uses <a href="http://www.nature.com/nmeth/journal/v9/n2/full/nmeth.1818.html">HHblits</a>, a HM model-based search software that searches your protein against Uniprot, builds an alignment and a model and then searches again. Importantly, thanks to the <a href="http://pubshare.genzentrum.lmu.de/scientific_computing/software/ffindex/">ffindex</a> software, we offer an MPI approach to running these <em>in-silico</em> experiments. Sadly, because of the cost of creating a reliable infrastructure, we currently cannot offer this is as a service to public but a number of institutes host bioinformatics enabled HPC environments. Some, such as <a href="http://diagcomputing.org/">DIAG</a>, the Data Intensive Academic Grid, are freely available to any life-science researcher. We are interested in being to deploy this on an Amazon cloud (I guess that a single analysis would be about $300) but we do not currently have the manpower to accomplish that.</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_what_uses_cases_does_jamp_accomodate">What uses cases does JAMp accomodate?</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>Basically, <em>Just_Annotate_My_proteins</em> does exactly what it reads on the tin! You give it a protein FASTA file and it annotates it with functional terms. The terms are derived from the <a href="http://www.ncbi.nlm.nih.gov/pubmed">literature</a> and the <a href="http://en.wikipedia.org/wiki/Biocurator">biocuration</a> teams working on linking known proteins with these terms. The use cases therefore are not restricted but we routinely use it for annotating:</p></div>
@@ -824,20 +629,14 @@ Transcriptome experiments that produce a reference sequence (an assembly)
 </li>
 </ul></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_obtaining_jamg">Obtaining JAMg</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>Currently only distributed through the author.</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_running_jamg">Running JAMg</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>See README in distribution.</p></div>
 </div>
-</div>
-<div class="sect1">
 <h2 id="_authors_amp_license">Authors &amp; license</h2>
 <div class="sectionbody">
 <div class="paragraph"><p>Copyright 2012-2014 the <a href="http://csiro.au">Commonwealth Scientific and Industrial Research Organization</a>.</p></div>
@@ -857,7 +656,6 @@ alexie.papanicolaou@csiro.au</tt></pre>
 This software is released under the Mozilla Public License v.2. You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
 It is provided "as is" without warranty of any kind.</tt></pre>
 </div></div>
-</div>
 </div>
 </div>
 <div id="footnotes"><hr /></div>
