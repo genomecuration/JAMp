@@ -1,7 +1,6 @@
 Demo is available here
  http://annotation.insectacentral.org/demo
 
-
 Requirements
 Two symlinks has to be made for this program to work. they are database.php and genome.php . The decision to create the symlink is based on the database that needs to be viewed.
 Example:
@@ -9,6 +8,11 @@ To view chado database
 cd ws/
 ln -s chado_genes4all.php database.php
 ln -s chado_genes4all.genome.php genome.php
+
+System Requirements:
+Webserver - Apache 2
+PHP 5.5
+php5-pgsql
 
 
 Development url:

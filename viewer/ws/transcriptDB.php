@@ -64,6 +64,7 @@ function chadoviewer() {
  	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
 	$id = $_REQUEST['id'];
 	$idFeature = $_REQUEST['feature_id'];
+	$idParsed = datasetType( $idFeature );
 	$idDataset = $_REQUEST['dataset_id'];
 	$idFilter = json_decode( $_REQUEST['filter'], TRUE );
 	header('Content-Type: application/json');
@@ -881,6 +882,7 @@ function chadoviewer() {
 					$data = featureFasta( $idFeature );
 					$data = translate_DNA_to_protein( $data['residues'], $gCode );
 					$data = chunk_split($data, 80, "\r\n");
+					$data = ">".$idParsed['id']."\r\n$data\r\n";
 					switch ( $_REQUEST['text']) {
 						case 'plain':
 							break;						

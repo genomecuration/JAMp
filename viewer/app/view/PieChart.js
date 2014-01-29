@@ -45,9 +45,14 @@ Ext.define('CV.view.PieChart', {
     showInLegend : true,
     tips : {
       trackMouse : true,
-      minWidth: 250,
+      // minWidth: 250,
+      fontSize: 11,
       renderer : function(storeItem, item) {
+        var len;
         this.setTitle(storeItem.get('name') + ' : ' + storeItem.get(item.series.field));
+        len = (this.title || '' ).length;
+        // fontsize is a parameter given at tooltip creation
+        this.setWidth( len*this.fontSize );
       }
     },
     highlight : {
