@@ -12,13 +12,14 @@ MPIRUN_ARGS="-gmca mpi_warn_on_fork 0 -cpus-per-proc 1 -np $2 -machinefile worke
 #your HHblits database
 DB=/home/pap056/30day/databases/hhsearch/uniprot20_2013_03/uniprot20_2013_03
 
-
 export OMP_NUM_THREADS=1
 cd $PBS_O_WORKDIR
 cat ${PBS_NODEFILE} > workers.$PBS_JOBID.mpi
+
+
 $MPIRUN_EXEC $MPIRUN_ARGS ffindex_apply_mpi \
-  -d "$1"_out.db \
-  -i "$1"_out.db.idx \
+  -d "$1"_out2.db \
+  -i "$1"_out2.db.idx \
   $1 \
   $1.idx \
-  -- hhblits -maxmem 5 -d $DB -n 2 -mact 0.3 -cpu 1 -i stdin -o stdout -oa3m stdout -e 0.0001 -id 100 -p 60 -E 1E-03 -z 0 -b 0 -v 0
+  -- hhblits -maxmem 5 -d $DB -n 1 -mact 0.3 -cpu 1 -i stdin -o stdout -oa3m stdout -e 0.0001 -id 100 -p 60 -E 1E-03 -z 0 -b 0 -v 0
