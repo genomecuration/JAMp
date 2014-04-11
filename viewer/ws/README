@@ -1,8 +1,1 @@
-Activate the relevant adaptor by creating a symlink of 
-a) chado.php or transcriptDB.php to database.php
-b) chado.genome.php transcriptDB.genome.php to genome.php
-
-e.g.
-ln -s transcriptDB.php database.php
-ln -s transcriptDB.genome.php genome.php
-
+Activate the relevant adaptor by creating a symlink of chado.php or native.php to database.php
