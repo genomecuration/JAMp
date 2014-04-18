@@ -30,6 +30,22 @@ Perl modules
 Are linked and licensed under the Artistic License v1 or v2 depending on your Perl version
 http://www.perl.org
 
+cdbtools
+========
+Artistic License 
+http://compbio.dfci.harvard.edu/tgi/software/
+http://compbio.dfci.harvard.edu/tgi/software/artistic.html
+The Gene Index Project and tools is supported in part by funding from the US Department of Energy, Grant #DE-FG02-99ER62852, 
+and the US National Science Foundation, Grant #DBI-9983070. Additional funds are provided by the US National Science Foundation through grants #DBI-9813392 and #DBI-9975866.
+
+parafly, transdecoder and aatpackage, justpreprocessmyreads, PASA, evidencemodeler
+==============================================================================
+See open licenses. We're also the (co-)authors of these software:
+See 3rd_party/parafly/LICENSE
+See 3rd_party/transdecoder/LICENSE
+http://sourceforge.net/projects/parafly
+http://sourceforge.net/projects/transdecoder
+
 PHP code/functions
 ==================
 BSD license

@@ -307,8 +307,8 @@ use XML::LibXML::Reader;
 use Digest::MD5 qw(md5_hex);
 use JSON;
 
-use FindBin;
-$ENV{'PATH'} .= ":" . $FindBin::RealBin;
+use FindBin qw($RealBin);
+$ENV{'PATH'} .= ":$RealBin:$RealBin/../3rd_party/bin";
 use lib ("$FindBin::RealBin/../PerlLib");
 use Gene_obj;
 use Fasta_reader;
