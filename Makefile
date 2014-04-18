@@ -6,13 +6,13 @@ all:
 	cd 3rd_party/parafly && ./configure --prefix=`pwd`/../ && if [ ! -d bin ]; then mkdir bin; fi && $(MAKE) install
 	cd 3rd_party/transdecoder && $(MAKE) nopfam
 	cd databases/hhblits && echo "Uncompressing databases, this may take a while..." find . -name "*tar.bz2" -exec tar -xjf '{}' \;
-	chmod a+rx bin/* 3rd_party/bin/*
+	chmod -R a+rx 3rd_party/bin
 	echo "Installation complete."
 clean:
 	cd 3rd_party/cdbtools/cdbfasta && $(MAKE) clean
 	cd 3rd_party/parafly && $(MAKE) clean
 	cd 3rd_party/transdecoder && $(MAKE) clean
-	cd 3rd_party/bin && rm -fr *
+	rm -fr 3rd_party/bin
 
 test:
 	cd test_suite && bash runme.sh && bash cleanme.sh
