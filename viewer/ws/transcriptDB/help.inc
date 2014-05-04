@@ -631,11 +631,12 @@ Transcriptome experiments that produce a reference sequence (an assembly)
 </div>
 <h2 id="_obtaining_jamg">Obtaining JAMg</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Currently only distributed through the author.</p></div>
+<div class="paragraph"><p>Freely distributed from <a href="https://sourceforge.net/projects/jamps/files/RC/">here</a>. Please subscribe to the <a href="https://lists.sourceforge.net/lists/listinfo/jamps-users">user mailing list</a>.</p></div>
+<div class="paragraph"><p>It&#8217;s not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document).</p></div>
 </div>
 <h2 id="_running_jamg">Running JAMg</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>See README in distribution.</p></div>
+<div class="paragraph"><p>See README in distribution. More information coming up.</p></div>
 </div>
 <h2 id="_authors_amp_license">Authors &amp; license</h2>
 <div class="sectionbody">
@@ -661,7 +662,7 @@ It is provided "as is" without warranty of any kind.</tt></pre>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2013-12-23 15:50:25 EST
+Last updated 2014-04-18 17:36:13 EST
 </div>
 </div>
 </body>
