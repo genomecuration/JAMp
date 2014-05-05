@@ -7,7 +7,7 @@ Ext.define('CV.store.Features',{
   autoLoad:false,
   remoteFilter:true,
   remoteSort:true,
-  pageSize:35,
+  pageSize:1000,
   proxy:{
     // url:CV.config.ChadoViewer.baseUrl,
     type:'ajax',
