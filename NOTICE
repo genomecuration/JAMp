@@ -1,0 +1,77 @@
+This software contains or links code from the following software each of which falls under the a particular notice.
+
+== The following tools contributed code which may have been modified.
+
+PASA (PerlLib)
+==============
+http://pasa.sourceforge.net/
+Copyright (c) 2012, The Broad Institute, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+         Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+         Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+         Neither the name of the Broad Institute nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.**
+
+THIS SOFTWARE IS PROVIDED BY THE BROAD INSTITUTE  ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE BROAD INSTITUTE
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+== The following tools are linked/aggregated without modifications:
+
+Perl modules
+============
+Are linked and licensed under the Artistic License v1 or v2 depending on your Perl version
+http://www.perl.org
+
+cdbtools
+========
+Artistic License 
+http://compbio.dfci.harvard.edu/tgi/software/
+http://compbio.dfci.harvard.edu/tgi/software/artistic.html
+The Gene Index Project and tools is supported in part by funding from the US Department of Energy, Grant #DE-FG02-99ER62852, 
+and the US National Science Foundation, Grant #DBI-9983070. Additional funds are provided by the US National Science Foundation through grants #DBI-9813392 and #DBI-9975866.
+
+parafly, transdecoder and aatpackage, justpreprocessmyreads, PASA, evidencemodeler
+==============================================================================
+See open licenses. We're also the (co-)authors of these software:
+See 3rd_party/parafly/LICENSE
+See 3rd_party/transdecoder/LICENSE
+http://sourceforge.net/projects/parafly
+http://sourceforge.net/projects/transdecoder
+
+PHP code/functions
+==================
+BSD license
+http://www.php.net/license
+
+d3
+==
+BSD license
+
+Wordcloud d3
+============
+MIT license
+
+CanvasXpress
+============
+http://canvasxpress.org
+GPL. Other License pending
+
+ExtJS
+=====
+http://extjs.com
+Commercial License
+http://www.sencha.com/legal/sencha-sdk-software-license-agreement
+
+hhsuite/hhblits
+===============
+Is distributed under the GPL license. Copyleft does not apply due to the aggregation terms:
+ftp://toolkit.genzentrum.lmu.de/pub/HHblits/
+
