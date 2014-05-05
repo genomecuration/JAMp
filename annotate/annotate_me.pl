@@ -285,11 +285,8 @@ The unique name needs to be unique within a name-dataset combination, so you can
 =head1 DISCLAIMER & LICENSE
 
 Copyright 2012-2014 the Commonwealth Scientific and Industrial Research Organization. 
-This software is released under the Mozilla Public License v.2.
-
+See LICENSE file for license info
 It is provided "as is" without warranty of any kind.
-You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
-
 
 =head1 BUGS & LIMITATIONS
 
@@ -310,8 +307,8 @@ use XML::LibXML::Reader;
 use Digest::MD5 qw(md5_hex);
 use JSON;
 
-use FindBin;
-$ENV{'PATH'} .= ":" . $FindBin::RealBin;
+use FindBin qw($RealBin);
+$ENV{'PATH'} .= ":$RealBin:$RealBin/../3rd_party/bin";
 use lib ("$FindBin::RealBin/../PerlLib");
 use Gene_obj;
 use Fasta_reader;

@@ -37,11 +37,14 @@ Basically, _Just_Annotate_My_proteins_ does exactly what it reads on the tin! Yo
 
 == Obtaining JAMg
  
-Currently only distributed through the author.
+Freely distributed from https://sourceforge.net/projects/jamps/files/RC/[here]. Please subscribe to the https://lists.sourceforge.net/lists/listinfo/jamps-users[user mailing list].
+
+It's not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document).
+
  
 == Running JAMg
 
-See README in distribution.
+See README in distribution. More information coming up.
 
 
 == Authors & license ==
