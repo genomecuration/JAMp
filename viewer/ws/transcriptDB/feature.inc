@@ -34,7 +34,6 @@ function featureList() {
 	$filter = filterWithSubQuery($filterArray, $translation, 'end');
 	// echo print_r( $filter );
 	$params = datasetType($_REQUEST['feature_id']);
-	// $datasetsSql = sprintf($sqlQueries['datasets'], $own, $dsType['dataset_id']);
 	$datasetsSql = sprintf($sqlQueries['datasets'], $own);
 	$datasets = query_execute(null, $datasetsSql);
 
@@ -103,7 +102,7 @@ function featureList() {
 			unset($data[$key]['datasetid']);
 			// unset( $data[$key]['nuc_sequence'] );
 			// add species name
-			$data[$key]['species'] = $data[$key]['organism_id'];
+			$data[$key]['species'] = $datasets[0]['species_name'];
 		}
 	}
 
@@ -187,16 +186,17 @@ function uniprotGroups($dsId, $id) {
 	return $result;
 }
 
-function featureFasta( $id ) {
+
+/*
+ * Helper function of featureFasta to get the 
+ * sequence of a feature (transcript or gene)
+ * @author Alexie
+ */
+function get_featureFasta($feature_id){
+	if (empty($feature_id)){return;}
 	require ('SqlQueries.inc');
-	$params = datasetType( $id );
-	$featureId = $id ;
-	$out;
-	$return = array();
-	if ( $featureId ) {
-		header('Content-Type: text/plain;');
-		header('Content-Disposition: attachment; filename=' . $featureId . '.txt');
-		switch ($params['type']) {
+	$params = datasetType( $feature_id );
+	switch ($params['type']) {
 			case Type::gene :
 				$sql = sprintf($sqlQueries['fasta'], $params['dataset_id'], $params['id']);
 				$result = query_execute('chado', $sql, null);
@@ -207,30 +207,67 @@ function featureFasta( $id ) {
 				$start = $result[0]['cds_start'] - 1;
 				$stop = ($result[0]['cds_stop'] - 1);
 				$len = $stop - $start + 1;
-
 				$geneticcode = substr($result[0]['residues'], $start, $len);
-
 				$result[0] = array_replace($result[0], array('residues' => $geneticcode));
 				// echo "$start $stop ".strlen($result[0]['residues']);
 				break;
 		}
-		$name = $result[0]['uniquename'];
-		$fastaHeader = ">$name";
-		$sequence = $result[0]['residues'];
-		if ($sequence) {
-			$sequence = chunk_split($sequence, 80, "\r\n");
-			$out = $fastaHeader."\r\n".$sequence."\r\n";
-		} else {
-			$out = "no sequence record found for the feature";
+		if (!empty($result)){
+			$name = $result[0]['uniquename'];
+			if (!empty($result[0]['residues'])){
+				$fasta_out = ">$name\n".chunk_split($result[0]['residues'], 80, "\n");
+			}
+			return array($result[0],$fasta_out);
+		}else{
+			return array();
 		}
-		$return = $result[ 0 ];
-		$return[ 'out' ] = $out;
+}
+
+function featureFasta( $id ) {
+	$return = array();
+	if ( $id ) {
+		header('Content-Type: text/plain;');
+		header('Content-Disposition: attachment; filename=' . $featureId . '.txt');
+		list ($feature_data,$fasta) = get_featureFasta($id);
+		if (!empty($feature_data)){
+			$return = $feature_data;
+			$return[ 'out' ] = $fasta;
+		}else{
+			$return[ 'out' ] = "No data found";
+		}
 	} else {
-		$out = "Please provide feature id";
+		$return[ 'out' ] = "Please provide feature id";
 	}
-	$return[ 'out' ] = $out;
+	
 	return $return;
 }
+
+/*
+ * Like featureFasta but multiple IDs
+ * expects either an array or json or string delimited by ; (in that order)
+ * @author Alexie
+ */
+function get_multiple_featureFasta($feature_ids){
+	$return_fasta = '';
+	if (empty($feature_ids)){return $return_fasta;}
+	if (!is_array($feature_ids)){
+		$feature_ids = json_decode($feature_ids);
+		// still not an array? delimit by;
+		if (!is_array($feature_ids)){
+				$feature_ids = explode(';',$feature_ids);
+		}
+	}
+	
+	foreach ($feature_ids as $id){
+		list ($feature_data,$fasta) = get_featureFasta($id);
+		$return_fasta .= $fasta;
+ 	}
+	if (empty($return_fasta)){
+		$return_fasta = "No sequences found\n";
+	}
+ 	return $return_fasta;
+}
+
 
 function getAnnotations($id) {
 	$go = annotations($id, 'transcriptGO');
@@ -273,20 +310,6 @@ function annotations($id, $cv) {
 	}
 	// echo $sql."\n";
 	$result = query_execute(null, $sql, null);
-	/**
-	 * links open in a new page 
-	 */
-	foreach ($result as $key => $value) {
-		if( $value['href'] ){
-			$value['href'] = $value['href'] . $value['id'];
-			$value['hrefTarget'] = '_blank';
-		}
-		// print_r( $value );
-		if( empty( $value['msg'] )){
-			$value['text'] = $value['id']. $value['text']; 
-		}
-		$result[$key] = $value;
-	}
 	return $result;
 }
 
@@ -301,16 +324,9 @@ function getNetworkTree($id) {
 			$transcripts = query_execute(null, $sql);
 			// echo print_r( $sql );
 			foreach ($transcripts as $key => $transcript) {
-				$temp = getAllTranscriptNetworks($transcript['tuname'], $idDs['dataset_id']);
-				if( !is_empty( $temp ) ){
-					array_push($res, $temp );					
-				}
+				array_push($res, getAllTranscriptNetworks($transcript['tuname'], $idDs['dataset_id']));
 			}
-			// if( count( $res ) == 0 ){
-				// $res = array("text"=>'empty','expanded' => 'true', 'children' => array());
-			// } else {
-				$res = array('text' => $idDs['id'], 'expanded' => 'true', 'children' => $res);
-			// }
+			$res = array('text' => $idDs['id'], 'expanded' => 'true', 'children' => $res);
 			break;
 		case Type::transcript :
 			$res = getAllTranscriptNetworks($idDs['id'], $idDs['dataset_id']);
@@ -326,12 +342,7 @@ function getAllTranscriptNetworks($id, $dsId) {
 	require ('SqlQueries.inc');
 	$sql = sprintf($sqlQueries['feature']['networkTree'], $id, $dsId);
 	$res = query_execute(null, $sql);
-	// if( count( $res ) == 0){
-		// $res = array("text"=>'empty','expanded' => 'true', 'children' => array());
-	// } else {
-		$res = array('text' => $id, 'expanded' => 'true', 'children' => $res);
-	// }
-	return $res;
+	return array('text' => $id, 'expanded' => 'true', 'children' => $res);
 }
 
 function getNetworkJson($id, $dsId) {
@@ -340,12 +351,5 @@ function getNetworkJson($id, $dsId) {
 	$sql = sprintf($sqlQueries['feature']['networkJson'], $id, $dsId['dataset_id']);
 	$res = query_execute(null, $sql);
 	return $res[0]['json'];
-}
-function getNetworkTranscripts($id, $dsId) {
-	require ('SqlQueries.inc');
-	$dsId = datasetType($dsId);
-	$sql = sprintf($sqlQueries['feature']['networktranscripts'], $dsId['dataset_id'], $id);
-	$res = query_execute(null, $sql);
-	return $res;
 }
 ?>

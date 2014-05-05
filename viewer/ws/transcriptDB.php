@@ -54,6 +54,64 @@ function sumColumns( $rows , $columns , $aggColumn = 'total'){
 	return $rows;
 }
 
+function offer_download(){
+	/**
+					 * webservice base url - ws/chadoviewer
+					 *
+					 * 	get feature sequence in fasta format
+					 *
+					 * @param ds [ 'library' , 'species' , 'feature' ]
+					 * 	feature - query relates to features
+					 * @param type [ 'list' , 'cv' , 'fasta' ]
+					 * 	cv - query related to getting metadata of a feature
+					 * @param feature_id
+					 * 	query relates to this feature id
+					 * @param filter
+					 * 	json encoded string representing filter applied
+					 * @param page
+					 * 	page number
+					 * @param limit
+					 * 	number of features per page
+					 * @param text
+					 * 	values = [null , 'plain']
+					 * 	plain - returns only fasta text
+					 * 	null - returns json formatted fasta text
+					 * 
+					 * @return
+					 * 	text - plain
+					 * 	output format-
+					 * >IC7539AbApep21683
+					 * SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
+					 * KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
+					 * YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
+					 * LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
+					 * SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
+					 * TITIDRGILC
+					 * 
+					 * or 
+					 * text - null
+					 * [{fasta: ">IC7539AbApep21683
+					  SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
+					  KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
+					  YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
+					  LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
+					  SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
+					  TITIDRGILC"}]
+					 */
+					$data = featureFasta( $idFeature );
+					$data = $data['out'];
+					switch ( $_REQUEST['text']) {
+						case 'plain':
+							break;						
+						default:
+							$data = array( array( 'fasta' => $data ) );		
+							break;
+					}
+					break;
+	
+	
+}
+
 
 function chadoviewer() {
 	global $scriptDirBase;
@@ -64,27 +122,18 @@ function chadoviewer() {
  	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
 	$id = $_REQUEST['id'];
 	$idFeature = $_REQUEST['feature_id'];
-	$idParsed = datasetType( $idFeature );
 	$idDataset = $_REQUEST['dataset_id'];
-	$idFilter = json_decode( $_REQUEST['filter'], TRUE );
+	$idFilter = json_decode(  $_REQUEST['filter'], TRUE );
 	header('Content-Type: application/json');
 	/**
 	 * check for ownership here. if true proceed otherwise sent 401 error code.
 	 */
-
 	$access = TRUE;
 	if(!empty( $id )){
 		$access &= hasAccess( $id );
 	}
 	if(!empty( $selectedIds )){
-		switch( $ds ){
-		 	case 'species':
-				break;
-			case 'library':
-				$access &= hasAccess( $selectedIds );
-				break;
-		 }
-
+		$access &= hasAccess( $selectedIds );
 	}
 	if(!empty( $idFeature )){
 		$access &= hasAccess( $idFeature );
@@ -103,6 +152,26 @@ function chadoviewer() {
 	}
 	
 	switch ( $ds ) {
+		case 'multidownload' :
+		     $type = $_REQUEST['type'];
+		     require_once ($scriptDirBase . '/feature.inc');
+			 switch($type){
+			 	case 'fasta' :
+			 		$feature_ids = $_REQUEST['feature_id'];
+			 		$data = get_multiple_featureFasta( $feature_ids );
+					
+					switch ( $_REQUEST['format']) {
+						case 'text':
+							header('Content-Type: text/plain;');
+							header('Content-Disposition: attachment; filename=multi_download.txt');
+							break;						
+						default:
+							$data = array( array( 'fasta' => $data ) );		
+							break;
+					}
+				break;
+			}
+		     break;
 		case 'library' :
 			$type = $_REQUEST['type'];
 			$cv_id = $_REQUEST['cv_id'];
@@ -202,13 +271,8 @@ function chadoviewer() {
 					 */
 					 $data = array();
 					foreach ( $selectedIds as $key => $value ) {
-						$meta = listLibrary( $value );
-						$data = array_merge( $data, $meta );
-						$stats = array();
-						if(count($meta)){
-							$stats =addLibraryStats( $value , $meta[0]['selection'] );
-						}
-						$data = array_merge( $data, $stats );
+					  $data = array_merge( $data, listLibrary( $value ) );
+					  $data = array_merge( $data, addLibraryStats( $value , $data[0]['selection'] ) );
 					}
 					// $data = array( 'root' => $data );
 					break;
@@ -363,6 +427,7 @@ function chadoviewer() {
 					}
 					$data = 'Get parameter is mandatory. check manual.';
 					break;
+					// populates Sequences panel -> list of features that match a search
 				case 'feature' :
 					require_once ($scriptDirBase . '/library.inc');
 					/**
@@ -545,7 +610,6 @@ function chadoviewer() {
 								 * 			}
 								 * 		]
 								 */
-							 	global $controlledVocabularies;
 								$data = $controlledVocabularies;
 							  break;
 							case 'cv_term':
@@ -868,12 +932,6 @@ function chadoviewer() {
 					 $data = getNetworkJson( $id, $dsId );
 					 $data = array('network_id'=>$id, 'json'=>$data);
 					break;
-				case 'networktranscripts':
-					 $id = $_REQUEST['network_id'];
-					 $dsId = $_REQUEST['dataset_id'];
-					 $data = getNetworkTranscripts( $id, $dsId );
-					 //$data = array('network_id'=>$id, 'json'=>$data);					
-					break;
 				case 'translate':
 					$gCode = $_REQUEST['geneticCode'];
 					if( empty( $gCode )){
@@ -881,8 +939,7 @@ function chadoviewer() {
 					}
 					$data = featureFasta( $idFeature );
 					$data = translate_DNA_to_protein( $data['residues'], $gCode );
-					$data = chunk_split($data, 80, "\r\n");
-					$data = ">".$idParsed['id']."\r\n$data\r\n";
+					$data = chunk_split($data, 80, "\n");
 					switch ( $_REQUEST['text']) {
 						case 'plain':
 							break;						
@@ -941,14 +998,11 @@ function chadoviewer() {
 				// array( 'cvid'=>1,'cvtermid'=>2,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'gpase'),
 				// array('cvid'=>1,'cvtermid'=>5,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'cellular')
 			// );
-			$data = autocomplete( $_GET['query'], $selectedIds );
+			$data = autocomplete( $_GET['query'] );
 			break;	
 		case 'help':
 			$help = file_get_contents($scriptDirBase.'/help.inc');
 			$data = array(array('text'=>$help));
-			break;
-		case 'test':
-			$data = array(array('text'=>'test'));
 			break;
 }
   if( is_object( $data ) || is_array( $data )){
