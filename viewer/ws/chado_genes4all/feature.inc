@@ -117,27 +117,73 @@ function featureCV() {
 	return $res;
 }
 
-function featureFasta() {
-	require('SqlQueries.inc');
-	$featureId = $_REQUEST['feature_id'];
-	$out;
-	if ($featureId) {
-		header('Content-Type: text/plain;');
-		header('Content-Disposition: attachment; filename=' . $featureId . '.txt');
-		$sql = sprintf( $sqlQueries['fasta'], $featureId );
-		$result = query_execute('chado', $sql, null);
+/*
+ * Helper function of featureFasta to get the 
+ * sequence of a feature (transcript or gene)
+ * @author Alexie
+ */
+function get_featureFasta($feature_id){
+	if (empty($feature_id)){return;}
+	require ('SqlQueries.inc');
+	$sql = sprintf( $sqlQueries['fasta'], $feature_id );
+	$result = query_execute('chado', $sql, null);
+	if (!empty($result)){
 		$name = $result[0]['uniquename'];
-		$fastaHeader = ">$name";
-		$sequence = $result[0]['residues'];
-		if ($sequence) {
-			$sequence = chunk_split($sequence, 80, "\n");
-			$out = "$fastaHeader\n$sequence\n";
-		} else {
-			$out = "no sequence record found for the feature";
+		if (!empty($result[0]['residues'])){
+			$fasta_out = ">$name\n".chunk_split($result[0]['residues'], 80, "\n");
+		}
+		return array($result[0],$fasta_out);
+	}else{
+		return array();
+	}
+}
+
+/*
+ * get fasta of single ID
+ */
+function featureFasta( $id ) {
+	$return = array();
+	if (!empty($id )) {
+		list ($feature_data,$fasta) = get_featureFasta($id);
+		if (!empty($feature_data)){
+			$return = $feature_data;
+			$return[ 'out' ] = $fasta;
+		}else{
+			$return[ 'out' ] = "No data found";
 		}
 	} else {
-		$out = "Please provide feature id";
+		$return[ 'out' ] = "Please provide feature id";
 	}
-	return $out;
+	
+	return $return;
 }
+
+/*
+ * Like featureFasta but multiple IDs
+ * expects either an array or json or string delimited by ; (in that order)
+ * @author Alexie
+ */
+function get_multiple_featureFasta($feature_ids){
+	$return_fasta = '';
+	if (empty($feature_ids)){return $return_fasta;}
+	if (!is_array($feature_ids)){
+		$feature_ids = json_decode($feature_ids);
+		// still not an array? delimit by;
+		if (!is_array($feature_ids)){
+				$feature_ids = explode(';',$feature_ids);
+		}
+	}
+	
+	foreach ($feature_ids as $id){
+		list ($feature_data,$fasta) = get_featureFasta($id);
+		$return_fasta .= $fasta;
+ 	}
+	if (empty($return_fasta)){
+		$return_fasta = "No sequences found\n";
+	}
+ 	return $return_fasta;
+}
+
+
+
 ?>

@@ -55,7 +55,7 @@ function featureLibraryList($ids) {
 	// $filters = json_decode($_REQUEST['filter']);
 	// $cvtermsArray = json_decode($_REQUEST['cvterms']);
 	$facets = json_decode($_REQUEST['facets'], TRUE);
-	// echo print_r($facets);
+	//echo print_r($facets);
 	$page = paging($_REQUEST);
 	$count = array();
 	$sqls = array();
@@ -63,7 +63,8 @@ function featureLibraryList($ids) {
 	$go_id = join(',', $go_id);
 	foreach ($ids as $index => $id) {
 		$facetsQueryArray = array();
-		foreach ($facets as $index => $facet) {
+		if (!empty($facets)){
+		 foreach ($facets as $index => $facet) {
 			$facetSql = '';
 			switch ($facet['cv_id']) {
 				case 1 :
@@ -91,10 +92,15 @@ function featureLibraryList($ids) {
 					$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], $id);
 					break;
 			}
-			// echo $facetSql." sql";
 			array_push($facetsQueryArray, $facetSql);
-		}
-		// echo print_r($facetsQueryArray);
+	 	 }
+	    }else{
+	    	$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], $id);
+	    	array_push($facetsQueryArray, $facetSql);
+	    }
+		// echo $facetSql." sql";
+		
+	    // echo print_r($facetsQueryArray);
 
 		$facetQuery = '';
 		if ($go_id) {

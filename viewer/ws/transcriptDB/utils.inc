@@ -156,13 +156,15 @@ function orderby( $params , $translation) {
 		'order' =>'',
 		'string' => ''
 	);
-	foreach ($filter as $key => $value) {
+	if (!empty($filter)){
+		foreach ($filter as $key => $value) {
 				$colName = $value->property;
 				if ( $translation && $translation [ $colName ]){
 					$colName = $translation [ $colName ];
 				}
 				// echo $translation [ $colName ];
 				array_push( $output['conditions'] , $colName." ".$value->direction );
+		}
 	}
 	if ( count ( $output['conditions'] )){
 		$output ['string'] = 'order by '.join(' , ', $output['conditions'] );
@@ -227,8 +229,7 @@ function processData ( $trans  ){
 	}
 	return $trans;
 }
-function getSequence ( $featureId , $db) {
-	$db = $db? $db:'chado';
+function getSequence ( $featureId , $db='chado') {
 	if ( $featureId ){
 		$sql = "select feature_id  , residues , uniquename from feature where feature_id = $featureId";
 		$result = query_execute($db, $sql , null);
@@ -269,6 +270,7 @@ function addLibraries($data) {
  */
 function addSourceFeature($data) {
 	foreach ($data as $key => $row) {
+		$featureid = $row['feature_id'];
 		$srcSql = "select fs.uniquename , loc.srcfeature_id as feature_id from featureLoc loc join feature fs on loc.srcfeature_id = fs.feature_id where loc.feature_id = $featureid";
 		$result = query_execute('chado', $srcSql, null);
 		$row['sources'] = $result;
@@ -277,7 +279,7 @@ function addSourceFeature($data) {
 	return $data;
 }
 function getRowsFromExplain ( $sql , $table , $db){
-	if( ! preg_match('/[Ee]xplain/g', $subject)){
+	if( ! preg_match('/[Ee]xplain/', $subject)){
 		$sql = 'Explain '.$sql;
 	}
 	$result = query_execute( $db , $sql, null);
@@ -285,7 +287,7 @@ function getRowsFromExplain ( $sql , $table , $db){
 	foreach ($result as $key => $v) {
 		$value = $v ['QUERY PLAN'];
 		if( preg_match( '/'.$table.'/' , $value) ){
-			preg_match( '/rows=(\d+)\s/' , $value , &$row );
+			preg_match( '/rows=(\d+)\s/' , $value , $row );
 			break;
 		}			
 	}
@@ -302,8 +304,10 @@ function query_execute($db = NULL, $sql = NULL, $variables = NULL,$reconnect=TRU
   require_once 'connection.inc';
   $return_array = array();
   $res = pg_query($sql);
-  while ($data=pg_fetch_array($res, NULL , PGSQL_ASSOC)){
-    $return_array[]=$data;
+  if (!empty($res)){
+  	while ($data=pg_fetch_array($res, NULL , PGSQL_ASSOC)){
+    	$return_array[]=$data;
+  	}
   }
   return $return_array;
 }
@@ -456,9 +460,7 @@ function hasAccess( $test ){
 	if( is_numeric( $test) ){
 		$access &= idsAccess( $test );
 	} elseif (is_array( $test )) {
-		if( is_numeric( $test[0] ) ){
-			$access &= idsAccess( $test );
-		}
+		$access &= idsAccess( $test );
 	} else {
 		$access &= featureIdAccess( $test );
 	}
@@ -470,16 +472,14 @@ function hasAccess( $test ){
 function idsAccess( $ids ){
 	require('SqlQueries.inc');
 	global $own;
-	if( is_array( $ids ) ){
-		
-	} else {
+	if( !is_array( $ids ) ){
 		$ids = array( $ids );
 	}
 	$idsString = '('.join( ',', $ids ).')';
 	$sql = sprintf( $sqlQueries['getOwner'], $idsString );
 	$owners = query_execute( null, $sql);
 	foreach ($owners as $key => $owner) {
-		if( $owner['owner'] != $own) {
+		if( $owner['owner'] != $own){
 			return FALSE;
 		}
 	}

@@ -133,11 +133,13 @@ function addUnCategorised($tree) {
 	}
 	return $tree;
 }
-function addId( $ds , $id = 1, $idProp = 'pid', $childrenProp = 'children'){
+function addId( $ds , &$id = 1, $idProp = 'pid', $childrenProp = 'children'){
 	$ds[$idProp] = $id;
-	foreach ( $ds[ $childrenProp ] as $key => $value ) {
-		$id ++;
-		$ds[ $childrenProp ][$key] = addId( $value , &$id );
+	if (!empty($ds[ $childrenProp ])){
+		foreach ( $ds[ $childrenProp ] as $key => $value ) {
+			$id ++;
+			$ds[ $childrenProp ][$key] = addId( $value , $id );
+		}
 	}
 	return $ds;
 }
