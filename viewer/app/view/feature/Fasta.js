@@ -41,7 +41,7 @@ Ext.define('CV.view.feature.Fasta',{
   },
   
   getQueryString :function() {
-    return this.url + '?text=plain&' + Ext.Object.toQueryString( this.store.getProxy().extraParams );
+    return this.url + '?format=download&' + Ext.Object.toQueryString( this.store.getProxy().extraParams );
   },
   setDownload:function () {
     var download = Ext.get( this.downloadId );
@@ -94,3 +94,4 @@ Ext.define('CV.view.feature.Fasta',{
     this.update('');
   }
 });
+

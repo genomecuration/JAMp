@@ -1,12 +1,19 @@
-Activate the relevant adaptor by creating a symlink of 
+
+Edit the connection string and activate the relevant adaptor by creating a symlink of 
 a) chado_genes4all.php or transcriptDB.php to database.php
 b) chado_genes4all.genome.php or transcriptDB.genome.php to genome.php
 
 e.g.
 ln -s transcriptDB.php database.php
 ln -s transcriptDB.genome.php genome.php
+vi transcriptDB/connection.inc
 
 OR
 ln -s chado_genes4all.php database.php
 ln -s chado_genes4all.genome.php genome.php
+vi chado_genes4all/connection.inc
+
+Finally for transcriptDB only, you can set up access control by editing the transcriptDB/const.inc file.
+change the global variable $own to whatever you use for -authorization in annotate.pl (defaults to demo)
+$own = 'demo';
 

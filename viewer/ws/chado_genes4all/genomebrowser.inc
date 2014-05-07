@@ -1,8 +1,7 @@
 <?php
 //global $database_adaptor;// = $database_adaptor ? $database_adaptor : 'chado_genes4all';
 require_once( 'utils.inc' );
-function canvasTrack($id, $db) {
-	$db = $db ? $db : 'chado';
+function canvasTrack($id, $db = 'chado') {
 	$res = sourceFeatures($id, $db);
 	$tracks = canvasTransform($res, $id, $db);
 	return $tracks;

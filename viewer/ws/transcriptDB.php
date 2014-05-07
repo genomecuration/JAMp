@@ -11,12 +11,12 @@ function getIds( $selections ){
 	}
 	return $ids;
 }
-function mergeCvTermsSum( $merge , $ids, $cProp = 'count'){
+function mergeCvTermsSum( $merge , $ids = NULL, $cProp = 'count'){
 	$result = array();
 	foreach( $merge as $key => $library){
 		foreach ($library as $index => $term) {
 			$temp = $result[ $term[ 'cvterm_id' ] ];
-			if( !$temp ){
+			if( !$temp && !empty($ids)){
 				$temp = array_fill_keys($ids, 0);
 			}
 			$count = isset($term[$cProp])?$term[$cProp]:'0';
@@ -100,16 +100,13 @@ function offer_download(){
 					 */
 					$data = featureFasta( $idFeature );
 					$data = $data['out'];
-					switch ( $_REQUEST['text']) {
-						case 'plain':
-							break;						
-						default:
-							$data = array( array( 'fasta' => $data ) );		
-							break;
+					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
+		 				header('Content-Type: text/plain;');
+		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+					}else{
+						$data = array( array( 'fasta' => $data ) );
 					}
 					break;
-	
-	
 }
 
 
@@ -159,15 +156,11 @@ function chadoviewer() {
 			 	case 'fasta' :
 			 		$feature_ids = $_REQUEST['feature_id'];
 			 		$data = get_multiple_featureFasta( $feature_ids );
-					
-					switch ( $_REQUEST['format']) {
-						case 'text':
+					if  (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download') {
 							header('Content-Type: text/plain;');
 							header('Content-Disposition: attachment; filename=multi_download.txt');
-							break;						
-						default:
+					}else{
 							$data = array( array( 'fasta' => $data ) );		
-							break;
 					}
 				break;
 			}
@@ -893,12 +886,11 @@ function chadoviewer() {
 					 */
 					$data = featureFasta( $idFeature );
 					$data = $data['out'];
-					switch ( $_REQUEST['text']) {
-						case 'plain':
-							break;						
-						default:
-							$data = array( array( 'fasta' => $data ) );		
-							break;
+					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
+		 				header('Content-Type: text/plain;');
+		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+					}else{
+						$data = array( array( 'fasta' => $data ) );
 					}
 					break;
 				case 'annotations':
@@ -940,12 +932,11 @@ function chadoviewer() {
 					$data = featureFasta( $idFeature );
 					$data = translate_DNA_to_protein( $data['residues'], $gCode );
 					$data = chunk_split($data, 80, "\n");
-					switch ( $_REQUEST['text']) {
-						case 'plain':
-							break;						
-						default:
-							$data = array( array( 'fasta' => $data ) );		
-							break;
+					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
+		 				header('Content-Type: text/plain;');
+		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+					}else{
+						$data = array( array( 'fasta' => $data ) );
 					}
 					break;
 				case 'translationtable':

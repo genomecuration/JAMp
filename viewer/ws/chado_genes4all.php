@@ -11,12 +11,12 @@ function getIds( $selections ){
 	}
 	return $ids;
 }
-function mergeCvTermsSum( $merge , $ids){
+function mergeCvTermsSum( $merge , $ids = NULL){
 	$result = array();
 	foreach( $merge as $key => $library){
 		foreach ($library as $index => $term) {
 			$temp = $result[ $term[ 'cvterm_id' ] ];
-			if( !$temp ){
+			if( !$temp && !empty($ids)){
 				$temp = array_fill_keys($ids, 0);
 			}
 			$temp [$key] = isset($term['count'])?$term['count']:'0';
@@ -58,8 +58,27 @@ function chadoviewer() {
 	$selectedIds = json_decode( $_REQUEST['ids'] );
  	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
 	$id = $_REQUEST['id'];
+	if (empty($id)){
+		$id = $_REQUEST['feature_id'];
+	}
 	header('Content-Type: application/json');
 	switch ( $ds ) {
+		case 'multidownload' :
+		     $type = $_REQUEST['type'];
+		     require_once ($scriptDirBase . '/feature.inc');
+			 switch($type){
+			 	case 'fasta' :
+			 		$feature_ids = $_REQUEST['feature_id'];
+			 		$data = get_multiple_featureFasta( $feature_ids );
+			 		if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
+		 				header('Content-Type: text/plain;');
+		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+					}else{
+						$data = array( array( 'fasta' => $data['out'] ) );
+					}
+				break;
+			}
+		     break;
 		case 'library' :
 			$type = $_REQUEST['type'];
 			switch ( $type ) {
@@ -162,7 +181,6 @@ function chadoviewer() {
 					break;
 				case 'graph' :
 					require_once ($scriptDirBase . '/libraryGraph.inc');
-					$id = $_REQUEST['id'];
 					$cv_id = $_REQUEST['cv_id'];
 					$get = $_REQUEST['get'];
 					$filters = json_decode($_REQUEST['filters']);
@@ -429,7 +447,6 @@ function chadoviewer() {
 					break;
 				case 'graph' :
 					require_once ($scriptDirBase . '/speciesGraph.inc');
-					  $id = $_REQUEST['id'];
 					  $cv_id = $_REQUEST['cv_id'];
 					  $get = $_REQUEST['get'];
 					  $cv_name = $_REQUEST['cv_name'];
@@ -729,7 +746,15 @@ function chadoviewer() {
 					 * SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
 					 * TITIDRGILC
 					 */
-					$data = featureFasta();
+					$data = featureFasta($id);
+					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
+		 				header('Content-Type: text/plain;');
+		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+					}else{
+						//$data = array( array( 'fasta' => $data ) );
+						$data = array( array( 'fasta' => $data['out'] ) );
+						//$data = $data['out']; 
+					}
 					break;
 				default :
 					break;

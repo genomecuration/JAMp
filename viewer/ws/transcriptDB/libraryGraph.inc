@@ -55,8 +55,10 @@ function cvSummary($id, $cv_id) {
 	$facets = json_decode($_REQUEST['facets'], TRUE);
 	$facetQueryArray = array();
 	// echo $id;
-	foreach ($facets as $index => $facet) {
+	if (!empty($facets)){
+	 foreach ($facets as $index => $facet) {
 		array_push($facetQueryArray, transcriptSql($facet['cv_id'], $facet['value'], $id));
+	 }
 	}
 	// $go_id = array();
 	// $go_id = array_map('getValue',$facets);

@@ -211,7 +211,7 @@ Ext.define('CV.view.View', {
    			    			  ds: 'multidownload',
    			    		      type: 'fasta',
    			    		      feature_id: feature_ids,
-   			    		      format: 'text'
+   			    		      format: 'download'
    			    		  }
    			            }	  
    			  

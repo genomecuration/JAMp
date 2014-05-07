@@ -223,11 +223,13 @@ function get_featureFasta($feature_id){
 		}
 }
 
-function featureFasta( $id ) {
+/*
+ * get fasta of single ID as an attachment (depends...)
+ * cf view/feature/Fasta.js
+ */
+function featureFasta( $id) {
 	$return = array();
-	if ( $id ) {
-		header('Content-Type: text/plain;');
-		header('Content-Disposition: attachment; filename=' . $featureId . '.txt');
+	if (!empty($id )) {
 		list ($feature_data,$fasta) = get_featureFasta($id);
 		if (!empty($feature_data)){
 			$return = $feature_data;
@@ -347,9 +349,13 @@ function getAllTranscriptNetworks($id, $dsId) {
 
 function getNetworkJson($id, $dsId) {
 	require ('SqlQueries.inc');
-	$dsId = datasetType($dsId);
-	$sql = sprintf($sqlQueries['feature']['networkJson'], $id, $dsId['dataset_id']);
-	$res = query_execute(null, $sql);
+	if (!empty($id) && !empty($dsId)){
+		$dsId = datasetType($dsId);
+		if (!empty($dsId)){
+			$sql = sprintf($sqlQueries['feature']['networkJson'], $id, $dsId['dataset_id']);
+			$res = query_execute(null, $sql);
+		}
+	}
 	return $res[0]['json'];
 }
 ?>

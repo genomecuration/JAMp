@@ -1915,7 +1915,7 @@ sub process_protein_blast() {
 }
 
 sub process_protein_hhr() {
- print "Processing HHR markov output...\n";
+ print "Processing HHR output...\n";
 
 # this can be multiple hhr files concatanated together but only one database per file.
  my $dbh_store     = shift;

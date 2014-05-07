@@ -19,6 +19,7 @@
   	'orderParam' => 'order',
   	'groupParam' => 'group'
   );
+  
 /*
  *parameters
  * params - $_REQUEST
@@ -26,7 +27,7 @@
  * translation - an array that can translate filter property to appropriate sql names
  * searchType - values -( 'all','end', 'beginning')
  */
-function filter( $filter , $translation , $searchType ){
+function filter( $filter , $translation , $searchType = NULL){
 	global $paramConfig;
   // $translation  = array('type' => 'cvt.name' );
 	// $filter = $params[ 'filter' ];
@@ -39,7 +40,7 @@ function filter( $filter , $translation , $searchType ){
 	foreach ($filter as $key => $value) {
 		$type = $value->data ? 'comparison':'regex';
 		$colName = $value->property;
-		if ( $translation && $translation [ $colName ]){
+		if ( !empty($translation) && $translation [ $colName ]){
 			$colName = $translation [ $colName ];
 			if( is_array( $colName ) ){
 				if ( $colName['type'] == 'number' ){
@@ -63,6 +64,7 @@ function filter( $filter , $translation , $searchType ){
 						break;
 					case 'all':
 						array_push($output['conditions'] , $colName." like '%".$value->value ."%'");
+						break;
 					default:
 						array_push($output['conditions'] , $colName." = '".$value->value ."'");
 						break;
@@ -174,13 +176,15 @@ function orderby( $params , $translation) {
 		'order' =>'',
 		'string' => ''
 	);
-	foreach ($filter as $key => $value) {
+	if (!empty($filter)){
+		foreach ($filter as $key => $value) {
 				$colName = $value->property;
 				if ( $translation && $translation [ $colName ]){
 					$colName = $translation [ $colName ];
 				}
 				// echo $translation [ $colName ];
 				array_push( $output['conditions'] , $colName." ".$value->direction );
+		}
 	}
 	if ( count ( $output['conditions'] )){
 		$output ['string'] = 'order by '.join(' , ', $output['conditions'] );
@@ -288,15 +292,16 @@ function addLibraries($data) {
  */
 function addSourceFeature($data) {
 	foreach ($data as $key => $row) {
+		$featureid = $row['feature_id'];
 		$srcSql = "select fs.uniquename , loc.srcfeature_id as feature_id from featureLoc loc join feature fs on loc.srcfeature_id = fs.feature_id where loc.feature_id = $featureid";
-		$result = query_execute('chado', $srcSql, null);
+		$result = query_execute('chado', $srcSql);
 		$row['sources'] = $result;
 		$data[$key] = $row;
 	}
 	return $data;
 }
 function getRowsFromExplain ( $sql , $table , $db){
-	if( ! preg_match('/[Ee]xplain/g', $subject)){
+	if( ! preg_match('/[Ee]xplain/', $subject)){
 		$sql = 'Explain '.$sql;
 	}
 	$result = query_execute( $db , $sql, null);
@@ -304,7 +309,7 @@ function getRowsFromExplain ( $sql , $table , $db){
 	foreach ($result as $key => $v) {
 		$value = $v ['QUERY PLAN'];
 		if( preg_match( '/'.$table.'/' , $value) ){
-			preg_match( '/rows=(\d+)\s/' , $value , &$row );
+			preg_match( '/rows=(\d+)\s/' , $value , $row );
 			break;
 		}			
 	}
@@ -321,8 +326,10 @@ function query_execute($db = NULL, $sql = NULL, $variables = NULL,$reconnect=TRU
   require_once 'connection.inc';
   $return_array = array();
   $res = pg_query($sql);
-  while ($data=pg_fetch_array($res, NULL , PGSQL_ASSOC)){
-    $return_array[]=$data;
+  if (!empty($res)){
+  	while ($data=pg_fetch_array($res, NULL , PGSQL_ASSOC)){
+    	$return_array[]=$data;
+  	}
   }
   return $return_array;
 }
