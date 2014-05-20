@@ -19,26 +19,26 @@ function speciescv( $id , $ids = NULL){
 	// when more than one library is selected. done so that it works with the previous version of the function.
 	if( isset( $ids ) ){
 	  $id = join( ',' , $ids );
-	  $id = ' in ('.$id.')';
+	  $id = ' in ('.pg_escape_string($id).')';
 	} else {
-	  $id = ' = '.$id;
+	  $id = ' = '.pg_escape_string($id);
 	}
 
 	$sql = sprintf( $sqlQueries['species']['cv'] , $id);
-	$data = query_execute('chado', $sql , null);
+	$data = query_execute(null, $sql , null);
 	$data = processData($data);
 	return $data;	
 }
 function speciesdbxref( $id ){
 	require('SqlQueries.inc');
 	$sql = sprintf( $sqlQueries['species']['dbxref'] , $id );
-	$data = query_execute( 'chado', $sql , null );
+	$data = query_execute( null, $sql , null );
 	return $data;
 }
 function speciesblast ( $id ){
 	require('SqlQueries.inc');
 	$sql = sprintf( $sqlQueries['species']['blast'], $id );
-	$data = query_execute('chado', $sql , null);
+	$data = query_execute(null, $sql , null);
 	return $data ;
 }
 function speciescvTermSummary ( $id , $cv_id , $cv_name){
@@ -49,11 +49,11 @@ function speciescvTermSummary ( $id , $cv_id , $cv_name){
 	$ids = array();
 	$data = array();
 	$datasetIds = array();
-	$dsSql = sprintf($sqlQueries['species']['datasets'],$id, $own);
+	$dsSql = sprintf($sqlQueries['species']['datasets'],$id, pg_escape_string($own));
 	$ds = query_execute( NULL, $dsSql, NULL);
 	foreach ($ds as $index => $row) {
 		array_push( $datasetIds, $row['dataset_id'] ); 
-		$data[ $row['dataset_id'] ] = cvSummary($row['dataset_id'], $cv_id);
+		$data[ $row['dataset_id'] ] = cvSummary($row['dataset_id'], pg_escape_string($cv_id));
 	}
 // echo print_r($data);
 	$data = mergeCvTermsSum( $data );

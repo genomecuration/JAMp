@@ -18,7 +18,7 @@ function refineSQL( $id , $filters , $facets ){
 		$intersectCvterm = array();
 		foreach ($filters as $key => $cvterm) {
 			if ( $cvterm->property == 'type' ){
-				array_push( $sql  , "select feature_id from feature where feature_id in (  select distinct l.feature_id from library_feature_cvterm_mat l where l.library_id = $id) and  type_id in ( select cvterm_id from cvterm where name like '%".$cvterm->value."%' )" );
+				array_push( $sql  , "SELECT feature_id FROM feature WHERE feature_id IN (  SELECT DISTINCT l.feature_id FROM library_feature_cvterm_mat l WHERE l.library_id = ".pg_escape_string($id).") AND type_id IN ( SELECT cvterm_id FROM cvterm WHERE name LIKE '%".pg_escape_string($cvterm->value)."%' )" );
 			}
 		}
 	} else {
@@ -27,7 +27,7 @@ function refineSQL( $id , $filters , $facets ){
 	if ( $facets ){
 		$intersectCvterm = array();
 		foreach ($facets as $key => $cvterm) {
-			array_push( $sql , "select feature_id from cvterm_organism_mat where cvterm_id=".$cvterm->value." and organism_id=$id" );
+			array_push( $sql , "SELECT feature_id FROM cvterm_organism_mat WHERE cvterm_id=".pg_escape_string($cvterm->value)." and organism_id=".pg_escape_string($id));
 		}
 	}
 	return implode( ' intersect ' , $sql );

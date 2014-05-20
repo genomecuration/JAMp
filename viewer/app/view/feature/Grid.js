@@ -94,31 +94,16 @@ Ext.define('CV.view.feature.Grid', {
     dataIndex : 'type',
     filter : {
       xtype : 'textfield'
-    }
-    // flex:1
+    },
+    flex:1
     // type:'string'
   }, {
-    text : 'Genus',
-    dataIndex : 'genus',
-    filter : {
-      xtype : 'textfield'
-    },
-    // flex:1,
-    renderer : function(value, meta, record) {
-      var msg = '';
-      if (value) {
-        var filter = [{"id":record.get('organism_id'),"type":"species","text":value}];
-        msg = '<a href="#library/' + encodeURI( JSON.stringify(filter) ) + '">' + value + '</a> ';
-      }
-      return msg;
-    }
-  }, {
-    text : 'Species',
+    text : 'Category/Species',
     dataIndex : 'species',
     filter : {
       xtype : 'textfield'
     },
-    // flex:1,
+     flex:1,
     renderer : function(value, meta, record) {
       var msg = '';
       if (value) {
@@ -129,25 +114,12 @@ Ext.define('CV.view.feature.Grid', {
     }
   },{
     text:'Sequence Length',
+    flex:1,
     dataIndex:'seqlen',
     sortable:false
   }
-  // {
-  // text:'Genus',
-  // dataIndex:'genus',
-  // // flex:1
-  // // type:'string'
-  // },{
-  // text:'Species',
-  // dataIndex:'species',
-  // renderer:function( value , meta , record ){
-  // return '<a href="#species/'+record.get('organism_id')+'"">'+value+'</a> ';
-  // }
-  // flex:1
-  // type:'string'
-  // }
   ,{
-    text : 'Library name',
+    text : 'Dataset name',
     dataIndex : 'libraries',
     sortable : false,
     filter : {

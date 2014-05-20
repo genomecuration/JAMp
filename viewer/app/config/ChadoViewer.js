@@ -9,6 +9,13 @@ Ext.define('CV.config.ChadoViewer', {
     selectedIds : undefined,
     currentUri : undefined,
     countField: 'total',
+    picture : {
+      expression : {
+          ds : 'picture',
+          type : 'expression',
+          image_id: 0
+      }
+    },
     library : {
       tree : {
         extraParams : {
@@ -106,6 +113,7 @@ Ext.define('CV.config.ChadoViewer', {
       fasta : {
         ds : 'feature',
         type : 'fasta',
+        seqtype : '',
         feature_id : 0
       }
     },

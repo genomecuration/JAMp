@@ -120,7 +120,7 @@ Ext.define('CV.view.feature.NetworkCanvas', {
         this.canvasData = JSON.parse( network );
         this.rendered && this.loadCanvas(); 
       } else {
-        this.update( "<h3>Network too large to display on canvas.</h3>");
+        this.update( "<h3>Network absent or too large/complex to display meaningfully.</h3>");
         this.fireEvent('networkempty');
       }
     }

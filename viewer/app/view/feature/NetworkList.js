@@ -11,7 +11,7 @@ Ext.define('CV.view.feature.NetworkList',{
   collapsed:false,
   collapsible:true,
   expandable:true,
-  title:'List of networks',
+  title:'Available networks',
   emptyText:'No networks found',
   initComponent:function(  ){
     if(typeof ( this.store ) == 'string'){

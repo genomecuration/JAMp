@@ -3,7 +3,7 @@ Ext.define('CV.view.feature.TranscriptList',{
   extend:'Ext.grid.Panel',
   alias : 'widget.transcriptlist',
   store: 'CV.store.Transcripts',
-  title:'Raw data',
+  title:'Transcript members',
   columns:[{
     dataIndex : 'name',
     text : 'Name',

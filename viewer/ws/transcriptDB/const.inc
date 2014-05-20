@@ -45,9 +45,9 @@ $own = 'demo';
  * an enumeration of id types
  */
 class Type{
-  // returns all libraries as a simple tree structure
+   // upper level hierarchy (aka contig). if gene from genome, may contain introns 
   const gene = 1;
-  // returns libraries organised according to organism
+  // transcript sequence (aka mRNA aka cDNA)
   const transcript = 2;
 }
 /**

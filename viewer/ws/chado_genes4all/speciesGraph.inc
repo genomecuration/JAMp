@@ -63,9 +63,9 @@ function speciescvTermSummary ( $id , $cv_id , $cv_name){
 
 	  $data = query_execute('chado', $librarySql , null);
 	  
-  	  $sNameSql = sprintf( $sqlQueries['genus'] , $id );
+  	  $sNameSql = sprintf( $sqlQueries['speciesname'] , $id );
 	  $sName = query_execute( 'chado', $sNameSql ,null);
-	  $data = addProperty($data , 'highername' , array( $id => $sName[0]['genus'] .' '.$sName[0]['species'] ));
+	  $data = addProperty($data , 'highername' , array( $id => $sName[0]['species'] ));
 	  
 	  return $data;
 }

@@ -6,7 +6,7 @@ function listLibrary($lib) {
 	require ('SqlQueries.inc');
 	$lib = cleanLib($lib);
 
-	$cvtermSql = sprintf($sqlQueries['library']['metadataDataset'], $lib);
+	$cvtermSql = sprintf($sqlQueries['library']['metadataDataset'], pg_escape_string($lib));
 	$result = query_execute($db, $cvtermSql, null);
 	$result = flattenTwoD($result, 'vocabulary', 'term', 'selection', 'library name');
 	// flatten result
@@ -55,7 +55,6 @@ function featureLibraryList($ids) {
 	// $filters = json_decode($_REQUEST['filter']);
 	// $cvtermsArray = json_decode($_REQUEST['cvterms']);
 	$facets = json_decode($_REQUEST['facets'], TRUE);
-	//echo print_r($facets);
 	$page = paging($_REQUEST);
 	$count = array();
 	$sqls = array();
@@ -89,19 +88,15 @@ function featureLibraryList($ids) {
 					$facetSql = koFeature($facet['value'], $id);
 					break;
 				case CV::nothit :
-					$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], $id);
+					$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], pg_escape_string($id));
 					break;
 			}
 			array_push($facetsQueryArray, $facetSql);
 	 	 }
 	    }else{
-	    	$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], $id);
+	    	$facetSql = sprintf($sqlQueries['library']['nohitsTranscripts'], pg_escape_string($id));
 	    	array_push($facetsQueryArray, $facetSql);
 	    }
-		// echo $facetSql." sql";
-		
-	    // echo print_r($facetsQueryArray);
-
 		$facetQuery = '';
 		if ($go_id) {
 			// $facetQuery = sprintf( $sqlQueries['library']['itemsFacets'], $go_id );
@@ -113,27 +108,29 @@ function featureLibraryList($ids) {
 		//
 		// $refineSql = refineSQL($id, $filters, $facets , $ids);
 		// echo $facetQuery;
-		array_push($count, sprintf($sqlQueries['library']['transcripts'], $id, $facetQuery));
-		array_push($sqls, sprintf($sqlQueries['library']['items'], $id, $facetQuery, ''));
+		array_push($count, sprintf($sqlQueries['library']['cdss'], pg_escape_string($id), $facetQuery));
+		array_push($sqls, sprintf($sqlQueries['library']['items'], pg_escape_string($id), $facetQuery, ''));
 		// echo sprintf( $sqlQueries['library']['items'], $id, $facetQuery ,'');
 	}
+	
 	$countSql = join(' union all ', $count);
-	// echo print_r($sqls);
-	$countSql = sprintf($sqlQueries['library']['count'], $countSql);
+	if (!empty($countSql)){
+		$countSql = sprintf($sqlQueries['library']['count'], $countSql);
+		$total = query_execute(null, $countSql, null);
+		$total = $total[0]['count'];
+	}
 	$sql = join(' union all ', $sqls);
-
 	$sql = sprintf($sqlQueries['library']['itemsUnion'], $sql, $page);
+	// echo print_r($sqls);
 	// echo $sql;
 	// echo $countSql;
-	$total = query_execute(null, $countSql, null);
-	$total = $total[0]['count'];
 	// $detailsSql = featureDetailsSql( $refineSql , $order['string'] , $page );
 	//
 	// if ($countSql) {
-	// $count = query_execute('chado', $countSql, null);
+	// $count = query_execute(null, $countSql, null);
 	// $total = $count[0]['count'];
 	// }
-	// $data = query_execute('chado', $detailsSql , null);
+	// $data = query_execute(null, $detailsSql , null);
 	// echo 'nothing';
 
 	// echo $sql;
@@ -147,39 +144,39 @@ function featureLibraryList($ids) {
 
 function mfFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['goTranscripts'], $ids, $dsid);
+	return sprintf($sqlQueries['library']['goTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 }
 
 function bpFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['goTranscripts'], $ids, $dsid);
+	return sprintf($sqlQueries['library']['goTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 }
 
 function ccFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['goTranscripts'], $ids, $dsid);
+	return sprintf($sqlQueries['library']['goTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 }
 
-function keggFeature($id, $dsid) {
+function keggFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['keggTranscripts'], $id, $dsid);
+	return sprintf($sqlQueries['library']['keggTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 }
 
-function enzymeFeature($id, $dsid) {
+function enzymeFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['enzymeTranscripts'], $id, $dsid);
-
-}
-
-function eggnogFeature($id, $dsid) {
-	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['eggnogTranscripts'], $id, $dsid);
+	return sprintf($sqlQueries['library']['enzymeTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 
 }
 
-function koFeature($id, $dsid) {
+function eggnogFeature($ids, $dsid) {
 	require ('SqlQueries.inc');
-	return sprintf($sqlQueries['library']['koTranscripts'], $id, $dsid);
+	return sprintf($sqlQueries['library']['eggnogTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
+
+}
+
+function koFeature($ids, $dsid) {
+	require ('SqlQueries.inc');
+	return sprintf($sqlQueries['library']['koTranscripts'], pg_escape_string($ids), pg_escape_string($dsid));
 
 }
 
@@ -202,16 +199,16 @@ function refineSQL($id, $filters, $facets, $ids = NULL) {
 		$intersectCvterm = array();
 		foreach ($filters as $key => $cvterm) {
 			if ($cvterm -> property == 'type') {
-				array_push($sql, sprintf($sqlQueries['library']['filters'], $id, $cvterm -> value));
+				array_push($sql, sprintf($sqlQueries['library']['filters'], pg_escape_string($id), pg_escape_string($cvterm -> value)));
 			}
 		}
 	} else {
-		array_push($sql, sprintf($sqlQueries['library']['allFeatures'], $id));
+		array_push($sql, sprintf($sqlQueries['library']['allFeatures'], pg_escape_string($id)));
 	}
 	if ($facets) {
 		$intersectCvterm = array();
 		foreach ($facets as $key => $cvterm) {
-			array_push($sql, sprintf($sqlQueries['library']['facets'], $cvterm -> value, $id));
+			array_push($sql, sprintf($sqlQueries['library']['facets'], pg_escape_string($cvterm -> value), pg_escape_string($id)));
 		}
 	}
 	return implode(' intersect ', $sql);
@@ -225,27 +222,27 @@ function reduceArray($v, $item) {
 function getUncategorisedFeatures($selectedIds) {
 	require ('SqlQueries.inc');
 	$id = -1 * $selectedIds[0];
-	$librariesSql = sprintf($sqlQueries['organismLibraries'], $id);
-	$libraries = query_execute('chado', $librariesSql, null);
+	$librariesSql = sprintf($sqlQueries['organismLibraries'], pg_escape_string($id));
+	$libraries = query_execute(null, $librariesSql, null);
 	$libraries = array_reduce($libraries, "reduceArray", array());
 	$libraries = '(' . implode(',', $libraries) . ')';
-	$cvtermidsql = sprintf($sqlQueries['cvtermid'], 'polypeptide');
-	$cvtermid = query_execute('chado', $cvtermidsql);
+	$cvtermidsql = sprintf($sqlQueries['cvtermid'], pg_escape_string('polypeptide'));
+	$cvtermid = query_execute(null, $cvtermidsql);
 	$cvtermid = $cvtermid ? $cvtermid[0]['cvterm_id'] : 0;
-	$sql = sprintf($sqlQueries['library']['uncategorised'], $cvtermid, $id, $libraries, $_REQUEST['limit'], $_REQUEST['start']);
-	$features = query_execute('chado', $sql, null);
-	$totalSql = sprintf($sqlQueries['library']['totalUncategorised'], $cvtermid, $id, $libraries);
-	$total = query_execute('chado', $totalSql, null);
+	$sql = sprintf($sqlQueries['library']['uncategorised'], pg_escape_string($cvtermid), pg_escape_string($id), $libraries, pg_escape_string($_REQUEST['limit']), pg_escape_string($_REQUEST['start']));
+	$features = query_execute(null, $sql, null);
+	$totalSql = sprintf($sqlQueries['library']['totalUncategorised'], pg_escape_string($cvtermid), pg_escape_string($id), $libraries);
+	$total = query_execute(null, $totalSql, null);
 	$total = $total ? $total[0]['count'] : 0;
 	return array('total' => $total, 'data' => $features);
 }
 
 function addLibraryStats($id, $selection) {
 	require ('SqlQueries.inc');
-	$contigSql = sprintf($sqlQueries['library']['contigCount'], $id, $selection);
+	$contigSql = sprintf($sqlQueries['library']['contigCount'], pg_escape_string($id));
 	$data = query_execute(null, $contigSql, null);
 	$data[0]['term'] = number_format($data[0]['term']);
-	$transcriptSql = sprintf($sqlQueries['library']['transcriptCount'], $id, $selection);
+	$transcriptSql = sprintf($sqlQueries['library']['cdsCount'], pg_escape_string($id));
 	$data2 = query_execute(null, $transcriptSql, null);
 	$data2[0]['term'] = number_format($data2[0]['term']);
 	return array_merge($data, $data2);

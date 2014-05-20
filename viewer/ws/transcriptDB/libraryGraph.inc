@@ -17,9 +17,9 @@ function cv($id, $db, $ids = NULL) {
 	require ('SqlQueries.inc');
 	if (isset($ids)) {
 		$id = join(',', $ids);
-		$id = ' in (' . $id . ')';
+		$id = ' in (' . pg_escape_string($id) . ')';
 	} else {
-		$id = ' = ' . $id;
+		$id = ' = ' . pg_escape_string($id);
 	}
 
 	$sql = sprintf($sqlQueries['library']['listCV'], $id);
@@ -33,7 +33,7 @@ function dbxref($id, $limit) {
 	require ('SqlQueries.inc');
 	$limit = $limit ? $limit : 100;
 	$sql = sprintf($sqlQueries['library']['dbxref'], $id, $limit);
-	$data = query_execute('chado', $sql, null);
+	$data = query_execute(null, $sql, null);
 	return $data;
 }
 
@@ -41,7 +41,7 @@ function blast($id, $limit) {
 	require ('SqlQueries.inc');
 	$limit = $limit ? $limit : 100;
 	$sql = sprintf($sqlQueries['library']['blast'], $id, $limit);
-	$data = query_execute('chado', $sql, null);
+	$data = query_execute(null, $sql, null);
 	return $data;
 }
 
@@ -57,7 +57,7 @@ function cvSummary($id, $cv_id) {
 	// echo $id;
 	if (!empty($facets)){
 	 foreach ($facets as $index => $facet) {
-		array_push($facetQueryArray, transcriptSql($facet['cv_id'], $facet['value'], $id));
+		array_push($facetQueryArray, transcriptSql(pg_escape_string($facet['cv_id']), pg_escape_string($facet['value']), $id));
 	 }
 	}
 	// $go_id = array();
@@ -67,17 +67,16 @@ function cvSummary($id, $cv_id) {
 	// $go_id = join(',', $go_id);
 	$goFacets = '';
 	if (count($facetQueryArray) > 0) {
-		// $goFacets = sprintf( $sqlQueries['library']['GoFFacets'] , ' where transcript_uname in ('.join(') intersect (', $facetQueryArray).')');
 		$goFacets = sprintf($sqlQueries['library']['facetFilterCondition'], join(' intersect ', $facetQueryArray));
 	}
 	// $librarySql = sprintf( $sqlQueries['library']['GOSummary'], $goFacets ,$class);
 	$librarySql = summarySql($cv_id, $goFacets, $id);
 	// echo $librarySql;
-	$data = query_execute('chado', $librarySql, null);
+	$data = query_execute(null, $librarySql, null);
 	// echo $cv_id;
 	// add library name
 	$lNameSql = "select description from datasets where dataset_id = $id";
-	$lName = query_execute('chado', $lNameSql, null);
+	$lName = query_execute(null, $lNameSql, null);
 	$data = addProperty($data, 'highername', array($id => $lName[0]['description']));
 	// no hits
 	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
@@ -104,7 +103,7 @@ function addProportion($data, $dsId, $count, $input = 'count', $prop = 'proporti
 function nohits( $dsId, $cvterm ) {
 	require ('SqlQueries.inc');
 	require_once ('const.inc');
-	$sql = sprintf($sqlQueries['library']['totalNoHits'], $dsId, CV::nothit);
+	$sql = sprintf($sqlQueries['library']['totalNoHits'], pg_escape_string($dsId), pg_escape_string(CV::nothit));
 	$result = query_execute(null, $sql, null);
 	$cvterm = array_replace($result[0], $cvterm);
 	return $cvterm;
@@ -117,19 +116,19 @@ function transcriptSql($cv_id, $cvterm_id, $dataset_id) {
 		case 1 :
 		case 2 :
 		case 3 :
-			$sql = sprintf($sqlQueries['library']['goTranscripts'], $cvterm_id, $dataset_id);
+			$sql = sprintf($sqlQueries['library']['goTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
 		case 4 :
-			$sql = sprintf($sqlQueries['library']['keggTranscripts'], $cvterm_id, $dataset_id);
+			$sql = sprintf($sqlQueries['library']['keggTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
 		case 5 :
-			$sql = sprintf($sqlQueries['library']['enzymeTranscripts'], $cvterm_id, $dataset_id);
+			$sql = sprintf($sqlQueries['library']['enzymeTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
 		case 6 :
-			$sql = sprintf($sqlQueries['library']['eggnogTranscripts'], $cvterm_id, $dataset_id);
+			$sql = sprintf($sqlQueries['library']['eggnogTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
 		case 7 :
-			$sql = sprintf($sqlQueries['library']['koTranscripts'], $cvterm_id, $dataset_id);
+			$sql = sprintf($sqlQueries['library']['koTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
 		default :
 			break;
@@ -142,28 +141,28 @@ function summarySql($cv_id, $facetSql, $datasetId) {
 	$sql = '';
 	switch ($cv_id) {
 		case 1 :
-			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, 'F', $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, pg_escape_string('F'), pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 2 :
-			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, 'P', $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, pg_escape_string('P'), pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 3 :
-			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, 'C', $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['GOSummary'], $facetSql, pg_escape_string('C'), pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 4 :
-			$sql = sprintf($sqlQueries['library']['KEGGSummary'], $facetSql, $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['KEGGSummary'], $facetSql, pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 5 :
-			$sql = sprintf($sqlQueries['library']['ENZYMESummary'], $facetSql, $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['ENZYMESummary'], $facetSql, pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 6 :
-			$sql = sprintf($sqlQueries['library']['EGGNOGSummary'], $facetSql, $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['EGGNOGSummary'], $facetSql, pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 7 :
-			$sql = sprintf($sqlQueries['library']['KOSummary'], $facetSql, $cv_id, $datasetId);
+			$sql = sprintf($sqlQueries['library']['KOSummary'], $facetSql, pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
 		case 8 :
-			$sql = sprintf($sqlQueries['library']['NoHitsSummary'], $datasetId);
+			$sql = sprintf($sqlQueries['library']['NoHitsSummary'], pg_escape_string($datasetId));
 			break;
 		default :
 			break;

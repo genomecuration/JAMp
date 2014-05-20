@@ -16,7 +16,7 @@ function mergeCvTermsSum( $merge , $ids = NULL, $cProp = 'count'){
 	foreach( $merge as $key => $library){
 		foreach ($library as $index => $term) {
 			$temp = $result[ $term[ 'cvterm_id' ] ];
-			if( !$temp && !empty($ids)){
+			if( empty($temp) && !empty($ids)){
 				$temp = array_fill_keys($ids, 0);
 			}
 			$count = isset($term[$cProp])?$term[$cProp]:'0';
@@ -32,7 +32,7 @@ function mergeCvTermsSum( $merge , $ids = NULL, $cProp = 'count'){
 					}
 					$temp[ $columnName ] =  $temp[ $columnName ] + $value ;
 				} else {
-					$temp[ $columnName ] = $value;	
+					$temp[ $columnName ] = $value;
 				}
 				// echo print_r($temp);
 			}
@@ -54,73 +54,26 @@ function sumColumns( $rows , $columns , $aggColumn = 'total'){
 	return $rows;
 }
 
-function offer_download(){
-	/**
-					 * webservice base url - ws/chadoviewer
-					 *
-					 * 	get feature sequence in fasta format
-					 *
-					 * @param ds [ 'library' , 'species' , 'feature' ]
-					 * 	feature - query relates to features
-					 * @param type [ 'list' , 'cv' , 'fasta' ]
-					 * 	cv - query related to getting metadata of a feature
-					 * @param feature_id
-					 * 	query relates to this feature id
-					 * @param filter
-					 * 	json encoded string representing filter applied
-					 * @param page
-					 * 	page number
-					 * @param limit
-					 * 	number of features per page
-					 * @param text
-					 * 	values = [null , 'plain']
-					 * 	plain - returns only fasta text
-					 * 	null - returns json formatted fasta text
-					 * 
-					 * @return
-					 * 	text - plain
-					 * 	output format-
-					 * >IC7539AbApep21683
-					 * SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
-					 * KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
-					 * YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
-					 * LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
-					 * SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
-					 * TITIDRGILC
-					 * 
-					 * or 
-					 * text - null
-					 * [{fasta: ">IC7539AbApep21683
-					  SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
-					  KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
-					  YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
-					  LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
-					  SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
-					  TITIDRGILC"}]
-					 */
-					$data = featureFasta( $idFeature );
-					$data = $data['out'];
-					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
-		 				header('Content-Type: text/plain;');
-		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
-					}else{
-						$data = array( array( 'fasta' => $data ) );
-					}
-					break;
-}
-
-
 function chadoviewer() {
 	global $scriptDirBase;
 	$ds = $_REQUEST['ds'];
 	$data;
 	$selectedLibraries = array( array( 'type'=>'library','id'=>75) , array('type'=>'library','id'=>2) );
-	$selectedIds = json_decode( $_REQUEST['ids'] );
- 	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
+	$selectedIds = json_decode( $_REQUEST['ids'] );  // multiple ids as an array
+	$selectedSpecies = array( array( 'type'=>'species','id'=>$_REQUEST['id']) , array('type'=>'species','id'=>171) );
 	$id = $_REQUEST['id'];
 	$idFeature = $_REQUEST['feature_id'];
+	$idParsed = datasetType( $idFeature );
 	$idDataset = $_REQUEST['dataset_id'];
-	$idFilter = json_decode(  $_REQUEST['filter'], TRUE );
+	$idFilter = json_decode( $_REQUEST['filter'], TRUE );
+	$get = $_REQUEST['get'];
+	$type = $_REQUEST['type'];
+	$cv_id = $_REQUEST['cv_id'];
+	$format = $_REQUEST['format'];
+	$id = $_REQUEST['id'];
+	$cv_name = $_REQUEST['cv_name'];
+	$network_id = $_REQUEST['network_id'];
+
 	header('Content-Type: application/json');
 	/**
 	 * check for ownership here. if true proceed otherwise sent 401 error code.
@@ -130,7 +83,14 @@ function chadoviewer() {
 		$access &= hasAccess( $id );
 	}
 	if(!empty( $selectedIds )){
-		$access &= hasAccess( $selectedIds );
+		switch( $ds ){
+			case 'species':
+				//AP: this needs to be fixed
+				break;
+			case 'library':
+				$access &= hasAccess( $selectedIds );
+				break;
+		}
 	}
 	if(!empty( $idFeature )){
 		$access &= hasAccess( $idFeature );
@@ -141,33 +101,92 @@ function chadoviewer() {
 	if(!empty( $idFilter )){
 		$idF = filterId( $idFilter );
 		$access &= hasAccess( $idF );
-	}	
+	}
 	if( !$access ){
 		header('HTTP/1.0 401');
 		echo "{ msg:'You are not Authorized!'}";
 		exit;
 	}
-	
+
 	switch ( $ds ) {
-		case 'multidownload' :
-		     $type = $_REQUEST['type'];
-		     require_once ($scriptDirBase . '/feature.inc');
-			 switch($type){
-			 	case 'fasta' :
-			 		$feature_ids = $_REQUEST['feature_id'];
-			 		$data = get_multiple_featureFasta( $feature_ids );
-					if  (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download') {
-							header('Content-Type: text/plain;');
-							header('Content-Disposition: attachment; filename=multi_download.txt');
-					}else{
-							$data = array( array( 'fasta' => $data ) );		
-					}
-				break;
+		case 'picture':
+			require_once ($scriptDirBase . '/feature.inc');
+			$image_id = $_REQUEST['image_id'];
+			switch($type){
+				case 'expression':
+					$image_data = get_one_expression_picture($idDataset,$image_id);
+					break;
+				default:
+					break;
 			}
-		     break;
+			switch($format){
+				case 'download':
+					if (!empty($image_data)){
+						header('Content-Type: image/'.$image_data['format']);
+						header('Content-Disposition: attachment; filename=picture.'.$image_data['format']);
+						$data = $image_data['imageData'];
+					}else{
+						header('Content-Type: text/plain');
+						$data = 'No graph available for this request';
+					}
+					break;
+				case 'show':
+					if (!empty($image_data)){
+						header('Content-Type: text/html;charset=utf-8');
+						$data = '<img src=\'data:image/'.$image_data['format'].';base64,' . base64_encode($image_data['imageData']) . '\' />';
+					}else{
+						header('Content-Type: text/plain');
+						$data = 'No graph available for this request';
+					}
+					break;
+				default:
+					if (!empty($image_data)){
+						$data = array('imageData'=>'<img src=\'data:image/'.$image_data['format'].';base64,' . base64_encode($image_data['imageData']) . '\' />');
+					}else{
+							$data = array('imageData'=>'');
+					}
+					break;
+			}
+			break;
+		case 'multidownload' :
+			if (!empty($format) && $format == 'download'){
+				header('Content-Type: text/plain;');
+			}
+			switch($type){
+				case 'fasta' :
+					require_once ($scriptDirBase . '/feature.inc');
+					$data = get_multiple_featureFasta( $idFeature,'cds' );
+					if (empty($format) || $format != 'download'){
+						$data = array( array( 'fasta' => $data ) );
+					}else{
+						header('Content-Disposition: attachment; filename=multidownload.fasta');
+						$data = strip_tags($data);
+					}
+					break;
+				case 'cvterm' :
+					if (!empty($format) && $format == 'download'){
+						header('Content-Disposition: attachment; filename=multidownload.csv');
+						$cv_data = (array) json_decode($_REQUEST['data']);
+						$data = '';
+						$headers = (array) json_decode($_REQUEST['headers']);
+						// convert to CSV
+						ksort($headers);
+						$return = "CV_name\t". implode("\t",$headers)."\tTotal\n";
+						foreach ($cv_data as $cv=>$value_array){
+							ksort($value_array);
+							$return .= "$cv\t";
+							$return .= implode("\t",$value_array);
+							$return .= "\n";
+						}
+						$data .= $return;
+					}
+					else{
+						$data = (array) json_decode($_REQUEST['data']);
+					}
+					break;
+			}
+			break;
 		case 'library' :
-			$type = $_REQUEST['type'];
-			$cv_id = $_REQUEST['cv_id'];
 			switch ( $type ) {
 				case 'tree' :
 					require_once ($scriptDirBase . '/libraryTree.inc');
@@ -178,7 +197,7 @@ function chadoviewer() {
 					 *
 					 * @param ds [ 'library' , 'species' , 'feature' ]
 					 * @param type [ 'tree' , 'cv' , 'graph' , 'feature' ]
-					 * 	tree - query relates to library with output in tree format 
+					 * 	tree - query relates to library with output in tree format
 					 * @param view [ 1, 2 ]
 					 * 	Selection to control output format.
 					 * 	the hierarchial tree structure is formatted using this parameter. Two supported views are:
@@ -187,7 +206,7 @@ function chadoviewer() {
 					 *
 					 * @return
 					 * 	format - JSON
-					 * 	output JSON format-	
+					 * 	output JSON format-
 					 * 	view 1:
 					 * 		{
 					 * 			expanded:true,
@@ -229,7 +248,7 @@ function chadoviewer() {
 					 * 			}]
 					 * 		}
 					 */
-					$data = listLibraryTree();					
+					$data = listLibraryTree();
 					break;
 				case 'cv' :
 					require_once ($scriptDirBase . '/library.inc');
@@ -262,21 +281,23 @@ function chadoviewer() {
 					 * 		}
 					 *
 					 */
-					 $data = array();
+					$data = array();
 					foreach ( $selectedIds as $key => $value ) {
-					  $data = array_merge( $data, listLibrary( $value ) );
-					  $data = array_merge( $data, addLibraryStats( $value , $data[0]['selection'] ) );
+						$meta = listLibrary( $value );
+						$data = array_merge( $data, $meta );
+						$stats = array();
+						if(count($meta)){
+							$stats =addLibraryStats( $value , $meta[0]['selection'] );
+						}
+						$data = array_merge( $data, $stats );
 					}
 					// $data = array( 'root' => $data );
 					break;
 				case 'graph' :
 					require_once ($scriptDirBase . '/libraryGraph.inc');
 					require_once ($scriptDirBase . '/const.inc');
-					$id = $_REQUEST['id'];
-					$get = $_REQUEST['get'];
 					$filters = json_decode($_REQUEST['filters']);
 					$facets = json_decode($_REQUEST['facets']);
-					$db = 'chado';
 					if (isset($get)) {
 						// default value
 						switch ( $get ) {
@@ -420,7 +441,6 @@ function chadoviewer() {
 					}
 					$data = 'Get parameter is mandatory. check manual.';
 					break;
-					// populates Sequences panel -> list of features that match a search
 				case 'feature' :
 					require_once ($scriptDirBase . '/library.inc');
 					/**
@@ -463,34 +483,34 @@ function chadoviewer() {
 					if( $selectedIds[0] > 0 ){
 						$data = featureLibraryList( $selectedIds );
 						// switch ($cv_id) {
-							// case 1:
-	 						    // $data = mfFeature( $selectedIds );
-								// break;
-							// case 2:
-								// $data= bpFeature( $selectedIds );
-								// break;
-							// case 3:
-								// $data= ccFeature( $selectedIds );
-								// break;
+						// case 1:
+						// $data = mfFeature( $selectedIds );
+						// break;
+						// case 2:
+						// $data= bpFeature( $selectedIds );
+						// break;
+						// case 3:
+						// $data= ccFeature( $selectedIds );
+							// break;
 							// case 4:
-								// $data= keggFeature( $selectedIds );
-								// break;
+							// $data= keggFeature( $selectedIds );
+							// break;
 							// case 5:
-								// $data= enzymeFeature( $selectedIds );
-								// break;
+							// $data= enzymeFeature( $selectedIds );
+							// break;
 							// case 6:
-								// $data= eggnogFeature( $selectedIds );
-								// break;
+							// $data= eggnogFeature( $selectedIds );
+							// break;
 							// case 7:
-								// $data= koFeature( $selectedIds );
-								// break;
+							// $data= koFeature( $selectedIds );
+							// break;
 							// default:
-									 						    // $data = mfFeature( $selectedIds );
-								// break;
-						// }
+							// $data = mfFeature( $selectedIds );
+							// break;
+							// }
 					}
-					 // else{
-						// $data = getUncategorisedFeatures( $selectedIds );
+					// else{
+					// $data = getUncategorisedFeatures( $selectedIds );
 					// }
 					break;
 				default :
@@ -562,18 +582,14 @@ function chadoviewer() {
 					 * 		}
 					 *
 					 */
-					$data = array();
+					$data = get_cv_from_species($selectedIds);
 					break;
 				case 'graph' :
 					require_once ($scriptDirBase . '/speciesGraph.inc');
 					require_once ($scriptDirBase . '/const.inc');
-					  $id = $_REQUEST['id'];
-					  $cv_id = $_REQUEST['cv_id'];
-					  $get = $_REQUEST['get'];
-					  $cv_name = $_REQUEST['cv_name'];
-					  if ( isset ( $get ) ) {
-						  switch ( $get ){
-						  	case 'cv':
+					if ( isset ( $get ) ) {
+						switch ( $get ){
+							case 'cv':
 								/**
 								 * webservice base url - ws/chadoviewer
 								 *
@@ -603,8 +619,9 @@ function chadoviewer() {
 								 * 			}
 								 * 		]
 								 */
+								global $controlledVocabularies;
 								$data = $controlledVocabularies;
-							  break;
+								break;
 							case 'cv_term':
 								/**
 								 * webservice base url - ws/chadoviewer
@@ -636,9 +653,9 @@ function chadoviewer() {
 								 */
 								$cvTermsSumList = array();
 								foreach ( $selectedIds as $key => $value ) {
-								  $cvTermsSumList[ $value ] = speciescvTermSummary( $value , $cv_id , $cv_name );
-								  $total = totalTrancsriptsSpecies( $value ); 
-						  		  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $value, $total, $value." count" );
+									$cvTermsSumList[ $value ] = speciescvTermSummary( $value , $cv_id , $cv_name );
+									$total = totalTrancsriptsSpecies( $value );
+									$cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $value, $total, $value." count" );
 								}
 								$data = mergeCvTermsSum( $cvTermsSumList );
 								$data = sumColumns( $data, $selectedIds );
@@ -678,7 +695,7 @@ function chadoviewer() {
 								/**
 								 * webservice base url - ws/chadoviewer
 								 *
-								 * 	get blast metadata for an organism 
+								 * 	get blast metadata for an organism
 								 *
 								 * @param ds [ 'library' , 'species' , 'feature' ]
 								 * 	species - query relates to an organism
@@ -704,11 +721,11 @@ function chadoviewer() {
 								 */
 								$data = speciesblast( $id );
 								break;
-						  }
-						  
-						  break;
-					  }
-					  $data = 'Get parameter is mandatory. check manual.';
+						}
+
+						break;
+					}
+					$data = 'Get parameter is mandatory. check manual.';
 					break;
 				case 'feature' :
 					require_once ($scriptDirBase . '/speciesTerms.inc');
@@ -757,7 +774,6 @@ function chadoviewer() {
 			}
 			break;
 		case 'feature' :
-			$type = $_REQUEST['type'];
 			require_once ($scriptDirBase . '/feature.inc');
 			switch ($type) {
 				case 'list' :
@@ -799,7 +815,7 @@ function chadoviewer() {
 					 *						 }
 					 * 						.....
 					 * 					],
-					 * 			"total":"1492" 
+					 * 			"total":"1492"
 					 * 			// total number of features in table
 					 * 		}
 					 */
@@ -831,14 +847,13 @@ function chadoviewer() {
 					 * 		{
 					 * 			"root":[{
 					 * 						"dsid":"37151170",
-			 		 * 						"term":"Calcium\/calmodulin-dependentproteinkinase.",
-				 	 *						"vocabulary":"EC",
+					 * 						"term":"Calcium\/calmodulin-dependentproteinkinase.",
+					 *						"vocabulary":"EC",
 					 * 						"value":"t"
 					 * 					}]
 					 *  	}
 					 */
-					 $fid = $_REQUEST['feature_id'];
-					$data = featureCV( $fid );
+					$data = featureCV( $idFeature );
 					break;
 				case 'fasta' :
 					/**
@@ -862,7 +877,7 @@ function chadoviewer() {
 					 * 	values = [null , 'plain']
 					 * 	plain - returns only fasta text
 					 * 	null - returns json formatted fasta text
-					 * 
+					 *
 					 * @return
 					 * 	text - plain
 					 * 	output format-
@@ -873,24 +888,24 @@ function chadoviewer() {
 					 * LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
 					 * SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
 					 * TITIDRGILC
-					 * 
-					 * or 
+					 *
+					 * or
 					 * text - null
 					 * [{fasta: ">IC7539AbApep21683
-					  SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
-					  KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
-					  YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
-					  LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
-					  SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
-					  TITIDRGILC"}]
+					 SFVTFCNQCLRNLEKMLEFTTSRDGLLQIEDDVLCSVVQRESISSVYDVDKTPLGRGKYATVCRAVHKKTGTSYAAKFVK
+					 KRRRNVDQMKEIIHEIAVLMQCKSTNRVIRLHEVYESVSEMVLVLELAAGGELQHILDGGQCLGEVEARKAMKQILEGVA
+					 YLHDRNIAHLDLKPQNLLLSVQDCCDDIKLCDFGISKVLLPGVSVREILGTVDYVAPEVLSYEPIGLSTDIWSIGVLGYV
+					 LLSGFSPFGADDKQQTFLNISKCSLSFEPEHFEDVSSAAIDFIKSALVIDPRNRPTIREMLDHPWISLKSNLLPALTSKP
+					 SEHQTSNNLTPKSTPISQRKSFSCITDTPKSAQRKTFCADTLNGSFTDTTLRTYTVSNNCLCSQCGTTCRHITHTPVSKT
+					 TITIDRGILC"}]
 					 */
 					$data = featureFasta( $idFeature );
-					$data = $data['out'];
 					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
-		 				header('Content-Type: text/plain;');
-		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+						header('Content-Type: text/plain;');
+						header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+						$data = strip_tags($data['fasta']);
 					}else{
-						$data = array( array( 'fasta' => $data ) );
+						$data = array(  $data  );
 					}
 					break;
 				case 'annotations':
@@ -906,43 +921,47 @@ function chadoviewer() {
 					 * 		''
 					 * 	]
 					 */
-					 $id = $_REQUEST['feature_id'];
-					 $data = getAnnotations($id);
+					$data = getAnnotations($idFeature);
 					break;
 				case 'network':
-					/**
-					 */
-					 $id = $_REQUEST['feature_id'];
-					 $data = getNetworkTree( $id );
-					 $data = array('text'=>'root', 'expanded'=>'true','children'=>$data);
+					$data = getNetworkTree( $idFeature );
 					break;
 				case 'networkjson':
-					/**
-					 */
-					 $id = $_REQUEST['network_id'];
-					 $dsId = $_REQUEST['dataset_id'];
-					 $data = getNetworkJson( $id, $dsId );
-					 $data = array('network_id'=>$id, 'json'=>$data);
+					$data = getNetworkJson( $network_id, $idDataset );
+					$data = array('network_id'=>$network_id, 'json'=>$data);
+					break;
+				case 'networktranscripts':
+					$data = getNetworkTranscripts( $network_id, $idDataset );
 					break;
 				case 'translate':
 					$gCode = $_REQUEST['geneticCode'];
 					if( empty( $gCode )){
 						$gCode = 1;
 					}
-					$data = featureFasta( $idFeature );
-					$data = translate_DNA_to_protein( $data['residues'], $gCode );
-					$data = chunk_split($data, 80, "\n");
+					$data = featureFasta( $idFeature,'cds' );
+					$fasta_sequence = '';
+					foreach ($data['feature_data'] as $feature){
+						$feature['residues'] = translate_DNA_to_protein( $feature['residues'], $gCode );
+						$translation_data = format_fasta_request($idDataset,$feature);
+						$fasta_sequence .= $translation_data['fasta'];
+					}
 					if (!empty($_REQUEST['format']) && $_REQUEST['format'] == 'download'){
-		 				header('Content-Type: text/plain;');
-		 				header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+						header('Content-Type: text/plain;');
+						header('Content-Disposition: attachment; filename=' . $idFeature . '.txt');
+						$data = strip_tags($fasta_sequence);
 					}else{
-						$data = array( array( 'fasta' => $data ) );
+						$data = array(array(  'fasta' => $fasta_sequence  ));
 					}
 					break;
 				case 'translationtable':
 					global $proteinMapping;
 					$data = $proteinMapping;
 					break;
+				case 'expression' :		
+					// give list of images for the feature
+					$data = list_expression_pictures($idFeature,$idDataset);	
+					break;
+					
 				default :
 					break;
 			}
@@ -953,10 +972,10 @@ function chadoviewer() {
 			switch( $type ){
 				case 'experiments':
 					$view = $_REQUEST['view'];
-					
+
 					switch($view){
 						case 'tree':
-						 	/*
+							/*
 							 * get the experiment list in tree format
 							 * output format:
 							 *  	array( 'expanded'=>TRUE,
@@ -975,7 +994,7 @@ function chadoviewer() {
 							$data = expTreeView();
 							break;
 					}
-				break;
+					break;
 				case 'graphdata':
 					$deid = $_REQUEST['pid'];
 					$gid = $_REQUEST['gid'];
@@ -986,21 +1005,24 @@ function chadoviewer() {
 		case 'annotations':
 			require_once ( $scriptDirBase . '/annotations.inc' );
 			// $data = array(
-				// array( 'cvid'=>1,'cvtermid'=>2,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'gpase'),
-				// array('cvid'=>1,'cvtermid'=>5,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'cellular')
+			// array( 'cvid'=>1,'cvtermid'=>2,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'gpase'),
+			// array('cvid'=>1,'cvtermid'=>5,'title'=>'excellent work','cvname'=>'GO','cvtermname'=>'cellular')
 			// );
-			$data = autocomplete( $_GET['query'] );
-			break;	
+			$data = autocomplete( $_GET['query'], $selectedIds );
+			break;
 		case 'help':
 			$help = file_get_contents($scriptDirBase.'/help.inc');
 			$data = array(array('text'=>$help));
 			break;
-}
-  if( is_object( $data ) || is_array( $data )){
-  	echo json_encode( $data );
-  } else {
-  	echo $data;
-  }
+		case 'test':
+			$data = array(array('text'=>'test'));
+			break;
+	}
+	if( is_object( $data ) || is_array( $data )){
+		echo json_encode( $data );
+	} else {
+		echo $data;
+	}
 }
 chadoviewer();
 ?>
