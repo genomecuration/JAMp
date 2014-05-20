@@ -8,7 +8,7 @@ Ext.define('CV.view.MetaData', {
   // height : 400,
   store : 'CV.store.CvTerms',
   columns : [{
-    text : 'Key',
+    text : 'Vocabulary',
     dataIndex : "vocabulary",
     type : 'string',
     flex : 1,
@@ -16,7 +16,7 @@ Ext.define('CV.view.MetaData', {
       return '<div style="white-space:normal !important;">' + val + '</div>';
     }
   }, {
-    text : 'Value',
+    text : 'Term',
     dataIndex : "term",
     type : 'string',
     flex : 1,

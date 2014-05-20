@@ -57,7 +57,14 @@ function featureSpeciesList( $ids ) {
 	 *
 	 */
 
-	$translation = array('type' => 'cvt.name', 'species' => 'o.species', 'library_name' => 'lib.library_id', 'feature_id' => array('name' => 'f.feature_id', 'type' => 'number'), 'name' => 'f.name', 'uniquename' => 'f.uniquename', 'organism_id' => array('name' => 'f.organism_id', 'type' => 'number'), 'cvterm_id' => array('name' => 'cvt.cvterm_id', 'type' => 'number'), 'genus' => 'o.genus', 'library_id' => array('name' => 'lib.library_id', 'type' => 'number'), 'srcuniquename' => 'fs.srcuniquename', 'srcfeature_id' => array('name' => 'loc.srcfeature_id', 'type' => 'number'));
+	$translation = array('type' => 'cvt.name', 'species' => 'o.species', 'library_name' => 'lib.library_id', 'feature_id' => 
+	 array('name' => 'f.feature_id', 'type' => 'number'),
+	  'name' => 'f.name', 'uniquename' => 'f.uniquename', 
+	  'organism_id' => array('name' => 'f.organism_id', 'type' => 'number'),
+	  'cvterm_id' => array('name' => 'cvt.cvterm_id', 'type' => 'number'), 
+	  'library_id' => array('name' => 'lib.library_id', 'type' => 'number'), 'srcuniquename' => 'fs.srcuniquename',
+	  'srcfeature_id' => array('name' => 'loc.srcfeature_id', 'type' => 'number')
+	);
 
 	$total = 100000000;
 	$id = $_REQUEST['id'];
@@ -71,8 +78,7 @@ function featureSpeciesList( $ids ) {
 	$order = orderby($_REQUEST, $translation);
 	
 	$refineSql = speciesRefineSQL($id, $filters, $facets, $ids );	
-	// echo $refineSql;
-	// echo "\n";
+	 //echo $refineSql. "\n";
 	$countSql = countSql( $refineSql );
 	$detailsSql = speciesDetailsSql( $refineSql , $order['string'] , $page );
 	// echo $detailsSql;
@@ -118,6 +124,8 @@ function speciesRefineSQL( $id , $filters , $facets , $ids = NULL ){
 			array_push( $sql ,$featureWCvtermId);
 		}
 	}
+	
+	
 	return implode( ' intersect ' , $sql );
 }
 ?>

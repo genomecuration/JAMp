@@ -5,7 +5,7 @@ function autocomplete( $value, $ids ){
 	$data = array();
 	$uniprotHits = array();
 	foreach ($ids as $key => $id) {
-		array_push( $uniprotHits, sprintf($sqlQueries['annotations']['uniprotHits'], $id ) );
+		array_push( $uniprotHits, sprintf($sqlQueries['annotations']['uniprotHits'], pg_escape_string($id) ) );
 	}
 	$uniprotHits = join(' union ', $uniprotHits );	
 	array_push( $data,  goAutoComplete( $value, $uniprotHits ));
@@ -15,14 +15,13 @@ function autocomplete( $value, $ids ){
 	array_push( $data,  pathwayAutoComplete( $value , $uniprotHits ));
 	return topX( $data, 10);
 }
-function goAutoComplete($value='', $uniprotHits)
-{
+function goAutoComplete($value='', $uniprotHits){
 	require "SqlQueries.inc";
 	$number = "";
 	if( is_numeric($value) ){
-		$number = "known_proteins.go.go_id = $value";
+		$number = "known_proteins.go.go_id = ".pg_escape_string($value);
 	} else {
-		$number = "name ilike '%$value%'";
+		$number = "name ILIKE '%".pg_escape_string($value)."%'";
 	}
 	
 	$sql = sprintf( $sqlQueries['annotations']['goauto'], $number, $uniprotHits );
@@ -31,25 +30,25 @@ function goAutoComplete($value='', $uniprotHits)
 }
 function koAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['koauto'], $value, $uniprotHits );
+	$sql = sprintf($sqlQueries['annotations']['koauto'], pg_escape_string($value), $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
 function eggnogAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['eggnogauto'], $value, $uniprotHits );
+	$sql = sprintf($sqlQueries['annotations']['eggnogauto'], pg_escape_string($value), $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
 function enzymeAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['enzymeauto'], $value, $uniprotHits );
+	$sql = sprintf($sqlQueries['annotations']['enzymeauto'], pg_escape_string($value), $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }
 function pathwayAutoComplete( $value, $uniprotHits ){
 	require "SqlQueries.inc";
-	$sql = sprintf($sqlQueries['annotations']['pathwayauto'], $value, $uniprotHits );
+	$sql = sprintf($sqlQueries['annotations']['pathwayauto'], pg_escape_string($value), $uniprotHits );
 	$data = query_execute( null, $sql, null );
 	return $data; 	
 }

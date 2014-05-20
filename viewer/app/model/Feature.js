@@ -3,7 +3,7 @@ Ext.define('CV.model.Feature', {
   fields : [{
     name:'feature_id',
     type:'auto'
-  }, 'name', 'uniquename', 'dbxref_id', 'dbxref_name', 'organism_id', 'organism_name','seqlen', 'cvterm_id', 'type', 'genus', 'species',{
+  }, 'name', 'uniquename', 'dbxref_id', 'dbxref_name', 'organism_id', 'organism_name','seqlen', 'cvterm_id', 'type', 'species',{
    name:'libraries',
    type:'string',
    convert:function( value , record ){
@@ -22,11 +22,11 @@ Ext.define('CV.model.Feature', {
    name:'srcuniquename',
    type:'string',
    convert:function( value , record ){
-     var str = '' , srcs = record.raw.sources, i, links=[], src;
+     var str = '' , srcs = record.raw.sources, i, links=[];
      if ( srcs ){
        for ( i = 0 ;i < srcs.length ; i  ++ ){
-         src = srcs[i];
-         links.push ( '<a href="#feature/'+src.feature_id + '/' +src.uniquename+'">'+src.uniquename+'</a>');
+         var src = srcs[i];
+         links.push ( '<a href="#feature/'+src.feature_id +'">'+src.uniquename+'</a>');
        }
      }
      return links.join ( ' , ');

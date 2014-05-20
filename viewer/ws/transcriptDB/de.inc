@@ -74,7 +74,7 @@ function organismLeaf($data) {
 }
 function getGraphData( $pid, $gid ){
 	require("SqlQueries.inc");
-	$sql = sprintf( $sqlQueries['de']['graphdata'], $gid , $pid);
+	$sql = sprintf( $sqlQueries['de']['graphdata'], pg_escape_string($gid) ,pg_escape_string( $pid));
 	$data = query_execute(null, $sql , null );
 	$json = $data[0]['json'];
 	$text = json_decode( $json );

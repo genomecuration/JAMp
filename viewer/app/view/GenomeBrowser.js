@@ -40,6 +40,7 @@ Ext.define('CV.view.GenomeBrowser', {
     graphType : 'Genome',
     useFlashIE : true,
     backgroundType : 'gradient',
+    colorScheme: "user",
     backgroundGradient1Color : 'rgb(0,183,217)',
     backgroundGradient2Color : 'rgb(4,112,174)',
     oddColor : 'rgb(220,220,220)',

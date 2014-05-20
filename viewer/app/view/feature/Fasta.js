@@ -11,9 +11,6 @@ Ext.define('CV.view.feature.Fasta',{
   store: 'CV.store.Fasta',
   // extra params to sent to the server
   extraParams:null,
-  /**
-   * feature id 
-   */
   feature_id : null,
   initComponent:function (){
     this.url = CV.config.ChadoViewer.self.baseUrl;
@@ -35,12 +32,13 @@ Ext.define('CV.view.feature.Fasta',{
         }
       }]
     });
-
-    
     this.callParent( arguments );
   },
   
   getQueryString :function() {
+	//AP; this is required as seqtype gets overwritten by next fastacontainer...
+	this.seqtype && this.store.getProxy().setExtraParam( 'seqtype', this.id );
+	
     return this.url + '?format=download&' + Ext.Object.toQueryString( this.store.getProxy().extraParams );
   },
   setDownload:function () {
@@ -66,7 +64,7 @@ Ext.define('CV.view.feature.Fasta',{
   load:function( id , gCode ){
     var store = this.store;
     this.feature_id = id;
-    
+    this.seqtype && store.getProxy().setExtraParam( 'seqtype', this.seqtype );
     id && store.getProxy().setExtraParam( 'feature_id', id );
     gCode && store.getProxy().setExtraParam( 'geneticCode', gCode );
     this.setLoading( true );

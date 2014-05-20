@@ -4,14 +4,12 @@ $database_adaptor = 'transcriptDB';
 require_once(  $database_adaptor . '/utils.inc' );
 genomeviewer();
 function genomeviewer ( ){
-	
     global $database_adaptor; // = $database_adaptor ? $database_adaptor : 'chado_genes4all';
 	$type = $_REQUEST ['type'];
 	$id = $_REQUEST ['id'];
 	$ds = datasetType($id);
 	$id  = $ds['id'];
 	$dataset = $ds['dataset_id'];
-	
 		/**
 	 * check for ownership here. if true proceed otherwise sent 401 error code.
 	 */
@@ -25,7 +23,7 @@ function genomeviewer ( ){
 		echo "{ msg:'You are not Authorized!'}";
 		exit;
 	}
-	
+
 	// echo print_r($type);
 	switch ( $type ){
 		case 'sequence':

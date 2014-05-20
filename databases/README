@@ -1,24 +1,4 @@
-One could download and use the latest UniRef/UniProt database from 
-
-ftp://toolkit.genzentrum.lmu.de/pub/HH-suite/databases/hhsuite_dbs
-
-OR
-
-https://sourceforge.net/projects/jamps/files/
-e.g. 
-swissprot_50kclus.tar.bz2
-
-If you use the large UniProt database 
-a) may want to remove the hypothetical and transposons from it which is
-a gruelling process
-b) put up with a time-consuming hhblits process
-c) use the databases at https://sourceforge.net/projects/jamps/files/.
-They have been produced using refseq and kclust. In the case of fungi, 
-hypotheticals are left in because they constituted half the database 
-(seems most fungal data are hypothetical!)
-
-For what it is worth, I mostly use the Uniprot database (option B) when annotating 
-non-model taxons (e.g. corals) and the RefSeqs when annotating insects or fungi.
+See https://sourceforge.net/projects/jamps/files/
 
 BTW, if you multiple CPUs, I recommend you install and use parallel bzip2 (pbzip2).
 eg.

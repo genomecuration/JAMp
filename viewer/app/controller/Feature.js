@@ -15,8 +15,14 @@ Ext.define('CV.controller.Feature', {
     ref : 'metadataPanel',
     selector : 'featureview cvtermsgrid'
   },{
-    ref:'fastaPanel',
-    selector :'featureview fastacontainer[id=nucleotide]'
+    ref:'genePanel',
+    selector :'featureview fastacontainer[id=gene]'
+  },{
+    ref:'mrnaPanel',
+    selector :'featureview fastacontainer[id=mrna]'
+  },{
+    ref:'cdsPanel',
+    selector :'featureview fastacontainer[id=cds]'
   },{
     ref:'proteinPanel',
     selector :'featureview fastacontainer[id=proteintranslation]'
@@ -36,15 +42,24 @@ Ext.define('CV.controller.Feature', {
     ref:'networklist',
     selector: 'featureview networklist'
   },{
+	ref:'networkviews',
+	selector: 'featureview networkpanel panel[name=networkviews]'
+  },{
     ref:'translation',
     selector:'featureview combobox[name=translation]'
   },{
     ref:'transcriptlist',
     selector: 'featureview transcriptlist'
   },{
-    ref:'networkviews',
-    selector: 'featureview networkpanel panel[name=networkviews]'
-  }],
+	ref:'expressionimage',
+	selector: 'featureview expressionimage'
+  },{
+    ref:'expressionlist',
+    selector: 'featureview expressionlist'
+  },{
+	ref:'expressionviews',
+	selector: 'featureview expressionpanel panel[name=expressionviews]'
+   }],
   // config
   name:'Feature',
   uri : 'feature',
@@ -59,6 +74,7 @@ Ext.define('CV.controller.Feature', {
    * stores dataset id 
    */
   dataset: null,
+  justFeatureId: null,
   /**
    * 
    */
@@ -84,7 +100,7 @@ Ext.define('CV.controller.Feature', {
         scope: this
       },
       'featureview networklist':{
-        select: this.transformSelection,
+        select: this.transformNetworkSelection,
         scope: this
       },
       'featureview networkcanvas':{
@@ -92,6 +108,10 @@ Ext.define('CV.controller.Feature', {
         networkempty: this.rawdataFocus,
         scope: this
       },
+      'featureview expressionlist':{
+          select: this.transformExpressionSelection,
+          scope: this
+        },
       'featureview combobox[name=translation]':{
         select: this.translate
       }
@@ -162,13 +182,16 @@ Ext.define('CV.controller.Feature', {
     CV.ux.Router.redirect(url);
   },
   treeSelect : function(item , name) {
-    var grid, panel, filter={}, metadataPanel, fasta, section, annot,nl, protein;
+    var grid, panel, filter={}, metadataPanel, gene, mrna, cds, section, annot,nl,expressionList, protein;
     section = item? 'details': 'start';
     grid = this.getFeatureGrid();
     metadataPanel = this.getMetadataPanel();
-    fasta = this.getFastaPanel();
+    gene = this.getGenePanel();
+    mrna = this.getMrnaPanel();
+    cds = this.getCdsPanel();
     annot = this.getAnnotations();
     protein = this.getProteinPanel();
+    
     // make sure this is set since it will decide if the node is selected on tree panel.
     // It had to be done this way as some times tree takes long time to load. Hence search returns null.
     this.item = item;
@@ -190,21 +213,38 @@ Ext.define('CV.controller.Feature', {
           annot.store.getProxy().setExtraParam(this.featureIdProp, item);
           annot.store.load();
           
+          //network
           nl = this.getNetworklist();
           nl.store.getProxy().setExtraParam('dataset_id', this.dataset );
           nl.store.getProxy().setExtraParam('feature_id', item);
           nl.store.load();
+
+          var myDataset = this.dataset || this.getDataset( this.item );
+          var justFeatureId = this.justFeatureId || this.getJustFeature( this.item );
+          
+          // expression
+          expressionList = this.getExpressionlist();
+          expressionList.store.getProxy().setExtraParam('dataset_id', myDataset );
+          expressionList.store.getProxy().setExtraParam('feature_id', justFeatureId);
+          expressionList.store.load();
+          
           //add track
           this.loadTracks( item );
-          
-          fasta.load( item );
+
+          // add sequence FASTA panel
+          cds.load( item );
+          mrna.load( item );
+          gene.load( item );
           protein.load ( item );
+          
       break;
       case 'start':
           grid.store.clearFilter( true );
           grid.store.load();
           metadataPanel.store.removeAll();
-          fasta.setFasta('');
+          gene.setFasta('');
+          mrna.setFasta('');
+          cds.setFasta('');
       break;
     }
   },
@@ -223,7 +263,7 @@ Ext.define('CV.controller.Feature', {
       mp.grpFeature.expand(track.grpName, true);
     }
   },
-  transformSelection:function( tree , record ){
+  transformNetworkSelection:function( tree , record ){
     this.loadNetwork( undefined, [ record ] );
   },
   loadNetwork:function(rm, records){
@@ -246,6 +286,24 @@ Ext.define('CV.controller.Feature', {
       }
     }
   },
+  transformExpressionSelection:function( tree , record ){
+    this.loadExpression( undefined, [ record ] );
+  },
+  loadExpression:function(rm, records){
+	    var rec, id, expressionid ;
+	    if( records.length ){
+	      expressionid = records[0].get('expressionid');
+	      id = this.item; //"dataset_65.CUFF.28.1|m.86"
+	      if( expressionid ){
+	    	  //deselect
+	        this.getExpressionlist().getSelectionModel().deselectAll();
+	        //get image
+	        this.getExpressionimage().store.getProxy().setExtraParam('dataset_id', id );
+	        this.getExpressionimage().store.getProxy().setExtraParam('image_id', expressionid);
+	        this.getExpressionimage().store.load();
+	      }
+	    }
+	  },
   showDetails : function( id, dataset ){
     var newItem;
     dataset = dataset || this.dataset;
@@ -261,11 +319,21 @@ Ext.define('CV.controller.Feature', {
     id = id || '';
     if ( id ){
       match = id.match(/dataset_([0-9]+)/);
-      dataset = match && match[0];
+      dataset = match && match[0]; // bit weird, should be [1]?
       this.dataset = dataset;
     }
     return dataset;
   },
+  getJustFeature: function( id ){
+	    var justFeatureId, match;
+	    id = id || '';
+	    if ( id ){
+	      match = id.match(/dataset_[0-9]+\.(.+)/);
+	      justFeatureId = match && match[1];
+	      this.justFeatureId = justFeatureId;
+	    }
+	    return justFeatureId;
+	  },
   translate:function(combo , recs ){
     var pPanel = this.getProteinPanel(), rec = recs[0];
     pPanel.load( null, rec.get('id') );
@@ -277,14 +345,24 @@ Ext.define('CV.controller.Feature', {
     var ncanvas = this.getNetworkcanvas(),
       annotations = this.getAnnotations(),
       nlist = this.getNetworklist(),
-      fpanel = this.getFastaPanel(),
-      ppanel = this.getProteinPanel(),
-      rawdata = this.getTranscriptlist();
-    ncanvas.store.removeAll();
-    nlist.store.getRootNode().removeAll();
-    fpanel.store.removeAll(),
-    ppanel.store.removeAll();
-    rawdata.store.removeAll();
+      genepanel = this.getGenePanel(),
+      mrnapanel = this.getMrnaPanel(),
+      cdspanel = this.getCdsPanel(),
+      proteinpanel = this.getProteinPanel(),
+      rawdata = this.getTranscriptlist(),
+      expressionImage = this.getExpressionimage(),
+      expressionList = this.getExpressionlist()
+      ;
+      // reset
+      ncanvas.store.removeAll();
+      nlist.store.getRootNode().removeAll();
+      expressionImage.store.removeAll();
+      expressionList.store.getRootNode().removeAll();
+      genepanel.store.removeAll(),
+      mrnapanel.store.removeAll(),
+      cdspanel.store.removeAll(),
+      proteinpanel.store.removeAll();
+      rawdata.store.removeAll();
     /**
      * if childnodes are null extjs 4.2 crashes
      */

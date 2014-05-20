@@ -112,11 +112,13 @@ function filterWithSubQuery( $filter , $translation , $searchType ){
 			case 'type':
 				array_push($output['conditions'] ,"type_id in (select cvterm_id from cvterm where name = '".$value->value."')" );
 				break;
-			case 'genus':
-				array_push($output['conditions'] , "organism_id in (select organism_id from organism where genus = '".$value->value."')" );
-				break;
 			case 'species':
-				array_push($output['conditions'] , "organism_id in (select organism_id from organism where species = '".$value->value."')" );
+				$species_name = $value->value;
+				$matches = array();
+				preg_match('/^([A-Z][a-z])\s(.+)/',$species_name,$matches);
+				$genus = $matches[1];
+				$species = $matches[2];
+				array_push($output['conditions'] , "organism_id in (select organism_id from organism where genus = '$genus' AND species = '$species')" );
 				break;
 			case 'name':
 				array_push($output['conditions'] , "f.name like '".$value->value."%'" );

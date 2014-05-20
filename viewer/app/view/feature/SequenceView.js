@@ -1,7 +1,7 @@
 Ext.define('CV.view.feature.SequenceView', {
   extend : 'Ext.tab.Panel',
   alias : 'widget.sequenceview',
-  requires : ['CV.view.feature.Fasta', 'CV.view.feature.NetworkPanel', 'CV.store.Translations'],
+  requires : ['CV.view.feature.Fasta', 'CV.view.feature.NetworkPanel','CV.view.feature.ExpressionPanel', 'CV.store.Translations'],
   height : '100%',
   width : '80%',
   defaults : {
@@ -21,28 +21,50 @@ Ext.define('CV.view.feature.SequenceView', {
       items : [{
         xtype : 'panel',
         title : 'Sequence',
-        tooltip:'View nucleotide and protein sequence',
+        tooltip:'View nucleotide and protein sequences',
         layout : {
           type : 'accordion',
           titleCollapse : true,
-          animate : true,
-          multi : true
+          animate : true
         },
-        items : [{
+        items : [
+        {
+            xtype : 'fastacontainer',
+            title : 'gene',
+            id : 'gene',
+            seqtype: 'gene',
+            autoScroll: true,
+	    collapsed : true,
+            downloadId : 'downloadgene'
+          }, {
+            xtype : 'fastacontainer',
+            title : 'mRNA',
+            id : 'mrna',
+            seqtype: 'mrna',
+            autoScroll: true,
+	    collapsed : true,
+            downloadId : 'downloadmRNA'
+          }, {
           xtype : 'fastacontainer',
-          title : 'Nucleotide',
-          id : 'nucleotide',
-          downloadId : 'downloadFasta'
+          title : 'CDS',
+          id : 'cds',
+          seqtype: 'cds',
+	  collapsed : true,
+          autoScroll: true,
+          downloadId : 'downloadCDS'
         }, {
           xtype : 'fastacontainer',
           store : 'CV.store.ProteinTranslation',
           title : 'Protein',
-          id : 'proteintranslation',
+          collapsed : true,
+	  id : 'proteintranslation',
+          autoScroll: true,
           downloadId : 'downloadProtein',
           dockedItems : [{
             xtype : 'combobox',
             store : store,
             name : 'translation',
+            seqtype: 'proteintranslation',
             valueField : 'id',
             displayField : 'name',
             fieldLabel : 'Protein Translation Table:',
@@ -58,14 +80,16 @@ Ext.define('CV.view.feature.SequenceView', {
       }, {
         xtype : 'networkpanel'
       }, {
+        xtype : 'expressionpanel'
+      }, {
         xtype : 'genomebrowser'
       }]
     });
     this.callParent(arguments);
   },
   setActive : function(data, options) {
-    var genomebrowser = this.down('genomebrowser');
-    this.setActiveTab(genomebrowser);
+    var defaultTab = this.down('genomebrowser'); //AP currently only works with genomebrowser, needs to be fixed
+    this.setActiveTab(defaultTab);
   },
   initialiseCombobox : function() {
     var p = this.down('fastacontainer[id=proteintranslation]'), combo = p.down('combobox'), id;

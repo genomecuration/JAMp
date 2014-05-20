@@ -86,10 +86,6 @@ function filter( $filter , $translation , $searchType ){
  */
 function filterWithSubQuery( $filter , $translation , $searchType ){
 	global $paramConfig;
-  // $translation  = array('type' => 'cvt.name' );
-	// $filter = $params[ 'filter' ];
-	// echo print_r($paramConfig);
-	// $filter = json_decode( $filter );
 	$output  = array(
 		'conditions' => array( ),
 		'string' => ''
@@ -123,14 +119,14 @@ function filterWithSubQuery( $filter , $translation , $searchType ){
 			// case 'name':
 				// array_push($output['conditions'] , "f.name like '".$value->value."%'" );
 				// break;
-			case 't.uname':
-				array_push( $output['conditions'], $value->property." = '".$value->value."'" );
+			case 'uname':
+				array_push( $output['conditions'], pg_escape_string($value->property)." = '".pg_escape_string($value->value)."'" );
 				break;
 		}
 
 	}
 	if ( count ( $output['conditions'] )){
-		$output ['string'] = 'where '.join(' and ', $output['conditions']);
+		$output ['string'] = 'WHERE '.join(' AND ', $output['conditions']);
 	}
 	return $output;
 }
@@ -163,11 +159,11 @@ function orderby( $params , $translation) {
 					$colName = $translation [ $colName ];
 				}
 				// echo $translation [ $colName ];
-				array_push( $output['conditions'] , $colName." ".$value->direction );
+				array_push( $output['conditions'] , pg_escape_string($colName)." ".pg_escape_string($value->direction) );
 		}
 	}
 	if ( count ( $output['conditions'] )){
-		$output ['string'] = 'order by '.join(' , ', $output['conditions'] );
+		$output ['string'] = 'ORDER BY '.join(' , ', $output['conditions'] );
 	}
 	return $output;
 }
@@ -191,10 +187,10 @@ function paging ( $params ) {
 	// echo print_r($paramConfig);
 	$filter = json_decode( $filter );
 	$str ='';
-	$offset = $params['start'];
-	$limit = $params['limit'];
+	$offset = pg_escape_string($params['start']);
+	$limit = pg_escape_string($params['limit']);
 	// if ( count ( $output['conditions'] )){
-	$str = "limit $limit offset $offset";
+	$str = "LIMIT $limit OFFSET $offset";
 	// }
 	return $str;
 }
@@ -229,7 +225,7 @@ function processData ( $trans  ){
 	}
 	return $trans;
 }
-function getSequence ( $featureId , $db='chado') {
+function getSequence ( $featureId , $db=NULL) {
 	if ( $featureId ){
 		$sql = "select feature_id  , residues , uniquename from feature where feature_id = $featureId";
 		$result = query_execute($db, $sql , null);
@@ -239,13 +235,21 @@ function getSequence ( $featureId , $db='chado') {
 		return "Please provide feature id";
 	}
 }
-function getFeature ( $featureId , $dsid) {
+function getFeatureSequence ( $featureId , $dsid, $type) {
 	require 'SqlQueries.inc';
 	if ( $featureId ){
-		$sql = sprintf( $sqlQueries['nucleotides'], $dsid, $featureId );
-		$result = query_execute( null, $sql , null);
-		if( isset ( $result )){
-			$result = $result[0];
+		if ($type === Type::gene){
+			$sql = sprintf( $sqlQueries['getGeneSequence'], pg_escape_string($dsid), pg_escape_string($featureId) );
+			$result = query_execute( null, $sql , null);
+			if( isset ( $result )){
+				$result = $result[0];
+			}
+		}else{
+			$sql = sprintf( $sqlQueries['getTranscriptSequence'], pg_escape_string($dsid), pg_escape_string($featureId) );
+			$result = query_execute( null, $sql , null);
+			if( isset ( $result )){
+				$result = $result[0];
+			}
 		}
 		return $result;
 	} else {
@@ -259,7 +263,7 @@ function addLibraries($data) {
 	foreach ($data as $key => $row) {
 		$featureid = $row['feature_id'];
 		$libSql = "select lib.library_id, lib.name as library_name from library_feature libf join library lib on lib.library_id = libf.library_id where libf.feature_id = $featureid";
-		$result = query_execute('chado', $libSql, null);
+		$result = query_execute(null, $libSql, null);
 		$row['libraries'] = $result;
 		$data[$key] = $row;
 	}
@@ -272,7 +276,7 @@ function addSourceFeature($data) {
 	foreach ($data as $key => $row) {
 		$featureid = $row['feature_id'];
 		$srcSql = "select fs.uniquename , loc.srcfeature_id as feature_id from featureLoc loc join feature fs on loc.srcfeature_id = fs.feature_id where loc.feature_id = $featureid";
-		$result = query_execute('chado', $srcSql, null);
+		$result = query_execute(null, $srcSql, null);
 		$row['sources'] = $result;
 		$data[$key] = $row;
 	}
@@ -359,8 +363,7 @@ function seqLen($seq)
   * id - dataset id
   * 	example format - dataset_18.m.1  
   */
-  function datasetType( $id )
-  {
+  function datasetType( $id )  {
 	  require('SqlQueries.inc');
 	  $datasetType = '';
 	  $result = array();
@@ -372,13 +375,13 @@ function seqLen($seq)
 		$id = $ids[2];
 		$result['id'] = $id;
 		$result['dataset_id'] = $datasetId;
-		$sql = sprintf($sqlQueries['checkGene'], $datasetId, $id);
+		$sql = sprintf($sqlQueries['gettranscripts'], pg_escape_string($datasetId), pg_escape_string($id));
 		$resSql = query_execute( null, $sql,null);
-		if( count ( $resSql ) > 0){
+		if( !empty ( $resSql ) ){
 			$result['type'] = Type::gene;
-			$result['transcriptName'] = $resSql[0]['tuname']; 
+			$result['transcriptName'] = $resSql[0]['name']; 
 		} else {
-			$sql = sprintf($sqlQueries['checkTranscript'], $datasetId, $id);
+			$sql = sprintf($sqlQueries['checkTranscript'], pg_escape_string($datasetId), pg_escape_string($id));
 			$resSql = query_execute( null, $sql, null);
 			if( count($resSql) > 0){
 				$result['type'] = Type::transcript;
@@ -429,7 +432,7 @@ function ahref( $text , $href){
  */
  function totalTranscripts( $dsId ){
 	require('SqlQueries.inc');
-	$sql = sprintf($sqlQueries['library']['itemsCount'], $dsId,'');
+	$sql = sprintf($sqlQueries['library']['itemsCount'], pg_escape_string($dsId),'');
 	$counts = query_execute(null, $sql);
 	return $counts[0]['count'];
  }
@@ -439,7 +442,7 @@ function ahref( $text , $href){
   function totalTrancsriptsSpecies( $species ){
 	require('SqlQueries.inc');
 	$total = 0;
-	$sql = sprintf( $sqlQueries['species']['datasets'], $species );
+	$sql = sprintf( $sqlQueries['species']['datasets'], pg_escape_string($species) );
 	$result = query_execute( null, $sql, null );
 	foreach ($result as $key => $value) {
 		$total += totalTranscripts($value['dataset_id']);
@@ -460,7 +463,9 @@ function hasAccess( $test ){
 	if( is_numeric( $test) ){
 		$access &= idsAccess( $test );
 	} elseif (is_array( $test )) {
-		$access &= idsAccess( $test );
+               if( is_numeric( $test[0] ) ){
+                       $access &= idsAccess( $test );
+               }
 	} else {
 		$access &= featureIdAccess( $test );
 	}
@@ -472,15 +477,38 @@ function hasAccess( $test ){
 function idsAccess( $ids ){
 	require('SqlQueries.inc');
 	global $own;
+	$is_it_numeric = 0;
 	if( !is_array( $ids ) ){
-		$ids = array( $ids );
+		if (empty($ids)){
+			return TRUE;
+		}
+		if (is_numeric($ids)){
+			$ids = array( $ids );
+			$is_it_numeric=1;
+		}else{
+			$ids = array( "'$ids'" );
+		}
+	}else{
+		if (empty($ids)){
+			return TRUE;
+		}
+		if (is_numeric($ids[0])){
+			$is_it_numeric=1;
+		}
 	}
-	$idsString = '('.join( ',', $ids ).')';
-	$sql = sprintf( $sqlQueries['getOwner'], $idsString );
-	$owners = query_execute( null, $sql);
-	foreach ($owners as $key => $owner) {
-		if( $owner['owner'] != $own){
-			return FALSE;
+	if (!empty($ids)){
+		$idsString = '('.join( ',', $ids ).')';
+		$sql = '';
+		if (!empty($is_it_numeric)){
+			$sql = sprintf( $sqlQueries['getOwner'], pg_escape_string($idsString) );
+		}else{
+			$sql = sprintf( $sqlQueries['getOwner_species'], pg_escape_string($idsString) );
+		}
+		$owners = query_execute( null, $sql);
+		foreach ($owners as $key => $owner) {
+			if( $owner['owner'] != $own){
+				return FALSE;
+			}
 		}
 	}
 	return TRUE;
@@ -619,4 +647,31 @@ function filterId	( $filters ){
         // return peptide sequence
         return $peptide;
 }
+
+function knownProteinHits($datasetId, $transcript,$type){
+	require  'SqlQueries.inc';
+	$sql = sprintf( $sqlQueries['gb']['knownProteinHits'], pg_escape_string($datasetId),pg_escape_string($transcript['name']));
+	$result = query_execute(null, $sql, null);
+	$return_data = array();
+	foreach ($result as $key => $value) {
+		if ($type === Type::transcript){
+			$start = ( (($value['fmin']) * 3 ) - 2 );
+			$stop =  ($value['fmax']*3);
+		}else{
+				// in relation to gene
+			$start = ( (($value['fmin']) * 3 ) - 2 ) + $transcript['fmin']-1;
+			$stop =  ($value['fmax']*3) + $transcript['fmin'] -1;
+		}
+		
+		if( preg_match ( '/,/' , $value['name'] ) ){
+			$return_data[] = array('fmin'=>$start, 'fmax'=>$stop,'metaname'=>'hit', 'grpName'=>"Coord. $start - $stop",'list'=>$value['name'],'name'=>"Hits at coord $start - $stop");
+		}else{
+			$return_data[] = array('fmin'=>$start, 'fmax'=>$stop,'metaname'=>'hit', 'grpName'=>"Coord. $start - $stop",'name'=>$value['name']);
+		}
+	}
+	return $return_data;
+}
+
+
+
 ?>

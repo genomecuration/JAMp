@@ -5,7 +5,6 @@ Ext.define ( 'Ext.data.SpeciesGrid' , {
       fields:[
         "library_id",
         "library_name",
-        "genus",
         "species",
         "name",
         "timeaccessioned",

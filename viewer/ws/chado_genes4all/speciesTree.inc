@@ -15,8 +15,8 @@ $config = array ( 'organismVar' => 'organism_id' );
  *      return tree in json format understood by extjs treestore
  * parameters
  *      view (integer)- a number showing the view to format the result in. 
- *                              It is possible to organize the tree according to genus 
- *                              and species by choosing organism view. you can add ur own view by first declaring a const in view class above
+ *                      It is possible to organize the tree according to  
+ *                      speciesname by choosing organism view. you can add ur own view by first declaring a const in view class above
  */
 
 function listSpeciesTree () {
@@ -28,7 +28,6 @@ function listSpeciesTree () {
     $view = $_REQUEST['view'];
   }
   
-  // $librarySql = "select organism_id as id, genus, species, 'true' as leaf from organism order by genus, species";
   $librarySql = $sqlQueries['species']['tree'];
   $children = query_execute('chado', $librarySql , null);
   $tree = array();
@@ -67,7 +66,6 @@ function organismView ( $data ) {
   $temp = null;
   $row = null;
   $childrenVar = 'children';
-  $genus = 'genus';
   $species = 'species';
   $organismVar = 'id';
   // organize organism according to organism_id
@@ -101,16 +99,15 @@ function organismLeaf ( $data ) {
     $node [ $key ] = $data [ $key ];
   }
   
-  $node ['text'] = $data['genus'].' '.$data['species'];
+  $node ['text'] = $data['species'];
   return $node;
 }
 function organismNode ( $data ) {
   $node = array ( 'text' => null, 'leaf' => false, 'children'=>null);
-  $genus = 'genus';
   $species = 'species';
   $textVar  = 'text';
   $childrenVar = 'children';
-  $text = $data[ $genus ] .' '.$data[ $species ];
+  $text = $data[ $species ];
   $node[$textVar] = $text;
 //   $node [ $childrenVar ] =  $data [ $childrenVar ] ;
   return $node;

@@ -14,14 +14,33 @@ function featureList() {
 	 *
 	 */
 	require('SqlQueries.inc');
-	$translation = array('type' => 'cvt.name', 'species' => 'o.species', 'library_name' => 'lib.library_id', 'feature_id' => array('name' => 'f.feature_id', 'type' => 'number'), 'name' => 'f.name', 'uniquename' => 'f.uniquename', 'seqlen'=>'f.seqlen','organism_id' => array('name' => 'f.organism_id', 'type' => 'number'), 'cvterm_id' => array('name' => 'cvt.cvterm_id', 'type' => 'number'), 'genus' => 'o.genus', 'library_id' => array('name' => 'lib.library_id', 'type' => 'number'), 'srcuniquename' => 'fs.srcuniquename', 'srcfeature_id' => array('name' => 'loc.srcfeature_id', 'type' => 'number'));
+	$translation = array(
+	'type' => 'cvt.name',
+	'species' => 'o.species', 
+	'library_name' => 'lib.library_id', 
+	'feature_id' => array(
+		'name' => 'f.feature_id', 
+		'type' => 'number'),
+	 'name' => 'f.name',
+	 'uniquename' => 'f.uniquename',
+	 'seqlen'=>'f.seqlen',
+	 'organism_id' => array('name' => 'f.organism_id', 
+	 	'type' => 'number'),
+	 'cvterm_id' => array('name' => 'cvt.cvterm_id',
+		 'type' => 'number'),
+	 'library_id' => array('name' => 'lib.library_id',
+		 'type' => 'number'),
+	 'srcuniquename' => 'fs.srcuniquename', 
+	 'srcfeature_id' => array('name' => 'loc.srcfeature_id',
+		'type' => 'number')
+	);
 
 
 	$total = 100000000;
 
 	$sqlTotal = $sqlQueries['feature']['total'];
 	$total = getRowsFromExplain($sqlTotal, 'feature' , 'chado');
-	
+
 	$request = cloning($_REQUEST);
 
 	$intersect = array();
@@ -58,9 +77,9 @@ function featureList() {
 	$featureSql = '';
 	$countSql = '';
 	if ($intersectSql) {
-		
+
 		$countSql = sprintf( $sqlQueries['feature']['countFiltered'], $intersectSql , $filter['string'] );
-		
+
 		$featureSql = sprintf( $sqlQueries['feature']['featureFiltered'], $intersectSql, $filter['string'] , $order['string'] , $page );
 	} else {
 		if($filter['string']) {
@@ -118,7 +137,7 @@ function featureCV() {
 }
 
 /*
- * Helper function of featureFasta to get the 
+ * Helper function of featureFasta to get the
  * sequence of a feature (transcript or gene)
  * @author Alexie
  */
@@ -154,7 +173,7 @@ function featureFasta( $id ) {
 	} else {
 		$return[ 'out' ] = "Please provide feature id";
 	}
-	
+
 	return $return;
 }
 
@@ -170,18 +189,18 @@ function get_multiple_featureFasta($feature_ids){
 		$feature_ids = json_decode($feature_ids);
 		// still not an array? delimit by;
 		if (!is_array($feature_ids)){
-				$feature_ids = explode(';',$feature_ids);
+			$feature_ids = explode(';',$feature_ids);
 		}
 	}
-	
+
 	foreach ($feature_ids as $id){
 		list ($feature_data,$fasta) = get_featureFasta($id);
 		$return_fasta .= $fasta;
- 	}
+	}
 	if (empty($return_fasta)){
 		$return_fasta = "No sequences found\n";
 	}
- 	return $return_fasta;
+	return $return_fasta;
 }
 
 

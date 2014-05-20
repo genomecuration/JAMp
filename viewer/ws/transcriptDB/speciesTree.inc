@@ -30,7 +30,7 @@ function listSpeciesTree () {
   
   // $librarySql = "select organism_id as id, genus, species, 'true' as leaf from organism order by genus, species";
   $librarySql = $sqlQueries['species']['tree'];
-  $children = query_execute('chado', $librarySql , null);
+  $children = query_execute(null, $librarySql , null);
   $tree = array();
   switch ( $view ) {
     case View::basic:

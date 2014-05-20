@@ -1,7 +1,14 @@
 Ext.define('CV.view.feature.View', {
   extend : 'Ext.container.Container',
   alias : 'widget.featureview',
-  requires : ['CV.view.feature.Grid', 'CV.view.GenomeBrowser', 'CV.view.feature.SequenceView', 'CV.store.Features', 'CV.store.Annotations', 'CV.view.feature.Annotations', 'CV.view.feature.FeatureAnnotations'],
+  requires : ['CV.view.feature.Grid',
+              'CV.view.GenomeBrowser',
+              'CV.view.feature.SequenceView',
+              'CV.store.Features',
+              'CV.store.Annotations',
+              'CV.view.feature.Annotations',
+              'CV.view.feature.FeatureAnnotations'
+              ],
   region : 'center',
   layout : 'border',
   hideBorders : true,
@@ -16,17 +23,13 @@ Ext.define('CV.view.feature.View', {
     var metadataPanel = Ext.create('CV.view.feature.CvTermsGrid', {
       store : metaStore
     });
-    // fastaView = Ext.create ( 'CV.view.feature.Fasta');
+
     sequenceView = Ext.create('CV.view.feature.SequenceView', {
       region : 'center',
       disabled : true,
       split:true
     });
-    treestore = Ext.create('CV.store.FeatureAnnotations', {
-
-    });
-    // treestore.load();
-    // combo = Ext.create('CV.view.feature.Annotations',{region:'south'});
+    treestore = Ext.create('CV.store.FeatureAnnotations', {});
     Ext.apply(this, {
       items : [grid, {
         xtype : 'panel',
@@ -44,11 +47,13 @@ Ext.define('CV.view.feature.View', {
           activeOnTop : false,
           multi : true
         },
-        items : [metadataPanel, {
-          xtype : 'featureannotations',
-          store : treestore
-        }]
-      }, sequenceView]
+        items : [
+          metadataPanel, {
+            xtype : 'featureannotations',
+            store : treestore
+          }]
+         }, sequenceView
+        ]
     });
     this.callParent(arguments);
   },
