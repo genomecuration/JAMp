@@ -3,7 +3,7 @@ Ext.define('CV.view.FeatureGrid', {
   alias : 'widget.sequencesgrid',
   hideHeaders : false,
   split : true,
-  title : 'Sequences',
+  title : 'Transcripts',
   store : 'CV.store.Features',
   columnLines : true,
   requires : ['CV.ux.HeaderFilters', 'CV.ux.Retry','CV.store.Features'],

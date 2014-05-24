@@ -15,7 +15,7 @@ Ext.define('CV.view.BarChart', {
    * rendering is prevented and replaced by a mask.
    *
    */
-  maxCategories : 20,
+  maxCategories : 50,
   /*
    * list all the title names that need to appear on legend box.
    */
@@ -42,15 +42,20 @@ Ext.define('CV.view.BarChart', {
   loadingOn : function() {
     this.setLoading(true);
   },
+  
   loadingOff : function() {
     // this.redraw();
     this.setLoading(false);
   },
+  
   initComponent : function() {
+	  // this is called dozens of times...
     // create y fields
+	  
     var yFields = [], i, yField, ids={}, count , prop;
     for( i in this.yField ){
       yField = this.yField[i];
+      //yField = this.expression_library_purge(yField);
       count = yField + ' count';
       prop = yField + ' proportion';
       yFields.push( count );
@@ -109,6 +114,7 @@ Ext.define('CV.view.BarChart', {
           fontSize: 11,
           renderer : function(storeItem, item) {
             var len;
+            
             this.setTitle(storeItem.get('name') + ' - ' + storeItem.get( item.yField ) +' <br/><i>('+storeItem.get('highername')[item.series.yFieldIds[item.yField]]+')</i>');
             len = (this.title || '' ).length;
             // fontsize is a parameter given at tooltip creation

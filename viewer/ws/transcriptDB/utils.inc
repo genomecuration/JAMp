@@ -317,15 +317,8 @@ function query_execute($db = NULL, $sql = NULL, $variables = NULL,$reconnect=TRU
 }
 function addProperty( $data , $prop , $pValue){
 	foreach ($data as $key => $value) {
-		// $temp = $value[$prop];
-		// if( !isset($temp) ){
-			// $temp = array(); 
-		// }
-		// $temp = array_merge($temp , $pValue);
 		$value[$prop] = $pValue;
 		$data[$key] = $value;
-		// $value[$prop] = $temp;
-		// $data[$key] = $value;
 	}
 	return $data;
 }
@@ -379,7 +372,9 @@ function seqLen($seq)
 		$resSql = query_execute( null, $sql,null);
 		if( !empty ( $resSql ) ){
 			$result['type'] = Type::gene;
-			$result['transcriptName'] = $resSql[0]['name']; 
+			foreach ($resSql as $res){
+			  $result['transcriptName'][] = $res['name'];
+			} 
 		} else {
 			$sql = sprintf($sqlQueries['checkTranscript'], pg_escape_string($datasetId), pg_escape_string($id));
 			$resSql = query_execute( null, $sql, null);
@@ -436,6 +431,19 @@ function ahref( $text , $href){
 	$counts = query_execute(null, $sql);
 	return $counts[0]['count'];
  }
+ 
+ function totalTranscriptsExpression( $dsId,$lib_uname ){
+	require('SqlQueries.inc');
+	$extra_bit = '';
+	if (!empty($lib_uname) && $lib_uname !== 'All'){
+	  $lib_uname = pg_escape_string($lib_uname);
+	  $extra_bit = "WHERE library_uname ='$lib_uname'";
+	}
+	$sql = sprintf($sqlQueries['library']['itemsCountExpression'], pg_escape_string($dsId),$extra_bit );
+	$counts = query_execute(null, $sql);
+	return $counts[0]['count'];
+ }
+ 
  /**
   * get total number of transcripts per species
   */
@@ -672,6 +680,27 @@ function knownProteinHits($datasetId, $transcript,$type){
 	return $return_data;
 }
 
+function dataset_id2string($dsid){
+  require  'SqlQueries.inc';
+  $sql = sprintf( $sqlQueries['get_dataset_info'], pg_escape_string($dsid));
+  $result = query_execute(null, $sql, null);
+  if (!empty($result)){
+    return $result[0]['species_name'].'|'.$result[0]['description'];
+  }
+}
 
+function convert_expression_lib_ids_to_id_array($ids){
+    // $uname is unique within dataset but now globally unique
+	$return_array = array();
+	foreach ($ids as $id){
+		preg_match('/^(\d+)\^(.+)/',$id,$matches);
+		if (!empty($matches)){
+		  $dsid=$matches[1];
+		  $uname = $matches[2];
+		  $return_array[$id]=array('uname'=>$uname,'dsid'=>$dsid);
+		}
+	}
+  return $return_array;
+}
 
 ?>

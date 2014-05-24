@@ -56,10 +56,7 @@ Ext.define('CV.controller.Library', {
     var treeView, gridView, controller = this;
     this.control({
       'libraryview dstree' : {
-        // select:this.treeSelect,
         selectionchange: this.multiSelectUri,
-        // select : this.updateUri,
-        // load : this.selectNode
         load : this.selectNodes
       },
       'viewport radiogroup button[name=Library]' : {
@@ -115,6 +112,7 @@ Ext.define('CV.controller.Library', {
   },
   show : function(params) {
     var view = this.getLib(), idList = params.id && JSON.parse(decodeURI(params.id));
+    
     CV.config.ChadoViewer.self.selectedIds = idList;
     if (Ext.isString(this.libraryView)) {
       this.libraryView = this.getView(this.libraryView).create();
@@ -125,21 +123,27 @@ Ext.define('CV.controller.Library', {
       this.enable();
       switch ( idList[0].type ) {
         case 'library':
-          id = idList[0].id;
-          // to make a selection
+        	//id = idList[0].id;
           this.libraryView.setConfig(CV.config.ChadoViewer.self.library);
-          if ( typeof id !== 'undefined') {
-            this.treeSelect(id, idList);
+          if ( typeof idList[0].id !== 'undefined') {
+            this.treeSelect(idList);
           }
           break;
         case 'species':
-          id = idList[0].id;
           // change ds value in extra param
           this.libraryView.setConfig(CV.config.ChadoViewer.self.species);
-
           // tree select id
-          if ( typeof id !== 'undefined') {
-            this.treeSelect(id);
+          if ( typeof idList[0].id !== 'undefined') {
+            this.treeSelect(idList);
+          }
+          break;
+        case 'expression_library':
+           // ID can be 'All' or any the uniquename of a expression_library 
+            // this is how i wanted to be returned but i couldn't figure out how...
+          this.libraryView.setConfig(CV.config.ChadoViewer.self.expression_library);
+          // tree select id
+          if ( typeof idList[0].id !== 'undefined') {
+            this.treeSelect(idList);
           }
           break;
       } 
@@ -147,6 +151,7 @@ Ext.define('CV.controller.Library', {
         this.disable();
     }
   },
+  
   onFilterComplete : function() {
     var cvtabs = this.getCvtabs(), activeTab = cvtabs.getActiveTab(), cloud = activeTab && activeTab.down('tagcloud');
     cloud && cloud.draw();
@@ -154,16 +159,9 @@ Ext.define('CV.controller.Library', {
   onFacetsChanged : function() {
     var seqGrid = this.getSequencesGrid(), lib = this.getLib(), tabpanel = this.getCvtabs();
     seqGrid.getStore().loadPage(1);
-    // load the graph( summary ) panels.
-    // Ext.each( lib.facetsParamArray , function( store ){
-    // store.load();
-    // });
-    // lib.refreshDsview();
     lib.isDefferedLoad();
     tabpanel.reload();
-    // Ext.each( lib.cvPanels , function( tab ){
-    // tab.reload();
-    // });
+ 
   },
   graphSelection : function(slice) {
     var dsview = this.getLib(), tab = dsview.down('cvtabs').getActiveTab();
@@ -177,6 +175,7 @@ Ext.define('CV.controller.Library', {
     }
   },
   multiSelectUri:function( rm, records, index ){
+	  //this allows searching multipe selections and updates the url
     var items = [], item, i, validate;
     if ( records.length ){
       for( i in records ) {
@@ -185,12 +184,10 @@ Ext.define('CV.controller.Library', {
           id : record.get(this.libraryId),
           type : record.get('type'),
           text : record.get('text')
+          ,dsid : record.get('dsid')
         };
         items.push( item );
       }
-      // item.id = record.get(this.libraryId),
-      // item.type = 'library',
-      
       url = this.uri + '/' + JSON.stringify(items);
       CV.config.ChadoViewer.self.currentUri = url;
       validate = this.validateSelection( items );
@@ -200,9 +197,10 @@ Ext.define('CV.controller.Library', {
     }
   },
   validateSelection: function( items ){
+	  //any validations that need to be dome
     var validate, item,i;
     validate = this.validateSameType( items );
-    validate = validate && this.validateJustUnknow( items );
+    validate = validate && this.validateJustUnknown( items );
     return validate;
   },
   validateSameType:function( items ){
@@ -215,14 +213,14 @@ Ext.define('CV.controller.Library', {
       if( !valid ){
         Ext.Msg.show({
           title:'Error!',
-          msg:'Selection must be of the same type i.e. either all species or library.'
+          msg:'Tree selection is limited to items of the same category level (eg. either all species or library etc).'
         });
         break;
       }
     }
     return valid;
   },
-  validateJustUnknow:function( items ){
+  validateJustUnknown:function( items ){
     var item, valid = true, isUnknown= false;
     for( i in items ){
       item = items[i];
@@ -235,7 +233,7 @@ Ext.define('CV.controller.Library', {
       valid = false;
       Ext.Msg.show({
         title:'Error!',
-        msg:'Multiple selection cannot be made with Unknow'
+        msg:'Multiple selection cannot be made with Unknown'
       });
     }
     return valid;
@@ -249,35 +247,49 @@ Ext.define('CV.controller.Library', {
     url = this.uri + '/' + JSON.stringify([item]);
     CV.ux.Router.redirect(url);
   },
-  treeSelect : function(item, idList) {
-    var id, 
-      value, 
-      grid, 
-      graph,
-      graphStore,
-      gridStore,
-      itemRecord,
-      panel,
+  treeSelect : function(idList) {
+	item = idList[0].id; // for expression it is dataset^carot^expression_libname 
+    var 
+    //AP:// id,
+    //  value, 
+    //  grid, 
+    //  graph,
+    //  graphStore,
+    //  gridStore,
+    //  itemRecord,
+    //  panel,
       tree = this.getTree(), 
       sm = tree.getSelectionModel(), 
       view = this.getLib(),
-      annot = this.getAutoannotations();
-
-    panel = this.getLib();
+      annot = this.getAutoannotations(),
+      panel = this.getLib();
     // panel.clearFacets(true);
     // make sure this is set since it will decide if the node is selected on tree panel.
     // It had to be done this way as some times tree takes long time to load. Hence search returns null.
     this.item = item;
-    
+    // console.log(item); 
     // this.selectNode();
     this.selectNodes( idList );
-    grid = this.getSequencesGrid();
-
-    grid.store.getProxy().setExtraParam('id', item);
-    grid.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
-
-    annot.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
+    // this will give us a list of sequences associated with that facet.
+    grid = this.getSequencesGrid();  
     
+    grid.store.getProxy().setExtraParam('id', item);
+    
+//    // currently not used but could convert in the future?
+//    if (idList[0].dsid){
+//    	var dsids=[];
+//    	for ( i in idList){
+//    		dsids.push(idList[i].dsid); 
+//    	}
+//    	
+//    	grid.store.getProxy().setExtraParam('dataset_ids', JSON.stringify(dsids));
+//  	}
+
+    grid.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getCommaIds());
+    
+    // autocomplete search:
+    annot.store.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getCommaIds());
+
     panel.setDS(item);
 
     //set page number to one on changing library
@@ -292,7 +304,8 @@ Ext.define('CV.controller.Library', {
       //         view = this.getLib(),
       tree = this.getTree(), sm = tree.getSelectionModel();
       itemRecord = tree.getStore().getRootNode().findChild(this.libraryId, this.item, true);
-      itemRecord && itemRecord.parentNode.expand(true);
+      itemRecord && itemRecord.parentNode && itemRecord.parentNode.expand( true );
+      itemRecord && itemRecord.parentNode.parentNode && itemRecord.parentNode.parentNode.expand( true );
       itemRecord && sm.select(itemRecord, false, true);
       this.item = null;
     }
@@ -311,7 +324,8 @@ Ext.define('CV.controller.Library', {
       for ( i in nodes ){
         node = nodes[i];
         itemRecord = tree.getStore().getRootNode().findChildBy( findFn, this, true );
-        itemRecord && itemRecord.parentNode.expand( true );
+        itemRecord && itemRecord.parentNode && itemRecord.parentNode.expand( true );
+        itemRecord && itemRecord.parentNode.parentNode && itemRecord.parentNode.parentNode.expand( true );
         itemRecord && records.push( itemRecord );
       }
       records && sm.select( records, false, true );
