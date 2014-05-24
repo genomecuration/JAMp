@@ -1,9 +1,9 @@
 Ext.define( 'CV.view.Tree' , {
   extend:'Ext.tree.Panel',
   alias:'widget.dstree',
-  requires:['CV.store.Libraries'],
+  requires:['CV.store.Datasets'],
   title: 'Catalogue',
-  store:'CV.store.Libraries',
+  store:'CV.store.Datasets',
   collapsible : true,
   closeable : true,
   selModel:{

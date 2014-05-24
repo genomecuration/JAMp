@@ -77,31 +77,10 @@ Ext.define('CV.controller.Species', {
   treeLoaded:function(){
     this.getTreePanel().expandAll();
   },
-  // treeSelect:function ( rm , record , index ) {
     treeSelect:function ( item ) {
       var id , value, grid, graph, graphStore, gridStore,panel;
       panel = this.getSp();
       panel.clearFacets( true );
-    // grid = Ext.getCmp ( 'speciesGridView' );
-    // gridStore = grid.getStore ();
-    // value = record.get('organism_id');
-    // if ( !value ){
-      // return;
-    // }
-    // gridStore.load({
-      // params: {
-        // id: value
-      // }
-    // });
-    // grid.filter ( 'organism_id' , value );
-// 
-    // // update graph
-    // graph = Ext.getCmp ( 'featureBar');
-    // graphStore = graph.getStore ();
-    // graphStore.load ( {params:{
-      // id : value
-    // }});
-
     // reload store with species parameters
     grid = this.getSequencesGrid();
     grid.store.getProxy().extraParams = CV.config.ChadoViewer.self.species.feature.extraParams;

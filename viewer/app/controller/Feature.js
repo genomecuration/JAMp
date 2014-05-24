@@ -224,8 +224,7 @@ Ext.define('CV.controller.Feature', {
           
           // expression
           expressionList = this.getExpressionlist();
-          expressionList.store.getProxy().setExtraParam('dataset_id', myDataset );
-          expressionList.store.getProxy().setExtraParam('feature_id', justFeatureId);
+          expressionList.store.getProxy().setExtraParam('feature_id', item);
           expressionList.store.load();
           
           //add track

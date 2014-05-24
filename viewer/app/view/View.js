@@ -260,7 +260,7 @@ Ext.define('CV.view.View', {
 
     // load grid store
     this.gridStore.getProxy().setExtraParam('id', id);
-    this.gridStore.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
+    this.gridStore.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getCommaIds());
     this.gridStore.load();
 
     this.vStore.removeAll();
@@ -355,7 +355,7 @@ Ext.define('CV.view.View', {
       s.getProxy().setExtraParam('cv_id', rec.get('cv_id'));
       s.getProxy().setExtraParam('cv_name', rec.get('name'));
       s.getProxy().setExtraParam('get', rec.get('get'));
-      s.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getComaIds());
+      s.getProxy().setExtraParam('ids', CV.config.ChadoViewer.getCommaIds());
       dataPanel = this.createTab(s, rec);
       
       // AP add download data button
@@ -378,36 +378,31 @@ Ext.define('CV.view.View', {
       
       dataPanel.addDocked({
 	      xtype : 'button',
-	      text : 'Download these count results as CSV',
+	      text : 'Download ontology summary count results as a CSV',
 	      dock : 'bottom',
 	      scope : this,  // ?
 	      handler: function() {
 	    	  var store_data = {};
 	    	  var all_s = s.snapshot || s.data;
-	    	  var headers = {}; // i guess it has to be an obj to ensure that it is in same order as rows.
-
 	    	  all_s.each(function(rec) {
-	    		  var name = rec.get('name');
+	    		  var cvname = rec.get('name');
 	    		  var library_names = rec.get('highername');
 	    		  var total_count = rec.get('total');
 	    		  var array_data =  new Array();
 	    		  // don't add things that are all 0
 	    		  if (total_count){
 	    		    for (idx in selected ){
-				  id = selected[idx];
-	    			  count =  rec.get(id + ' count') ? rec.get(id + ' count') : 0;
-				  if (!headers[id]){
-	   			          headers[id]=library_names[id];
-				  }
-	    			  array_data.push(count);
-                             }
- 	    		    array_data.push(total_count);
-    			    store_data[name] = array_data;
+	    		    	var id = selected[idx]; // library index
+	    		    	var count =  rec.get(id + ' count') ? rec.get(id + ' count') : 0;
+	    		    	var lib_name = library_names[id];
+	    		    	array_data.push(count);
+                    }
+	    		    array_data.push(total_count);
+    			    store_data[cvname] = array_data;
 	    		  }
               });
-	    	  //console.log(store_data);
 	    	  store_data = Ext.encode(store_data);
-	    	  headers =  Ext.encode(headers);
+	    	  headers =  Ext.encode(selected);
 	    	  
 	    	  downloadhiddenForm_cv.getForm().submit({
    						  params: {
@@ -421,7 +416,46 @@ Ext.define('CV.view.View', {
    			  );
 	      }
 	    });
-      
+//      dataPanel.addDocked({
+//	      xtype : 'button',
+//	      text : 'Download transcripts for ontology term (CSV)',
+//	      dock : 'bottom',
+//	      scope : this,  // ?
+//	      handler: function() {
+//	    	  var store_data = {};
+//	    	  var all_s = s.snapshot || s.data;
+//	    	  all_s.each(function(rec) {
+//	    		  var cvname = rec.get('name');
+//	    		  var library_names = rec.get('highername');
+//	    		  var total_count = rec.get('total');
+//	    		  var array_data =  new Array();
+//	    		  // don't add things that are all 0
+//	    		  if (total_count){
+//	    		    for (idx in selected ){
+//	    		    	var id = selected[idx]; // library index
+//	    		    	var count =  rec.get(id + ' count') ? rec.get(id + ' count') : 0;
+//	    		    	var lib_name = library_names[id];
+//	    		    	array_data.push(count);
+//                    }
+//	    		    array_data.push(total_count);
+//    			    store_data[cvname] = array_data;
+//	    		  }
+//              });
+//	    	  store_data = Ext.encode(store_data);
+//	    	  headers =  Ext.encode(selected);
+//	    	  
+//	    	  downloadhiddenForm_cv.getForm().submit({
+//   						  params: {
+//   			    			  ds: 'multidownload',
+//   			    		      type: 'cvterm',
+//	    	  				  headers: headers,
+//   			    		      data: store_data,
+//   			    		      format: 'download'
+//   			    		  }
+//   			            }  
+//   			  );
+//	      }
+//	    });
       tabs.push(dataPanel);
     }, this);
     this.graphPanel.add(tabs);
@@ -465,7 +499,7 @@ Ext.define('CV.view.View', {
       }
     });
     /**
-     * gets titles and adds proportions
+     * gets titles and adds proportions. this comes from the 'text' property
      */
     oldTitles =CV.config.ChadoViewer.getIdsText();
     for( index in oldTitles ){
@@ -510,7 +544,6 @@ Ext.define('CV.view.View', {
         store : bioStore,
         yField : CV.config.ChadoViewer.getOnlyIds(),
         titles : titles,
-        //titles : CV.config.ChadoViewer.getIdsText(),
         listeners : {
           beforeactivate : function() {
             this.setThreshold(tab);

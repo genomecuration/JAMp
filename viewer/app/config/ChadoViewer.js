@@ -108,7 +108,50 @@ Ext.define('CV.config.ChadoViewer', {
         },
         ds : 'species'
       }
-    },
+    },expression_library : {
+        tree : {
+            extraParams : {
+              ds : 'expression_library',
+              type : 'tree'
+            }
+          },
+          cv : {
+            extraParams : {
+              ds : 'expression_library',
+              type : 'cv',
+              id : ''
+            },
+            ds : 'species'
+          },
+          graph : {
+            vocabulary : {
+              id : '',
+              get : 'cv',
+              ds : 'expression_library',
+              type : 'graph',
+              facets : null
+            },
+            cvterm : {
+              id : '',
+              get : 'cv_term',
+              cv_id : 0,
+              cv_name : '',
+              ds : 'expression_library',
+              type : 'graph',
+              facets : null
+            },
+            ds : ''
+          },
+          feature : {
+            extraParams : {
+              ds : 'expression_library',
+              type : 'feature',
+              id : '',
+              facets : null
+            },
+            ds : 'expression_library'
+          }
+        },
     feature : {
       fasta : {
         ds : 'feature',
@@ -139,7 +182,12 @@ Ext.define('CV.config.ChadoViewer', {
     // transform: get the selected ids from config
     if ( ids ){
       for( id in ids ){
-        selected.push( ids[id].id );
+    	if (ids[id].dsid){
+    		// is expression. what to do?
+    		selected.push( ids[id].id );
+    	}else{
+    		selected.push( ids[id].id );
+    	}
       }
     }
     return selected;
@@ -163,7 +211,7 @@ Ext.define('CV.config.ChadoViewer', {
    * @return
    * '[{"id":"359","type":"library","text":"AE0025"},{"id":"30","type":"library","text":"B.anynana_wing.0-3d_2-10kb"}]'
    */
-  getComaIds:function(){
+  getCommaIds:function(){
     var selected = this.getOnlyIds();
     return JSON.stringify( selected ); 
   },
@@ -177,5 +225,18 @@ Ext.define('CV.config.ChadoViewer', {
       highernames[ ids[i].id ] = ids[i].text; 
     }
     return highernames;
-  }
+  },
+  expression_library_purge:function(data){
+      id = data.id || '';
+      if ( id ){
+    	var justlibrary, match;
+        match = id.match(/^(.+)\^(.+)/);
+        dsid = match && match[1];
+        justlibrary = match && match[2];
+        data.library_name = justlibrary;
+        data.dsid = dsid;
+   //    data.id =justlibrary;
+      }
+      return data; // is that how to do it?
+}
 });

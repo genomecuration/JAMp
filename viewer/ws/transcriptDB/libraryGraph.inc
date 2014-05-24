@@ -45,6 +45,55 @@ function blast($id, $limit) {
 	return $data;
 }
 
+
+
+function cvSummary_expression($dsid, $cv_id,$expression_lib) {
+	require ('SqlQueries.inc');
+	require_once ('const.inc');
+	if (empty($expression_lib)){return;}
+	$limit = '';
+	if (isset($_REQUEST['limit'])) {
+		$limit = $_REQUEST['limit'];
+	}
+	$facets = json_decode($_REQUEST['facets'], TRUE);
+	$facetQueryArray = array();
+	$data = array();
+	
+
+	if (!empty($facets)){
+	 foreach ($facets as $index => $facet) {
+		array_push($facetQueryArray, transcriptSql(pg_escape_string($facet['cv_id']), pg_escape_string($facet['value']), $dsid));
+	 }
+	}
+	$goFacets = '';
+	if (count($facetQueryArray) > 0) {
+		$goFacets = sprintf($sqlQueries['library']['facetFilterCondition'], join(' intersect ', $facetQueryArray));
+	}
+	
+	if ($expression_lib === 'All'){
+	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression_library) ";
+	  $library_where = '';
+	}else{
+		$expression_lib = pg_escape_string($expression_lib);
+	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression_library WHERE library_uname='$expression_lib') ";
+	  $library_where = "library_uname='$expression_lib' AND";
+	}
+	$librarySql = summarySql($cv_id, $goFacets, $dsid);
+	$data = query_execute(null, $librarySql, null);
+
+	$data = addProperty($data, 'highername', array($expression_lib => $dsid));
+	// 	no hits
+	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
+		$cvterm = array("highername" => array($expression_lib => $dsid));
+		$nohits = nohits_expression($dsid, $cvterm,$library_where);
+		array_push($data, $nohits);
+	}
+
+	return $data;
+}
+
+
+
 function cvSummary($id, $cv_id) {
 	require ('SqlQueries.inc');
 	require_once ('const.inc');
@@ -54,27 +103,18 @@ function cvSummary($id, $cv_id) {
 	}
 	$facets = json_decode($_REQUEST['facets'], TRUE);
 	$facetQueryArray = array();
-	// echo $id;
 	if (!empty($facets)){
 	 foreach ($facets as $index => $facet) {
 		array_push($facetQueryArray, transcriptSql(pg_escape_string($facet['cv_id']), pg_escape_string($facet['value']), $id));
 	 }
 	}
-	// $go_id = array();
-	// $go_id = array_map('getValue',$facets);
-	// echo print_r($facetQueryArray);
-	// echo count( $facetQueryArray );
-	// $go_id = join(',', $go_id);
 	$goFacets = '';
 	if (count($facetQueryArray) > 0) {
 		$goFacets = sprintf($sqlQueries['library']['facetFilterCondition'], join(' intersect ', $facetQueryArray));
 	}
-	// $librarySql = sprintf( $sqlQueries['library']['GOSummary'], $goFacets ,$class);
+	
 	$librarySql = summarySql($cv_id, $goFacets, $id);
-	// echo $librarySql;
 	$data = query_execute(null, $librarySql, null);
-	// echo $cv_id;
-	// add library name
 	$lNameSql = "select description from datasets where dataset_id = $id";
 	$lName = query_execute(null, $lNameSql, null);
 	$data = addProperty($data, 'highername', array($id => $lName[0]['description']));
@@ -88,14 +128,14 @@ function cvSummary($id, $cv_id) {
 	return $data;
 }
 
-function addProportion($data, $dsId, $count, $input = 'count', $prop = 'proportion') {
+function addProportion($data, $total, $input = 'count', $prop = 'proportion') {
 	foreach ($data as $key => $value) {
-		$value[$prop] = number_format(($value[$input] / $count) * 100, 2);
+		$value[$prop] = number_format(($value[$input] / $total) * 100, 2);
 		$data[$key] = $value;
 	}
-	// echo print_r($data);
 	return $data;
 }
+
 
 /**
  * get the total number of transcripts that do not have a hit
@@ -108,6 +148,16 @@ function nohits( $dsId, $cvterm ) {
 	$cvterm = array_replace($result[0], $cvterm);
 	return $cvterm;
 }
+
+function nohits_expression( $dsId, $cvterm,$expression_where ) {
+	require ('SqlQueries.inc');
+	require_once ('const.inc');
+	$sql = sprintf($sqlQueries['library']['totalNoHits_expression_library'], pg_escape_string($dsId), pg_escape_string(CV::nothit),$expression_where);
+	$result = query_execute(null, $sql, null);
+	$cvterm = array_replace($result[0], $cvterm);
+	return $cvterm;
+}
+
 
 function transcriptSql($cv_id, $cvterm_id, $dataset_id) {
 	require ('SqlQueries.inc');

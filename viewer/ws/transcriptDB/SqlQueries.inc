@@ -1,5 +1,6 @@
 <?php
 $sqlQueries = array(
+     'get_dataset_info' =>'SELECT description,species_name,library_uname FROM datasets WHERE dataset_id = %1$d',
 
 //chado specific
 	"cvtermid"=>'SELECT cvterm_id FROM cvterm WHERE name=\'%1$s\'',
@@ -156,7 +157,7 @@ $sqlQueries = array(
 /**
  * @param 1: owner name
  */
-	  'tree'=>'SELECT dataset_id AS id , description AS text , \'true\' AS leaf , species_name AS organism_id, species_name AS species FROM public.datasets  WHERE owner =\'%1$s\' ORDER BY species_name',
+	  'tree'=>'SELECT dataset_id AS id,dataset_id AS dsid , description AS text , \'true\' AS leaf , species_name AS organism_id, species_name AS species FROM public.datasets  WHERE owner =\'%1$s\' ORDER BY species_name',
 		'totalUncategorised'=>'SELECT count(*) FROM feature f JOIN cvterm cvt ON cvt.cvterm_id = f.type_id AND f.feature_id not in ( SELECT distinct l.feature_id FROM library_feature_cvterm_mat l WHERE l.library_id IN %3$s )  WHERE type_id = %1$d AND organism_id = %2$d',
  		'uncategorised'=>'SELECT feature_id, f.name, uniquename FROM feature f JOIN cvterm cvt ON cvt.cvterm_id = f.type_id AND f.feature_id not in ( SELECT distinct l.feature_id FROM library_feature_cvterm_mat l WHERE l.library_id IN %3$s )  WHERE type_id = %1$d AND organism_id = %2$d limit %4$d offset %5$d',
 /**
@@ -182,36 +183,41 @@ $sqlQueries = array(
  * @param 2: facet query string i.e. filled itemsFacets query.
  */
  		'itemsCount'=>'SELECT count(*) FROM dataset_%1$d.cds %2$s',
+		'itemsCountExpression'=>'SELECT count(*) FROM dataset_%1$d.transcript_expression_library %2$s',
 /**
  * @param 1: coma separated go_id list
  * @param 2: dataset id
  */
  		'goTranscripts'=>'SELECT distinct(cds_uname) FROM known_proteins.go_assoc ga JOIN known_proteins.go ON go.go_id=ga.go_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ga.uniprot_id WHERE ga.go_id = %1$d',
-/**
- * @param 1: coma separated go_id list
- * @param 2: dataset id
- */
  		'keggTranscripts'=>'SELECT distinct(cds_uname) FROM known_proteins.kegg_pathway_assoc kpa JOIN known_proteins.kegg_pathway kp ON kpa.pathway_id=kp.pathway_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=kpa.uniprot_id WHERE kp.pathway_id = \'%1$s\'',
-/**
- * @param 1: coma separated go_id list
- * @param 2: dataset id
- */
  		'koTranscripts'=>'SELECT distinct(cds_uname) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ka.ko_id=ko.ko_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ka.uniprot_id WHERE ko.ko_id = \'%1$s\'',
-/**
- * @param 1: coma separated go_id list
- * @param 2: dataset id
- */
  		'enzymeTranscripts'=>'SELECT distinct(cds_uname) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON ea.ec_id=e.ec_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id WHERE e.ec_id = \'%1$s\' ',
-/**
- * @param 1: coma separated go_id list
- * @param 2: dataset id
- */
  		'eggnogTranscripts'=>' SELECT distinct(cds_uname) FROM known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON ea.eggnog_id=e.eggnog_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id WHERE ea.eggnog_id = \'%1$s\' ',
-/**
- *
- */
-		 'nohitsTranscripts'=>'SELECT uname FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )'
-		 ),
+	     'nohitsTranscripts'=>'SELECT uname FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+		 
+		 'get_expression_library'=>'SELECT * FROM dataset_%1$d.expression_library',
+		 'get_expression_library_metadata'=>'SELECT term,value FROM dataset_%1$d.expression_library_metadata WHERE library_uname=\'%2$s\'',
+		 'get_expression_library_metadata_all'=>'SELECT term,value FROM dataset_%1$d.expression_library_metadata',
+		 'get_expression_library_transcripts'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE library_uname=\'%2$s\'',
+		 'get_expression_library_transcripts_all'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression_library',
+		 'count_expression_library_transcripts'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression_library WHERE library_uname=\'%2$s\'',
+		 'count_expression_library_transcripts_all'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression_library',
+  	     
+		 'go_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.go_assoc ga JOIN known_proteins.go ON go.go_id=ga.go_id '
+                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ga.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname '
+                                                .'WHERE ga.go_id = %1$d %3$s ',
+ 		'kegg_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.kegg_pathway_assoc kpa JOIN known_proteins.kegg_pathway kp ON kpa.pathway_id=kp.pathway_id '
+                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=kpa.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE kp.pathway_id = \'%1$s\'  %3$s ',
+ 		'ko_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ka.ko_id=ko.ko_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ka.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE ko.ko_id = \'%1$s\' %3$s ',
+ 		'enzyme_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON ea.ec_id=e.ec_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE e.ec_id = \'%1$s\' %3$s ',
+ 		'eggnog_expression_library_Transcripts'=>' SELECT distinct(cds_uname) FROM known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON ea.eggnog_id=e.eggnog_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE ea.eggnog_id = \'%1$s\' %3$s ',
+	    'nohits_expression_library_Transcripts'=>'SELECT uname FROM dataset_%1$d.cds c JOIN dataset_%1$d.transcript_expression_library tel ON tel.transcript_uname=c.uname '
+                                                .'WHERE TRUE %2$s EXCEPT SELECT distinct(cds_uname) as uname FROM dataset_%1$d.inference_cds ',
+        'items_expression_library'=>'SELECT \'dataset_%1$d.\' || transcript_uname AS uname, transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s %4$s',   
+        'cdss_expression_library'=>'SELECT transcript_uname as uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s',
+  		'unameFilter_expression_library'=>' AND transcript_uname in (%1$s)',
+		'totalNoHits_expression_library'=>'SELECT %2$s cv_id, 1 AS cvterm_id, COUNT(*), \'no hits\' AS name FROM dataset_%1$d.transcript_expression_library WHERE %3$s transcript_uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+	),
 
 	'species' => array(
 		 /**
@@ -227,7 +233,7 @@ $sqlQueries = array(
 		'dbxref'=>'SELECT dbxref.accession AS id,dbxref.description AS name, count(*) AS count FROM dbxref_organism_mat d JOIN dbxref ON d.dbxref_id=dbxref.dbxref_id JOIN db ON dbxref.db_id=db.db_id  WHERE organism_id = %1$d group by dbxref.accession, dbxref.description',
 		'cvtermSummaryFacets'=>'SELECT cvterm_id , cvterm_name AS name  , count(*) FROM ( SELECT distinct feature_id AS fid , * FROM cvterm_organism_mat WHERE organism_id = %1$d AND cv_name = \'%2$s\' ) l WHERE %3$s group by l.cvterm_id, l.cvterm_name ORDER BY count DESC',
 		'featureList'=>'SELECT f.feature_id , f.name, f.uniquename, cvt.cvterm_id, cvt.name AS type FROM feature f JOIN cvterm cvt ON cvt.cvterm_id = f.type_id  AND f.feature_id in ( %1$s ) %2$s %3$s',
-		'tree'=>'SELECT organism_id AS id, genus, species, \'true\' AS leaf FROM organism ORDER BY genus, species'
+		'tree'=>'SELECT organism_id AS id, organism_id AS dsid, genus, species, \'true\' AS leaf FROM organism ORDER BY genus, species'
 		),
 
 	'feature' => array(
@@ -308,7 +314,8 @@ $sqlQueries = array(
 		// only one picture; PNG preferred over SVG (order by)
 		  "get_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\' AND type=\'%3$s\' ORDER by format limit 1',
 		  "get_one_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_expression_id=%2$d',
-		  "list_expression_pictures" => 'SELECT transcript_expression_id as expressionid,transcript_expression_id as id,timeloaded as qtip,type,format, type || \' figure \'  || transcript_expression_id   || \' (\' || format || \')\'    as text, \'true\' AS leaf,\'true\' AS expanded FROM %1$s.transcript_expression_image WHERE transcript_uname=\'%2$s\''
+		  "list_expression_pictures" => 'SELECT transcript_expression_id as expressionid, transcript_expression_id as id,timeloaded as qtip,type,format, type || \' figure \'  || transcript_expression_id   || \' (\' || format || \')\'    as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\'',
+		  "list_expression_pictures_genes" => 'SELECT transcript_expression_id as expressionid,transcript_expression_id as id,timeloaded as qtip,type,format, type || \' figure \'  || transcript_expression_id   || \' (\' || format || \')\'    as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname IN (%3$s)'
 		  ),
 		  /**
 		   * sql for differential expression
@@ -341,27 +348,27 @@ $sqlQueries = array(
 	 * @param 1: search query
 	 * @param 2: uniprot id hits sql
 	 */
-		'goauto'=>'SELECT distinct (known_proteins.go.go_id,name), \'1\' AS cvid, known_proteins.go.go_id AS cvtermid, name AS cvtermname, \'GO\' AS cvname, length(name) lname, known_proteins.go.go_id FROM known_proteins.go JOIN known_proteins.go_assoc ON known_proteins.go.go_id=known_proteins.go_assoc.go_id WHERE %1$s AND uniprot_id IN (%2$s) group by known_proteins.go.go_id,name ORDER BY lname ASC limit 10',
+		'goauto'=>'SELECT distinct (known_proteins.go.go_id,name), \'1\' AS cvid, known_proteins.go.go_id AS cvtermid, name AS cvtermname, \'GO\' AS cvname, length(name) lname, known_proteins.go.go_id FROM known_proteins.go JOIN known_proteins.go_assoc ON known_proteins.go.go_id=known_proteins.go_assoc.go_id WHERE %1$s AND uniprot_id IN (%2$s) group by known_proteins.go.go_id,name ORDER BY lname ASC limit %3$d',
 	/**
 	 * @param 1: search query
 	 * @param 2: uniprot id hits sql
 	 */
-		'koauto'=>'SELECT distinct(description,ko.ko_id) ,\'7\' AS cvid,ko.ko_id AS cvtermid, description AS cvtermname, \'KO\' AS cvname,length(description) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ko.ko_id=ka.ko_id WHERE description ILIKE \'%%%1$s%%\' or ko.ko_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit 10',
+		'koauto'=>'SELECT distinct(description,ko.ko_id) ,\'7\' AS cvid,ko.ko_id AS cvtermid, description AS cvtermname, \'KO\' AS cvname,length(description) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ko.ko_id=ka.ko_id WHERE description ILIKE \'%%%1$s%%\' or ko.ko_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit %3$d',
 	/**
 	 * @param 1: search query
 	 * @param 2: uniprot id hits sql
 	 */
-		'eggnogauto'=>'SELECT distinct(description,e.eggnog_id),\'6\' AS cvid, e.eggnog_id AS cvtermid, description AS cvtermname, \'Eggnog\' AS cvname,length(description) FROM  known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON e.eggnog_id=ea.eggnog_id  WHERE description IS NOT NULL AND (description ILIKE \'%%%1$s%%\' or e.eggnog_id = \'%1$s\') AND uniprot_id IN (%2$s) ORDER BY length ASC limit 10',
+		'eggnogauto'=>'SELECT distinct(description,e.eggnog_id),\'6\' AS cvid, e.eggnog_id AS cvtermid, description AS cvtermname, \'Eggnog\' AS cvname,length(description) FROM  known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON e.eggnog_id=ea.eggnog_id  WHERE description IS NOT NULL AND (description ILIKE \'%%%1$s%%\' or e.eggnog_id = \'%1$s\') AND uniprot_id IN (%2$s) ORDER BY length ASC limit %3$d',
 	/**
 	 * @param 1: search query
 	 * @param 2: uniprot id hits sql
 	 */
-		'enzymeauto'=>'SELECT distinct(e.ec_id,primary_name),\'5\' AS cvid,e.ec_id AS cvtermid, primary_name AS cvtermname, \'Enzyme\' AS cvname,length(primary_name) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON e.ec_id=ea.ec_id WHERE primary_name ILIKE \'%%%1$s%%\' OR e.ec_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit 10',
+		'enzymeauto'=>'SELECT distinct(e.ec_id,primary_name),\'5\' AS cvid,e.ec_id AS cvtermid, primary_name AS cvtermname, \'Enzyme\' AS cvname,length(primary_name) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON e.ec_id=ea.ec_id WHERE primary_name ILIKE \'%%%1$s%%\' OR e.ec_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit %3$d',
 	/**
 	 * @param 1: search query
 	 * @param 2: uniprot id hits sql
 	 */
-		'pathwayauto'=>'SELECT distinct(kegg.pathway_id,description),\'4\' AS cvid, kegg.pathway_id AS cvtermid, description AS cvtermname, \'Pathway\' AS cvname,length(description) FROM known_proteins.kegg_pathway_assoc kpa JOIN known_proteins.kegg_pathway kegg ON kegg.pathway_id=kpa.pathway_id  WHERE description ILIKE \'%%%1$s%%\' or kegg.pathway_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit 10'
+		'pathwayauto'=>'SELECT distinct(kegg.pathway_id,description),\'4\' AS cvid, kegg.pathway_id AS cvtermid, description AS cvtermname, \'Pathway\' AS cvname,length(description) FROM known_proteins.kegg_pathway_assoc kpa JOIN known_proteins.kegg_pathway kegg ON kegg.pathway_id=kpa.pathway_id  WHERE description ILIKE \'%%%1$s%%\' or kegg.pathway_id = \'%1$s\' AND uniprot_id IN (%2$s) ORDER BY length ASC limit %3$d'
 		),
 	'config'=>array(
 		/**
