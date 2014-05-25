@@ -612,6 +612,7 @@ sub check_create_native_dataset() {
  my $dataset_id;
  if ($dataset_uname) {
   die "Dataset name must not be just numbers\n" if $dataset_uname =~ /^\d+$/;
+  die "Dataset name must not have the ^ character\n" if $dataset_uname =~ /\^/;
   $dataset_id = &check_dataset( $dbh, $dataset_uname );
   return $dataset_id if $dataset_id;
  }
@@ -2785,7 +2786,7 @@ sub store_library_metadata(){
   die "Peculiar lib_alias file $file\n" unless scalar(@data) == scalar(@headers);
   my $library_name = $data[1];
   die "No library name from $ln\n" unless $library_name;
-  ;
+  die "Library name must not have the ^ character\n" if $library_name =~ /\^/;
    $sql_hash_ref->{'check_expression_library'}->execute($library_name);
    if (!$sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref()){
     $sql_hash_ref->{'store_expression_library'}->execute($library_name);
