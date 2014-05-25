@@ -1,7 +1,7 @@
 JAMP: Just Annotate My Proteins
 
 Full documentation and tutorials are available from
-http://jamp.sourceforce.net
+http://jamps.sourceforge.net
 
 Current requirements
 * 40-50gb of disk space (for database of known proteins, mostly the indexes) 
@@ -18,7 +18,7 @@ Visualization, web-services (viewer directory):
         CSIRO Ecosystem Sciences, Canberra, Australia
 	 temi.varghese@csiro.au
 
-Everything else:
+Above and everything else:
  Alexie Papanicolaou
         CSIRO Ecosystem Sciences, Canberra, Australia
         alexie@butterflybase.org
