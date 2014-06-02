@@ -311,6 +311,7 @@ $sqlQueries = array(
 		 * @param 2: network id
 		 */
 		  'networkcds'=>'SELECT cds_uname AS name, %1$s dataset_id FROM dataset_%1$d.cds_network WHERE network_id = %2$d',
+		  "get_expression_data" => 'SELECT library_uname,raw_counts,raw_rpkm,express_fpkm,express_tpm,express_counts,kangade_counts,tmm_counts,tmm_fpkm,tmm_tpm FROM dataset_%1$d.transcript_expression_library WHERE transcript_uname=\'%2$s\'',
 		// only one picture; PNG preferred over SVG (order by)
 		  "get_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\' AND type=\'%3$s\' ORDER by format limit 1',
 		  "get_one_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_expression_id=%2$d',

@@ -13,7 +13,10 @@ Ext.define('CV.controller.Feature', {
     selector : 'featureview featuregrid'
   },{
     ref : 'metadataPanel',
-    selector : 'featureview cvtermsgrid'
+    selector : 'featureview dbxrefs'
+  },{
+	ref : 'expressionmetadataPanel',
+	selector : 'featureview cvterms'
   },{
     ref:'genePanel',
     selector :'featureview fastacontainer[id=gene]'
@@ -182,10 +185,11 @@ Ext.define('CV.controller.Feature', {
     CV.ux.Router.redirect(url);
   },
   treeSelect : function(item , name) {
-    var grid, panel, filter={}, metadataPanel, gene, mrna, cds, section, annot,nl,expressionList, protein;
+    var grid, panel, filter={}, metadataPanel,expressionmetadataPanel, gene, mrna, cds, section, annot,nl,expressionList, protein;
     section = item? 'details': 'start';
     grid = this.getFeatureGrid();
     metadataPanel = this.getMetadataPanel();
+    expressionmetadataPanel = this.getExpressionmetadataPanel();
     gene = this.getGenePanel();
     mrna = this.getMrnaPanel();
     cds = this.getCdsPanel();
@@ -209,6 +213,9 @@ Ext.define('CV.controller.Feature', {
 
           metadataPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
           metadataPanel.store.load();
+          
+          expressionmetadataPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
+          expressionmetadataPanel.store.load();
           
           annot.store.getProxy().setExtraParam(this.featureIdProp, item);
           annot.store.load();
@@ -241,6 +248,7 @@ Ext.define('CV.controller.Feature', {
           grid.store.clearFilter( true );
           grid.store.load();
           metadataPanel.store.removeAll();
+          expressionmetadataPanel.store.removeAll();
           gene.setFasta('');
           mrna.setFasta('');
           cds.setFasta('');

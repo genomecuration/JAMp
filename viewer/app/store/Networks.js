@@ -9,7 +9,7 @@ Ext.define('CV.store.Networks',{
       feature_id : ''
     }
   },
-  autoLoad:true,
+  autoLoad:false,
   constructor : function(config) {
     Ext.Object.merge(this.proxy, {
       url : CV.config.ChadoViewer.self.baseUrl

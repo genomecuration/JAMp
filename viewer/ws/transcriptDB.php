@@ -855,6 +855,10 @@ function chadoviewer() {
 
           $data = featureList();
           break;
+        case 'expression_data':
+			$data = feature_expression_metadata($idFeature);
+        	break;
+        
         case 'cv' :
           /**
            * webservice base url - ws/chadoviewer
