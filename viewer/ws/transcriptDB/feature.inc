@@ -137,11 +137,32 @@ function featureController() {
   }
 }
 
+function feature_expression_metadata($id){
+  require ('SqlQueries.inc');
+  $parsed = datasetType($id);
+  $id = $parsed['id'];
+  $dsId = $parsed['dataset_id'];
+  $return_array = array();
+  $sql = sprintf($sqlQueries['feature']['get_expression_data'],pg_escape_string($dsId), pg_escape_string($id));
+  $results = query_execute(null, $sql, null);
+  if (!empty($results)){
+  	foreach ($results as $data_array){
+  		$library_name = $data_array['library_uname'];
+  		foreach ($data_array as $key=>$value){
+  			if ($key === 'library_uname' || empty($value)){continue;}
+  			$key =  $library_name .':'.$key;
+  			$return_array[] = array('term'=>$key,'value'=>$value);
+  		}
+  	}
+  } 
+  return $return_array;
+}
+
+
 function featureCV($id) {
   require ('SqlQueries.inc');
-  require_once( 'utils.inc' );
 
-  $tSql = sprintf($sqlQueries['feature']['UniprotUrl']);
+  $tSql = $sqlQueries['feature']['UniprotUrl'];
   $uniprot_url = query_execute(null, $tSql, null);
   $uniprot_url = $uniprot_url[0]['urlprefix'];
   if (empty($uniprot_url)){

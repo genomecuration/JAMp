@@ -13,17 +13,22 @@ Ext.define('CV.view.feature.View', {
   layout : 'border',
   hideBorders : true,
   initComponent : function() {
-    var store = Ext.create('CV.store.Features'), metaStore, sequenceView, genomeBrowser, combo, treestore;
+    var store = Ext.create('CV.store.Features'), metaStore, expression_metadataStore,sequenceView, genomeBrowser, combo, treestore;
     var grid = Ext.create('CV.view.feature.Grid', {
       store : store,
       region : 'north',
       split:true
     });
     metaStore = Ext.create('CV.store.FeatureMetadata');
-    var metadataPanel = Ext.create('CV.view.feature.CvTermsGrid', {
+    var metadataPanel = Ext.create('CV.view.feature.DbXrefs', {
       store : metaStore
     });
 
+    expression_metadataStore = Ext.create('CV.store.FeatureCvTerms');
+    var expression_metadataPanel = Ext.create('CV.view.feature.CvTerms', {
+      store : expression_metadataStore
+    });
+    
     sequenceView = Ext.create('CV.view.feature.SequenceView', {
       region : 'center',
       disabled : true,
@@ -51,7 +56,8 @@ Ext.define('CV.view.feature.View', {
           metadataPanel, {
             xtype : 'featureannotations',
             store : treestore
-          }]
+          },expression_metadataPanel
+          ]
          }, sequenceView
         ]
     });
