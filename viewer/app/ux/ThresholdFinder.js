@@ -44,7 +44,7 @@ Ext.define('CV.ux.ThresholdFinder',{
     var records = [];
     this.store.clearFilter( true );
     this.store.each(function(r){
-      if( r.get('name') != 'Others'){
+      if( r.get('name') != '-Other terms below count cutoff' || r.get('name') != '-No results found' || r.get('name') != '-No hit'){
        records.push(r.copy());
       }
     });

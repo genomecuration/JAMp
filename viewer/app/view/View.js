@@ -1,7 +1,7 @@
 Ext.define('CV.view.View', {
   extend : 'Ext.container.Container',
   alias : 'widget.dsview',
-  requires : ['CV.config.ChadoViewer', 'CV.view.TagCloud', 'CV.view.FeatureGrid', 'CV.view.PieChart', 'CV.store.Facets', 'CV.ux.StatusMask', 'CV.view.Tree', 'CV.view.CvTabs', 'CV.view.MetaData', 'Ext.ux.grid.FiltersFeature', 'CV.view.Facets', 'CV.store.FeatureCount', 'CV.store.Annotations', 'CV.view.feature.Annotations'],
+  requires : ['CV.config.ChadoViewer', 'CV.view.TagCloud', 'CV.view.FeatureGrid', 'CV.view.PieChart', 'CV.store.Facets', 'CV.ux.StatusMask', 'CV.view.Tree', 'CV.view.CvTabs', 'CV.view.MetaData', 'Ext.ux.grid.FiltersFeature', 'CV.view.Facets', 'CV.store.FeatureCount', 'CV.store.Annotations', 'CV.view.feature.Annotations','CV.ux.Retry'],
   layout : 'border',
   // important params
   treeStore : null,
@@ -43,6 +43,7 @@ Ext.define('CV.view.View', {
   events : ['facetschanged', 'configchanged'],
 
   initComponent : function() {
+	  // there is an issue here: when the data are null...
     this.vStore = Ext.create('CV.store.ControlledVocabularies', {
       autoLoad : false
     });

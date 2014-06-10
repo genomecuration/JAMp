@@ -22,5 +22,5 @@ Ext.define('CV.store.Expression', {
         url : CV.config.ChadoViewer.self.baseUrl
     });
     this.callParent( arguments );
-  },
+  }
 });

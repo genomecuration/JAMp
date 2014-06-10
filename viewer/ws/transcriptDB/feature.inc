@@ -143,18 +143,48 @@ function feature_expression_metadata($id){
   $id = $parsed['id'];
   $dsId = $parsed['dataset_id'];
   $return_array = array();
-  $sql = sprintf($sqlQueries['feature']['get_expression_data'],pg_escape_string($dsId), pg_escape_string($id));
-  $results = query_execute(null, $sql, null);
-  if (!empty($results)){
-  	foreach ($results as $data_array){
-  		$library_name = $data_array['library_uname'];
-  		foreach ($data_array as $key=>$value){
-  			if ($key === 'library_uname' || empty($value)){continue;}
-  			$key =  $library_name .':'.$key;
-  			$return_array[] = array('term'=>$key,'value'=>$value);
-  		}
-  	}
-  } 
+  if ($parsed['type'] == Type::gene){
+    $transcripts_sql = sprintf($sqlQueries['gettranscripts'],pg_escape_string($dsId), pg_escape_string($id));
+    $transcript_results = query_execute(null, $transcripts_sql, null);
+    if (!empty($transcript_results)){
+      // sum over all transcripts
+      $transcript_expression_sum = array();
+      foreach ($transcript_results as $transcript){
+        $sql = sprintf($sqlQueries['feature']['get_expression_data'],pg_escape_string($dsId), pg_escape_string($transcript['name']));
+        $transcript_expression = query_execute(null, $sql);
+        if (!empty($transcript_expression)){
+          foreach ($transcript_expression as $data_array){
+            $library_name = $data_array['library_uname'];
+            foreach ($data_array as $key=>$value){
+              if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
+              $key =  $key.':'.$library_name;
+              $transcript_expression_sum[$key]+=$value;
+            }
+          }
+        }
+      }
+      if (!empty($transcript_expression_sum)){
+        foreach ($transcript_expression_sum as $key=>$value){
+          $return_array[] = array('term'=>$key,'value'=>$value);
+        }
+      }
+    }
+  }else{
+    $sql = sprintf($sqlQueries['feature']['get_expression_data'],pg_escape_string($dsId), pg_escape_string($id));
+    $results = query_execute(null, $sql, null);
+    if (!empty($results)){
+      foreach ($results as $data_array){
+        $library_name = $data_array['library_uname'];
+        foreach ($data_array as $key=>$value){
+          if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
+          $key =  $key.':'.$library_name;
+          $return_array[] = array('term'=>$key,'value'=>$value);
+        }
+      }
+    }
+  }
+
+   
   return $return_array;
 }
 
@@ -168,7 +198,7 @@ function featureCV($id) {
   if (empty($uniprot_url)){
     $uniprot_url='http://www.uniprot.org/uniprot/';
   }
-  
+
   $minmax = '';
   $res['root']=array();
   // CV terms such as uniprot hits etc relate to the lower level transcript
@@ -184,7 +214,7 @@ function featureCV($id) {
       return array('root'=>null);
     }else{
       foreach ($transcript_results as $transcript){
-        $uniprot_hits = knownProteinHits($dsId, $transcript,$parsed['type']);
+        $uniprot_hits = knownProteinHits(pg_escape_string($dsId), pg_escape_string($transcript),$parsed['type']);
         if (!empty($uniprot_hits)){
           $res['root'] = array_merge($res['root'],uniprot_grouping($uniprot_hits,$uniprot_url));
         }

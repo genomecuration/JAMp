@@ -1,12 +1,12 @@
 Ext.define('CV.view.FeatureGrid', {
   extend : 'Ext.grid.Panel',
+  requires : ['CV.ux.HeaderFilters', 'CV.ux.Retry','CV.store.Features'],
   alias : 'widget.sequencesgrid',
   hideHeaders : false,
   split : true,
   title : 'Transcripts',
   store : 'CV.store.Features',
   columnLines : true,
-  requires : ['CV.ux.HeaderFilters', 'CV.ux.Retry','CV.store.Features'],
   initComponent : function() {
     if ( typeof this.store === 'string') {
       this.store = Ext.create(this.store);

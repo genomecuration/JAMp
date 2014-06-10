@@ -1,5 +1,6 @@
 Ext.define('CV.view.feature.NetworkCanvas', {
   extend : 'Ext.panel.Panel',
+  requires:['CV.store.NetworkJson'],
   region:'center',
   alias:'widget.networkcanvas',
   width:"100%",

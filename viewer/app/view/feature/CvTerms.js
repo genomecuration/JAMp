@@ -1,4 +1,5 @@
 Ext.define('CV.view.feature.CvTerms', {
+  requires:['CV.store.FeatureCvTerms'],
   extend:'Ext.grid.Panel',
   alias:'widget.cvterms',
   store:'CV.store.FeatureCvTerms',
@@ -8,11 +9,11 @@ Ext.define('CV.view.feature.CvTerms', {
   columns : [{
     text : 'Name',
     dataIndex : 'term',
-    flex : 1,
+    flex : 1
   }, {
     text : 'Value',
     dataIndex : 'value',
-    flex : 1,
+    flex : 1
   }],
   initComponent:function(){
 	  if(typeof ( this.store ) == 'string'){

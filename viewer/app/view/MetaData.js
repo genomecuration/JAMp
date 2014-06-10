@@ -1,5 +1,6 @@
 Ext.define('CV.view.MetaData', {
   extend : 'Ext.grid.Panel',
+  requires:['CV.store.CvTerms'],
   alias : 'widget.metadatapanel',
   title : 'Metadata',
   region : 'center',

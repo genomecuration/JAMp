@@ -63,7 +63,7 @@ Ext.define('CV.ux.Retry',{
         this.loaderConfig = this.messages['401'];
       break;
       default: 
-        this.loaderConfig = this.messages.default;
+        this.loaderConfig = this.messages['default'];
     }
     this.success = false;
     this.displayMsg();

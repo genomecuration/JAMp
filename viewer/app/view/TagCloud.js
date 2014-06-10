@@ -1,6 +1,6 @@
 /**
  * TagCloud view makes uses of d3, http://d3js.org/ , and d3 tag cloud created by Jason Davies, http://www.jasondavies.com/word-cloud/.
- * scirpt to add
+ * script to add
  * <script src="http://d3js.org/d3.v3.min.js"></script>
  * <script src="lib/d3.layout.cloud.js" ></script>
  */

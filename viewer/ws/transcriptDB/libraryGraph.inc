@@ -49,7 +49,7 @@ function blast($id, $limit) {
 
 function cvSummary_expression($dsid, $cv_id,$expression_lib) {
 	require ('SqlQueries.inc');
-	require_once ('const.inc');
+	
 	if (empty($expression_lib)){return;}
 	$limit = '';
 	if (isset($_REQUEST['limit'])) {
@@ -80,14 +80,18 @@ function cvSummary_expression($dsid, $cv_id,$expression_lib) {
 	}
 	$librarySql = summarySql($cv_id, $goFacets, $dsid);
 	$data = query_execute(null, $librarySql, null);
-
-	$data = addProperty($data, 'highername', array($expression_lib => $dsid));
-	// 	no hits
-	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
-		$cvterm = array("highername" => array($expression_lib => $dsid));
-		$nohits = nohits_expression($dsid, $cvterm,$library_where);
-		array_push($data, $nohits);
+	if (empty($data)){
+		$data[] = array('cv_id'=>$cv_id,'count'=> 1,'cvterm_id'=>0,'name'=>'-No results found');
 	}
+	
+	$data = addProperty($data, 'highername', array($expression_lib => $dsid));
+	// add no hits to the output
+//	require_once ('const.inc');
+//	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
+//		$cvterm = array("highername" => array($expression_lib => $dsid));
+//		$nohits = nohits_expression($dsid, $cvterm,$library_where);
+//		array_push($data, $nohits);
+//	}
 
 	return $data;
 }
@@ -96,11 +100,12 @@ function cvSummary_expression($dsid, $cv_id,$expression_lib) {
 
 function cvSummary($id, $cv_id) {
 	require ('SqlQueries.inc');
-	require_once ('const.inc');
+	
 	$limit = '';
 	if (isset($_REQUEST['limit'])) {
 		$limit = $_REQUEST['limit'];
 	}
+	
 	$facets = json_decode($_REQUEST['facets'], TRUE);
 	$facetQueryArray = array();
 	if (!empty($facets)){
@@ -108,23 +113,32 @@ function cvSummary($id, $cv_id) {
 		array_push($facetQueryArray, transcriptSql(pg_escape_string($facet['cv_id']), pg_escape_string($facet['value']), $id));
 	 }
 	}
+	
 	$goFacets = '';
 	if (count($facetQueryArray) > 0) {
 		$goFacets = sprintf($sqlQueries['library']['facetFilterCondition'], join(' intersect ', $facetQueryArray));
 	}
 	
 	$librarySql = summarySql($cv_id, $goFacets, $id);
+	
 	$data = query_execute(null, $librarySql, null);
 	$lNameSql = "select description from datasets where dataset_id = $id";
 	$lName = query_execute(null, $lNameSql, null);
-	$data = addProperty($data, 'highername', array($id => $lName[0]['description']));
-	// no hits
-	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
-		$cvterm = array("highername" => array($id => $lName[0]['description']));
-		$nohits = nohits($id, $cvterm);
-		array_push($data, $nohits);
+	
+	if (empty($data)){
+		$data[] = array('cv_id'=>$cv_id,'count'=> 1,'cvterm_id'=>0,'name'=>'-No results found');
 	}
-
+	$data = addProperty($data, 'highername', array($id => $lName[0]['description']));
+	
+	
+	
+//	// Add no hits to the output
+//	require_once ('const.inc');
+//	if ( (count($facetQueryArray) == 0)||( (count($facetQueryArray) == 1) && ($facets[0]['cv_id'] == CV::nothit))) {
+//		$cvterm = array("highername" => array($id => $lName[0]['description']));
+//		$nohits = nohits($id, $cvterm);
+//		array_push($data, $nohits);
+//	}
 	return $data;
 }
 
@@ -161,6 +175,7 @@ function nohits_expression( $dsId, $cvterm,$expression_where ) {
 
 function transcriptSql($cv_id, $cvterm_id, $dataset_id) {
 	require ('SqlQueries.inc');
+	require_once ('const.inc');
 	$sql = '';
 	switch ($cv_id) {
 		case 1 :
@@ -180,6 +195,9 @@ function transcriptSql($cv_id, $cvterm_id, $dataset_id) {
 		case 7 :
 			$sql = sprintf($sqlQueries['library']['koTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
 			break;
+		case CV::nothit:
+			$sql = sprintf($sqlQueries['library']['nohitsTranscripts'], pg_escape_string($cvterm_id), pg_escape_string($dataset_id));
+			break;
 		default :
 			break;
 	}
@@ -188,6 +206,8 @@ function transcriptSql($cv_id, $cvterm_id, $dataset_id) {
 
 function summarySql($cv_id, $facetSql, $datasetId) {
 	require ('SqlQueries.inc');
+	require_once ('const.inc');
+	
 	$sql = '';
 	switch ($cv_id) {
 		case 1 :
@@ -211,8 +231,8 @@ function summarySql($cv_id, $facetSql, $datasetId) {
 		case 7 :
 			$sql = sprintf($sqlQueries['library']['KOSummary'], $facetSql, pg_escape_string($cv_id), pg_escape_string($datasetId));
 			break;
-		case 8 :
-			$sql = sprintf($sqlQueries['library']['NoHitsSummary'], pg_escape_string($datasetId));
+		case CV::nothit :
+			$sql = sprintf($sqlQueries['library']['NoHitsSummary'], pg_escape_string($datasetId),CV::nothit);
 			break;
 		default :
 			break;
