@@ -1,7 +1,7 @@
 Ext.define('CV.view.GenomeBrowser', {
   extend : 'Ext.panel.Panel',
   alias : 'widget.genomebrowser',
-  requires:['CV.store.BrowserOptions'],
+  requires:['CV.store.BrowserOptions','CV.store.GenomeTracks'],
   title: 'Sequence Browser',
   tooltip:'Shows relationship between a gene, transcripts and uniprot hits',
   gheight: 500,

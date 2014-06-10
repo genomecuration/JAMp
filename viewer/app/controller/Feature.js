@@ -1,8 +1,7 @@
 Ext.define('CV.controller.Feature', {
   extend : 'Ext.app.Controller',
   models : ['CV.model.Feature'],
-  requires:['CV.config.ChadoViewer','CV.view.feature.View','CV.view.feature.Grid','CV.ux.Router'],
-  // stores : ['CV.store.Features'],
+  requires:['CV.config.ChadoViewer','CV.view.feature.View','CV.view.feature.Grid','CV.ux.Router','CV.store.GenomeTracks'],
   views : ['CV.view.feature.View','CV.view.feature.Grid'],
   // references to views that are controlled by this controller
   refs : [{

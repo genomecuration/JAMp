@@ -5,11 +5,7 @@
 Ext.define('CV.view.Viewport', {
     extend: 'Ext.Viewport',
     layout: 'fit',
-    requires: [
-        'CV.view.help.View',
-        'Ext.layout.container.Border',
-        'Ext.resizer.Splitter'
-    ],
+    requires: ['CV.controller.Library','CV.controller.Feature','CV.controller.Help','CV.view.help.View','Ext.layout.container.Border','Ext.resizer.Splitter','CV.ux.Router'],
     initComponent: function() {
       var me = this, treeStore, treePanel, gridPanel, gridStore, btns = [], btnTmp = {
         text: '',

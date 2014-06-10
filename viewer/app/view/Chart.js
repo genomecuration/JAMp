@@ -34,8 +34,6 @@ Ext.define('CV.view.Chart', {
     Ext.apply ( this , {
       region: 'south',
       height:400,
-//       id: 'featureBar',
-//       store : 'CV.store.FeatureCount',
       axes: [{
         type: 'Numeric',
         position: 'left',

@@ -37,7 +37,6 @@ function get_fortree_expression_library_metadata($expression_libs){
 	return $return_array;
 }
 
-
 function format_expression_library_metadata($dsId,$expression_libs,&$return_array){
 
 	foreach ($expression_libs as $expression_lib){
@@ -52,7 +51,6 @@ function format_expression_library_metadata($dsId,$expression_libs,&$return_arra
 
 	return $return_array;
 }
-
 
 /**
  * checks if the query is a numeric value or *, for all library
@@ -71,9 +69,6 @@ function cleanLib($lib) {
 	}
 	return $lib;
 }
-
-
-
 
 function expression_library_get_features($ids,$facets=NULL){
   	require ('SqlQueries.inc');

@@ -54,10 +54,7 @@ Ext.define('CV.ux.Router', {
     mixins: {
         observable: 'Ext.util.Observable'
     },
-    requires: [
-        'Ext.util.History', 
-        'Ext.app.Application'
-    ],
+    requires: ['Ext.util.History', 'Ext.app.Application'],
     
     // @private
     constructor: function() {

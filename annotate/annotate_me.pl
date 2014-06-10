@@ -105,7 +105,7 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      -gff_genome   :s    => GFF3 file linking genes to Genome (e.g. official gene predictions, alignments via GMAP, exonerate or prepare_golden_genes_for_predictors.pl)
      -genome_fasta :s    => The FASTA file for the Genome
      OR
-     -delete       :s      => Delete dataset (provide anm ID or name)
+     -delete       :s      => Delete dataset (provide an ID or name)
      
      The program then searches for the file name and if 
      * it finds [filename]*blast*, it considers it a BLAST
@@ -122,7 +122,7 @@ Analyses available:
 Network:
 
     * -network_name        => Name of network
-    * -network_type        => Type of network (MCL, CDHIT etc)
+    * -network_type        => Type of network (MCL, CDHIT etc). Decides how to parse the network file
       -network_description => Describe what kind of network is this (once per type)
       -network_directed    => Network: The edjes are directed (column1 to column2); 
       -nojson              => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
@@ -318,6 +318,7 @@ use DBD::Pg qw(:pg_types);
 use XML::LibXML::Reader;
 use Digest::MD5 qw(md5_hex);
 use JSON;
+use URI::Escape;
 
 use FindBin qw($RealBin);
 $ENV{'PATH'} .= ":$RealBin:$RealBin/../3rd_party/bin";
@@ -342,7 +343,7 @@ our $sql_hash_ref;
 my (
      $dataset_type,        $dataset_library, $dataset_species,
      $dataset_description, $dataset_uname,   $linkout_conf,
-     $directed_network
+     $directed_network,    $warnings_msgs
 );
 my ( $contig_fasta_file, $genome_gff_file, $transdecoder, $genome_fasta_file );
 my $max_network_size   = 250;
@@ -480,8 +481,7 @@ if ($transdecoder) {
  $cdna_fasta_file    = $transdecoder . '.mRNA';
  $cds_gff_file       = $transdecoder . '.gff3';
  $protein_fasta_file = $transdecoder . '.pep';
- &check_required_files( $protein_fasta_file, $cds_gff_file,
-                        $protein_fasta_file );
+ &check_required_files( $protein_fasta_file, $cds_gff_file, $cdna_fasta_file );
 }
 elsif ($genome_gff_file) {
  &check_required_files( $genome_gff_file, $genome_fasta_file );
@@ -2330,8 +2330,8 @@ Score: the raw score, which does not include the secondary structure score.
                 $last_date_searched );
    $sql_hash_ref->{'check_inference'}->execute($absolute_infile_name);
    $inference_exists = $sql_hash_ref->{'check_inference'}->fetchrow_arrayref();
-   unless ($inference_exists && $inference_exists->[0]){
-     confess "Couldn't store inference in database for $infile.\n";
+   unless ( $inference_exists && $inference_exists->[0] ) {
+    confess "Couldn't store inference in database for $infile.\n";
    }
   }
 
@@ -2390,7 +2390,7 @@ Score: the raw score, which does not include the secondary structure score.
   # %databases_used
  }
  close(INFERENCEFEATURECOPY);
- print "Processed: $record_number\t\t\n";
+ print "Processed: $record_number\t\t\n" if ( $record_number % 10 == 0 );
  $| = 0;
  print "\nCommitting to database...\n";
 
@@ -2565,7 +2565,7 @@ sub process_protein_network_tab() {
 
    #need to remove these identifiers...
    $data[1] =~ s/^cds\.//;
-   $data[2] =~ s/^cds\.//;
+   $data[2] =~ s/^cds\.// if $data[2];
 
    if ( $data[2] && $data[2] =~ /^\d+$/ ) {
     $weighted = 1 if !$weighted;
@@ -2638,7 +2638,7 @@ sub process_protein_network_tab() {
     $sql_hash_ref->{'store_cds_network'}->execute( $cds_uname, $network_id );
    }
    $record_number++;
-   print "Processed: $record_number\t\t\r";
+   print "Processed: $record_number\t\t\r" if ( $record_number % 10 == 0 );
   }
   print "\nStoring in database...\n";
   $dbh_store->commit;
@@ -2745,70 +2745,82 @@ sub process_protein_network_mcl() {
 }
 
 sub process_dew_expression() {
- my ( $dbh_store, $library_alias_file, $binary_expression_file, $stats_file, $gene_coverage_directory, $gene_expression_directory_fpkm,$gene_expression_directory_tpm ) = @_;
+ my (
+      $dbh_store,               $library_alias_file,
+      $binary_expression_file,  $stats_file,
+      $gene_coverage_directory, $gene_expression_directory_fpkm,
+      $gene_expression_directory_tpm
+ ) = @_;
  $dbh_store->begin_work();
  &store_library_metadata($library_alias_file);
- &store_expression_library_transcripts($binary_expression_file,$stats_file);
+ &store_expression_library_transcripts( $binary_expression_file, $stats_file );
  $dbh_store->commit();
  $dbh_store->begin_work();
  &store_pictures( $gene_coverage_directory, 'coverage' );
  $dbh_store->commit();
  $dbh_store->begin_work();
  &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
- &store_pictures( $gene_expression_directory_tpm, 'TPM' );
+ &store_pictures( $gene_expression_directory_tpm,  'TPM' );
  $dbh_store->commit();
 }
 
 sub store_expression_library_transcripts() {
  my $binary_expression = shift;
- my $stats_file = shift;
- &process_binary($binary_expression );
+ my $stats_file        = shift;
+ &process_binary($binary_expression);
  &process_expression_stats($stats_file);
 }
 
-sub process_expression_stats(){
+sub process_expression_stats() {
  my $stats_file = shift;
- open( IN, $stats_file) || die($!);
+ open( IN, $stats_file ) || die($!);
  my @headers = split( "\t", <IN> );
  chomp( $headers[-1] );
- # currently: 
- # Checksum Gene alias  Readset Raw_Counts  RPKM    Express_FPKM    Express_TPM Express_eff.counts  KANGADE_counts  TMM_Normalized.count    TMM.FPKM    TMM.TPM
+
+# currently:
+# Checksum Gene alias  Readset Raw_Counts  RPKM    Express_FPKM    Express_TPM Express_eff.counts  KANGADE_counts  TMM_Normalized.count    TMM.FPKM    TMM.TPM
  print "Processing expression statistics via $stats_file\n";
  while ( my $ln = <IN> ) {
   next if $ln =~ /^\s*$/;
   chomp($ln);
   my @data = split( "\t", $ln );
   next unless $data[9];
-  my $md5_sum = $data[0];
+  my $md5_sum          = $data[0];
   my $transcript_uname = $data[1];
-  my $library_uname  = $data[2];
+  my $library_uname    = $data[2];
+
   # do it this way in case headers change again
   my %hash;
-  for (my $i=3;$i<scalar(@data);$i++){
-   $hash{$headers[$i]} = $data[$i];
+  for ( my $i = 3 ; $i < scalar(@data) ; $i++ ) {
+   $hash{ $headers[$i] } = $data[$i];
   }
-  
-  $sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_uname, $library_uname );
-  my $sql_res = $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-  unless ($sql_res && $sql_res->[0]){
-   warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
+
+  $sql_hash_ref->{'check_transcript_expression_library'}
+    ->execute( $transcript_uname, $library_uname );
+  my $sql_res =
+    $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
+  unless ( $sql_res && $sql_res->[0] ) {
+#   this is now controlled by the binary file. if the gene is not expressed, don't process.
+#   warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
+#   $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
    next;
   }
   my $id = $sql_res->[0];
-  # undefined values are SET as null  
-     
+
+  # undefined values are SET as null
+
   $sql_hash_ref->{'update_statistics_transcript_expression_library'}->execute(
-  $hash{'Raw_Counts'},$hash{'RPKM'},
-  $hash{'Express_FPKM'},$hash{'Express_TPM'},$hash{'Express_eff.counts'},
-  $hash{'KANGADE_counts'},
-  $hash{'TMM_Normalized.count'},$hash{'TMM.FPKM'},$hash{'TMM.TPM'},
-  $id
+                         $hash{'Raw_Counts'},           $hash{'RPKM'},
+                         $hash{'Express_FPKM'},         $hash{'Express_TPM'},
+                         $hash{'Express_eff.counts'},   $hash{'KANGADE_counts'},
+                         $hash{'TMM_Normalized.count'}, $hash{'TMM.FPKM'},
+                         $hash{'TMM.TPM'},              $id
   );
  }
  close IN;
 }
 
-sub process_binary(){
+sub process_binary() {
  my $binary_expression = shift;
  open( IN, $binary_expression ) || die($!);
  my @headers = split( "\t", <IN> );
@@ -2826,23 +2838,25 @@ OUTER: while ( my $ln = <IN> ) {
    if ( $data[$i] == 1 ) {
     $sql_hash_ref->{'check_transcript_expression_library'}
       ->execute( $data[0], $library_name );
-    if ( !$sql_hash_ref->{'check_transcript_expression_library'}
-         ->fetchrow_arrayref() )
-    {
+    my $check =
+      !$sql_hash_ref->{'check_transcript_expression_library'}
+      ->fetchrow_arrayref();
+    if ( !$check ) {
      $sql_hash_ref->{'store_transcript_expression_library'}
        ->execute( $data[0], $library_name );
      $sql_hash_ref->{'check_transcript_expression_library'}
        ->execute( $data[0], $library_name );
-     die
-       if ( !$sql_hash_ref->{'check_transcript_expression_library'}
-            ->fetchrow_arrayref() );
+       $check =
+      !$sql_hash_ref->{'check_transcript_expression_library'}
+      ->fetchrow_arrayref();
+     die "Can't store expression data..."
+       if !$check;
     }
    }
   }
  }
  close IN;
 }
-
 
 sub store_pictures() {
  my ( $dir, $graph_type ) = @_;
@@ -2873,6 +2887,7 @@ sub store_pictures() {
    }
    else {
     warn "No transcript name found for md5sum $md5sum\n";
+    $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
     next;
    }
   }
@@ -2902,14 +2917,19 @@ sub store_library_metadata() {
  # 'name' is required; others optional
  my @headers = split( "\t", <LIB> );
  chomp( $headers[-1] );
- die "Peculiar lib_alias file $file\n"
+ die
+"Peculiar lib_alias file $file (no headers or headers don't start with 'file' and 'name')\n"
    unless ( $headers[0] && $headers[1] )
    && ( $headers[0] eq 'file' && $headers[1] eq 'name' );
  while ( my $ln = <LIB> ) {
   next if $ln =~ /^\s*$/ || $ln =~ /^#/;
   chomp($ln);
   my @data = split( "\t", $ln );
-  die "Peculiar lib_alias file $file\n"
+  die "Peculiar lib_alias file $file: number of headers ("
+    . scalar(@headers)
+    . ") does not equal no. of data ("
+    . scalar(@data)
+    . ") at line:\n$ln\n"
     unless scalar(@data) == scalar(@headers);
   my $library_name = $data[1];
   die "No library name from $ln\n" unless $library_name;
@@ -2999,6 +3019,7 @@ sub calculate_protein_properties() {
  my $calc = Bio::Tools::pICalculator->new( -places => 2, -pKset => 'EMBOSS' );
  while ( my $seq_obj = $protein_obj->next_seq ) {
   my $seq = $seq_obj->seq();
+  $seq =~ s/\*$//;
 
   #make calculations
   $calc->seq($seq_obj);
@@ -3204,9 +3225,9 @@ sub prepare_native_inference_sqls() {
  $sql_hash{'get_transcript_from_md5sum'} =
    $dbh->prepare("SELECT uname from transcript WHERE nuc_checksum=?");
 
-$sql_hash{'update_statistics_transcript_expression_library'} = 
-  $dbh->prepare("UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?");
-
+ $sql_hash{'update_statistics_transcript_expression_library'} = $dbh->prepare(
+"UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
+ );
 
  return \%sql_hash;
 
@@ -3444,11 +3465,12 @@ sub store_native_genes() {
   }
 
   my $gene_uname = $seq_obj->get_accession();
+  die "No gene name!" unless $gene_uname;
   next if $stored_genes_ref->{$gene_uname};
 
   print "Adding gene $gene_uname\n" if $debug;
   my $seq = $seq_obj->get_sequence();
-
+  die "No sequence for $gene_uname!\n" unless $seq;
   $sql_hash_ref->{'store_gene_name_seq'}
     ->execute( $gene_uname, $seq, md5_hex($seq) );
 
@@ -3754,9 +3776,9 @@ sub store_annotation_of_proteins() {
    my $gene_expression_directory_tpm =
      $expression_dew_outdir . '/gene_expression_tpm';
 
-   my @stats_files = glob(
-     $expression_dew_outdir . '/*.expression_levels.stats.tsv');
-   
+   my @stats_files =
+     glob( $expression_dew_outdir . '/*.expression_levels.stats.tsv' );
+
    if ( !-s $library_alias_file ) {
     warn "Cannot find $library_alias_file. Skipping expression processing...\n";
    }
@@ -3770,7 +3792,7 @@ sub store_annotation_of_proteins() {
    }
    elsif ( !-s $stats_files[0] ) {
     warn
-      "Cannot find gene expression statistics ($expression_dew_outdir/*.expression_levels.stats.tsv). Skipping expression processing...\n";
+"Cannot find gene expression statistics ($expression_dew_outdir/*.expression_levels.stats.tsv). Skipping expression processing...\n";
    }
    elsif ( !-d $gene_expression_directory_fpkm ) {
     warn
@@ -3782,13 +3804,13 @@ sub store_annotation_of_proteins() {
    }
    else {
     &process_dew_expression(
-     $dbh_store,
-     $library_alias_file,
-     $binary_expression_files[0],
-     $stats_files[0],
-     $gene_coverage_directory,
-     $gene_expression_directory_fpkm,
-     $gene_expression_directory_tpm,
+                             $dbh_store,
+                             $library_alias_file,
+                             $binary_expression_files[0],
+                             $stats_files[0],
+                             $gene_coverage_directory,
+                             $gene_expression_directory_fpkm,
+                             $gene_expression_directory_tpm,
     );
    }
   }
@@ -3814,85 +3836,142 @@ sub process_cmd {
 }
 
 sub process_for_genome_gff() {
+#return  $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file, $cds_gff_file
  $protein_fasta_file = $genome_gff_file . '.proteins.fasta';
  $contig_fasta_file  = $genome_gff_file . '.gene.fasta';
  $cdna_fasta_file    = $genome_gff_file . '.mRNA.fasta';
  $cds_gff_file       = $genome_gff_file . '.mRNA.gff3';
  if ( -s $cds_gff_file ) {
-  return ( $protein_fasta_file, $contig_fasta_file, $cds_gff_file );
+  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,$cds_gff_file );
  }
- print "Preparing genome $genome_fasta_file\n";
- my $fasta_reader = new Fasta_reader($genome_fasta_file);
- my %genome       = $fasta_reader->retrieve_all_seqs_hash();
- die "No genome data!" unless %genome && scalar( keys %genome ) >= 1;
- my $genome_ref = \%genome;
+ print "Preparing genome $genome_fasta_file with $genome_gff_file\n";
+ my %unique_names_check;
+ my $genome_ref = &read_fasta($genome_fasta_file);
 
+ print "Indexing...\n";
+ my $gene_obj_indexer =
+   new Gene_obj_indexer( { "create" => $genome_gff_file . '.inx' } );
+ my $scaffold_to_gene_list_href =
+   &GFF3_utils::index_GFF3_gene_objs( $genome_gff_file, $gene_obj_indexer );
+ print "Processing...\n";
  open( PROTOUT, ">$protein_fasta_file" );
  open( GENEOUT, ">$contig_fasta_file" );
  open( CDNAOUT, ">$cdna_fasta_file" );
  open( GFFOUT,  ">$cds_gff_file" );
- my $gene_obj_indexer_href = {};
+ my $master_counter = 0;
 
-## associate gene identifiers with contig id's.
- my $scaffold_to_gene_list_href =
-   &GFF3_utils::index_GFF3_gene_objs( $genome_gff_file,
-                                      $gene_obj_indexer_href );
- print "Processing...\n";
  foreach my $reference_id ( sort keys %$scaffold_to_gene_list_href ) {
-
-  my $genome_seq = $genome_ref->{$reference_id}
-    or die "Error, cannot find sequence for $reference_id"
-    ;    #cdbyank_linear($reference_id, $fasta_db);
-
-  my @gene_ids = @{ $scaffold_to_gene_list_href->{$reference_id} };
+  my $genome_seq = $genome_ref->{$reference_id};
+  if ( !$genome_seq ) {
+   warn "Cannot find sequence $reference_id from genome\n";
+   next;
+  }
+  my @gene_ids = sort @{ $scaffold_to_gene_list_href->{$reference_id} };
 
   foreach my $gene_id (@gene_ids) {
-   my $gene_obj_ref = $gene_obj_indexer_href->{$gene_id};
-   $gene_obj_ref->trivial_refinement();
-
-   my %params;
+   my $counter      = 0;
+   my $gene_obj_ref = $gene_obj_indexer->get_gene($gene_id);
+   my ( %params, %preferences );
+   $preferences{'sequence_ref'} = \$genome_seq;
    $params{unspliced_transcript} = 1;    # highlights introns
-
+   $gene_obj_ref->trivial_refinement();
    $gene_obj_ref->create_all_sequence_types( \$genome_seq, %params );
    my $gene_seq = $gene_obj_ref->get_gene_sequence();
    $gene_seq =~ s/(\S{80})/$1\n/g;
    chomp $gene_seq;
-
-   my $counter = 0;
-
    my ( $gene_lend, $gene_rend ) =
      sort { $a <=> $b } $gene_obj_ref->get_gene_span();
    my $gene_orientation = $gene_obj_ref->get_orientation();
    my $source           = $gene_obj_ref->{source};
-   my $gff3_out_print =
-"$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_id\n";
-   print GENEOUT
-">$gene_id type:gene $reference_id:$gene_lend-$gene_rend($gene_orientation)\n$gene_seq\n";
-   my $to_gff3_out_print;
+   my $gene_common_name = $gene_obj_ref->{com_name};
+   my $gene_name        = $gene_id;
+   my ( $to_gff3_out_print, $gff3_out_print, $gene_description );
+
+   if ($gene_common_name) {
+    if ( $gene_common_name =~ /\s/ ) {
+     $gene_description = $gene_common_name;
+     $gene_description =~ s/^\s*(\S+)\s*//;
+     $gene_description = uri_escape($gene_description);
+     $gene_common_name = $1 || die;
+    }
+    die "Gene name ($gene_common_name) is not unique\n"
+      if $unique_names_check{$gene_common_name};
+    $gene_name = $gene_common_name;
+    $gff3_out_print =
+"$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name;Alias=$gene_id";
+    $gff3_out_print .= ";Note=$gene_description" if $gene_description;
+    $gff3_out_print .= "\n";
+    print GENEOUT
+">$gene_name type:gene original_name:$gene_id $reference_id:$gene_lend-$gene_rend($gene_orientation)\n$gene_seq\n";
+   }
+   else {
+    $gff3_out_print =
+"$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name\n";
+    print GENEOUT
+">$gene_name type:gene $reference_id:$gene_lend-$gene_rend($gene_orientation)\n$gene_seq\n";
+   }
 
    foreach
      my $isoform ( $gene_obj_ref, $gene_obj_ref->get_additional_isoforms() )
    {
-
-    next unless $isoform->has_CDS();
+    next unless $isoform->has_CDS() || !$isoform->get_CDS_span();
+    my @model_span = $isoform->get_CDS_span();
+    next if ( abs( $model_span[0] - $model_span[1] ) < 3 );
     $counter++;
+    $master_counter++;
+
     my $orientation = $isoform->get_orientation();
     my ( $model_lend, $model_rend ) =
       sort { $a <=> $b } $isoform->get_model_span();
     my ( $gene_lend, $gene_rend ) =
       sort { $a <=> $b } $isoform->get_gene_span();
 
-    my $isoform_id = $isoform->{Model_feat_name};
-    my $com_name = $isoform->{com_name} || "";
-    $com_name = "" if ( $com_name eq $isoform_id );
+    my $isoform_id  = $isoform->{Model_feat_name};
+    my $main_id     = $isoform_id;
+    my $description = '';
+    my $alt_name    = '';
+    my $common_name = $isoform->{transcript_name} || $isoform->{com_name};
 
-    #eval {$isoform->set_CDS_phases (\$genome_seq);};
+    # use common name if available.
+    if ($common_name) {
+     $alt_name = "($isoform_id) ";
+     if ( $common_name =~ /\s/ ) {
+      $description = $common_name;
+      $description =~ s/^\s*(\S+)\s*//;
+      $common_name = $1 || die;
+     }
 
+     if ( $common_name =~ /-R[A-Z]+$/ ) {
+      $main_id = $common_name;
+     }
+     else {
+      $main_id = $common_name . '-RA';
+     }
+
+     if ( $unique_names_check{$common_name} ) {
+      if ( $common_name =~ /-R[A-Z]+$/ ) {
+       die
+"Common name $common_name ends in transcript notation but it is not unique!\n";
+      }
+      my $letter = 'B';
+      for ( my $i = 1 ; $i < $unique_names_check{$common_name} ; $i++ ) {
+       $letter++;
+      }
+      $main_id = $common_name . '-R' . $letter;
+     }
+     $unique_names_check{$common_name}++;
+
+     # set description as note and update name
+     $isoform->{transcript_name} = $main_id;
+     $isoform->{com_name}        = $main_id;
+     $isoform->{pub_comment}     = $description if $description;
+    }
+
+    # get sequences
     my $cDNA_seq = $isoform->get_cDNA_sequence();
     my $prot_seq = $isoform->get_protein_sequence();
-    my $cds_seq  = $isoform->get_CDS_sequence();
+    my $cds_seq  = $isoform->get_CDS_sequence();       # not to be printed
     next unless $cDNA_seq && $prot_seq && $cds_seq;
-
     $to_gff3_out_print++;
 
     my $cds_length  = length($cds_seq);
@@ -3903,11 +3982,11 @@ sub process_for_genome_gff() {
      $iso_start = index( $cDNA_seq, $cds_seq );
      if ( $iso_start == -1 ) {
       warn
-"Cannot find the coding sequence of model $isoform_id will have to skip!\n";
+"Cannot find the coding sequence of model $main_id will have to skip!\n";
 
-      #     warn $cDNA_seq;
-      #     warn $cds_seq;
-      #     warn Dumper $isoform;
+      #           warn $cDNA_seq;
+      #          warn $cds_seq;
+      #         die Dumper $isoform;
       next;
      }
      $iso_end = $iso_start + $cds_length;    # 1base co-ordinate
@@ -3920,9 +3999,9 @@ sub process_for_genome_gff() {
 
 # this is semi-standard GFF3 (mix references) but we don't care as it is just represent things for the JAMP database
     $gff3_out_print .=
-        "$gene_id\tPrediction\tmRNA\t1\t$cDNA_length\t.\t+\t.\tID=$isoform_id\n"
-      . "$gene_id\tPrediction\texon\t1\t$cDNA_length\t.\t+\t.\tID=$isoform_id.exon;Parent=$isoform_id\n"
-      . "$gene_id\tPrediction\tCDS\t$iso_start\t$iso_end\t.\t+\t.\tID=cds.$isoform_id;Parent=$isoform_id\n"
+        "$gene_name\tPrediction\tmRNA\t1\t$cDNA_length\t.\t+\t.\tID=$main_id\n"
+      . "$gene_name\tPrediction\texon\t1\t$cDNA_length\t.\t+\t.\tID=$main_id.exon;Parent=$main_id\n"
+      . "$gene_name\tPrediction\tCDS\t$iso_start\t$iso_end\t.\t+\t.\tID=cds.$main_id;Parent=$main_id\n"
       . "\n";
 
     #FASTA format
@@ -3930,11 +4009,12 @@ sub process_for_genome_gff() {
     chomp $prot_seq;
     $cDNA_seq =~ s/(\S{60})/$1\n/g;
     chomp $cDNA_seq;
-
-    print PROTOUT
-">$isoform_id $com_name type:polypeptide $gene_id $reference_id:$model_lend-$model_rend($orientation)\n$prot_seq\n";
-    print CDNAOUT
-">$isoform_id $com_name type:mRNA $gene_id CDS_start:$iso_start CDS_end:$iso_end $reference_id:$model_lend-$model_rend($orientation)\n$cDNA_seq\n";
+    print CDNAOUT ">$main_id "
+      . $alt_name
+      . "type:mRNA  gene:$gene_name$description\n$cDNA_seq\n";
+    print PROTOUT ">$main_id "
+      . $alt_name
+      . "type:polypeptide  gene:$gene_name$description\n$prot_seq\n";
 
    }
    print GFFOUT $gff3_out_print if $to_gff3_out_print;
@@ -3944,6 +4024,7 @@ sub process_for_genome_gff() {
  close CDNAOUT;
  close GENEOUT;
  close GFFOUT;
+ print "\nCompleted $master_counter transcripts...\n";
  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
           $cds_gff_file );
 }
@@ -4139,4 +4220,26 @@ sub read_whole_file() {
  }
  close IN;
  return $filedata;
+}
+
+sub read_fasta() {
+ my $fasta = shift;
+ my %hash;
+ my $orig_sep = $/;
+ $/ = '>';
+ open( IN, $fasta ) || confess( "Cannot open $fasta : " . $! );
+ while ( my $record = <IN> ) {
+  chomp($record);
+  next unless $record;
+  my @lines = split( "\n", $record );
+  my $id    = shift(@lines);
+  my $seq   = join( '', @lines );
+  $seq =~ s/\s+//g;
+  if ( $id && $seq && $id =~ /^(\S+)/ ) {
+   $hash{$1} = $seq;
+  }
+ }
+ close IN;
+ $/ = $orig_sep;
+ return \%hash;
 }

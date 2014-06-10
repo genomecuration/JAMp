@@ -64,10 +64,7 @@ Ext.define('CV.ux.HeaderFilters',{
     
     alternateClassName: ['CV.ux.grid.HeaderFilters', 'CV.ux.grid.header.Filters'],
     
-    requires: [
-        'Ext.container.Container',
-        'Ext.tip.ToolTip'
-    ],
+    requires: ['Ext.container.Container','Ext.tip.ToolTip'],
 
 
 

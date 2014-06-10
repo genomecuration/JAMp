@@ -57,7 +57,7 @@ $sqlQueries = array(
  * @param 1: dataset id
  * @param 2: cv id
  */
-	 'totalNoHits'=>'SELECT %2$s cv_id, 1 AS cvterm_id, COUNT(*), \'no hits\' AS name FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+	 'totalNoHits'=>'SELECT %2$s cv_id, 0 AS cvterm_id, COUNT(*), \'-No hit\' AS name FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
 /**
  * query to fill metadata panel
  * @param 1: dataset id
@@ -144,7 +144,7 @@ $sqlQueries = array(
  * @param 1: dataset id
  * @param 2: cv id
  */
-	   'NoHitsSummary'=>'SELECT %2$s cv_id, 1 AS cvterm_id, COUNT(*), \'no hits\' AS name FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+	   'NoHitsSummary'=>'SELECT %2$s cv_id, 0 AS cvterm_id, COUNT(*), \'-No hit\' AS name FROM dataset_%1$d.cds WHERE uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
 /**
  * @param 1: subquery that lists cdss
  */
@@ -216,7 +216,7 @@ $sqlQueries = array(
         'items_expression_library'=>'SELECT \'dataset_%1$d.\' || transcript_uname AS uname, transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s %4$s',   
         'cdss_expression_library'=>'SELECT transcript_uname as uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s',
   		'unameFilter_expression_library'=>' AND transcript_uname in (%1$s)',
-		'totalNoHits_expression_library'=>'SELECT %2$s cv_id, 1 AS cvterm_id, COUNT(*), \'no hits\' AS name FROM dataset_%1$d.transcript_expression_library WHERE %3$s transcript_uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+		'totalNoHits_expression_library'=>'SELECT %2$s cv_id, 0 AS cvterm_id, COUNT(*), \'-No hit\' AS name FROM dataset_%1$d.transcript_expression_library WHERE %3$s transcript_uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
 	),
 
 	'species' => array(
@@ -311,7 +311,7 @@ $sqlQueries = array(
 		 * @param 2: network id
 		 */
 		  'networkcds'=>'SELECT cds_uname AS name, %1$s dataset_id FROM dataset_%1$d.cds_network WHERE network_id = %2$d',
-		  "get_expression_data" => 'SELECT library_uname,raw_counts,raw_rpkm,express_fpkm,express_tpm,express_counts,kangade_counts,tmm_counts,tmm_fpkm,tmm_tpm FROM dataset_%1$d.transcript_expression_library WHERE transcript_uname=\'%2$s\'',
+		  "get_expression_data" => 'SELECT * FROM dataset_%1$d.transcript_expression_library WHERE transcript_uname=\'%2$s\'',
 		// only one picture; PNG preferred over SVG (order by)
 		  "get_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\' AND type=\'%3$s\' ORDER by format limit 1',
 		  "get_one_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_expression_id=%2$d',

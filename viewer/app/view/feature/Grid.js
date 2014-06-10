@@ -1,6 +1,7 @@
 Ext.define('CV.view.feature.Grid', {
   extend : 'Ext.grid.Panel',
   alias : 'widget.featuregrid',
+  requires:['CV.store.Features'],
   hideHeaders : false,
   title : 'Features',
   store : 'CV.store.Features',

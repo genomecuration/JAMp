@@ -9,7 +9,7 @@ Ext.define('CV.store.FeatureCvTerms', {
       ds:'feature',
       type:'expression_data',
       feature_id:0
-    },
+    }
   },
   constructor:function(){
     Ext.Object.merge(this.proxy , {

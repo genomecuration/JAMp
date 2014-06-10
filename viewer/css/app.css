@@ -1,25 +1,25 @@
 .x-mask-msg .retry .x-mask-msg-text {
-	background-image:url("../extjs/resources/themes/images/gray/grid/drop-no.gif");
+    background-image:url("images/drop-no.gif");
     background-position: 0 center;
     background-repeat: no-repeat;
     padding: 5px 5px 5px 20px;
 }
 .x-mask-msg .customLoading .x-mask-msg-text {
-	background-image:url("../extjs/resources/themes/images/gray/grid/refresh.gif");
+    background-image:url("images/refresh.gif");
     background-position: 0 center;
     background-repeat: no-repeat;
     padding: 5px 5px 5px 20px;
     cursor:pointer;
 }
 .x-mask-msg .information-loader .x-mask-msg-text {
-	background-image:url("../extjs/resources/themes/images/gray/window/icon-info.gif");
+    background-image:url("images/icon-info.gif");
     background-position: 0 center;
     background-repeat: no-repeat;
     padding: 15px 5px 15px 40px;
     cursor:default
 }
 deleteIcon {
-	background-image:url("../extjs/examples/writer/images/delete.png");
+    background-image:url("images/delete.png");
     background-position: 0 center;
     background-repeat: no-repeat;
 }

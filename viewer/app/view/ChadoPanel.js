@@ -3,7 +3,7 @@ Ext.define('CV.view.ChadoPanel', {
   requires:['CV.view.InputSlider'],
   // extend : 'Ext.panel.Panel',
   alias : 'widget.chadopanel',
-  // fieldValue : 'Cutoff :',
+  // fieldValue : 'Count cutoff :',
   threshold : Number.MIN_VALUE,
   // othersId : 10,
   // this parameter will store the summary of all records below the threshold value
@@ -12,7 +12,9 @@ Ext.define('CV.view.ChadoPanel', {
   // countField : 'count',
   countField : 'total',
   // name of the others record
-  othersName : 'Others',
+  othersName : '-Other terms below count cutoff',
+  noResultName : '-No results found',
+  nohitsName : '-No hit',
   othersObj : {
     'cvterm_id':0
   },
@@ -61,7 +63,7 @@ Ext.define('CV.view.ChadoPanel', {
     this.slider = slider;
     this.sliderNumberField = Ext.create( 'Ext.form.field.Number' , {
         padding: '5 5 0 5',
-        width:30,
+        width:50,
         hideTrigger:true,
         tooltip:'Set cutoff to a specific value',
         listeners:{
@@ -78,7 +80,7 @@ Ext.define('CV.view.ChadoPanel', {
     // }
     // this.tbar.push({
       // xtype:'buttongroup',
-      // title:'Cutoff',
+      // title:'Count cutoff',
       // items:[slider , this.sliderNumberField ]
     // });
     // // this.tbar.push(slider);
@@ -149,7 +151,7 @@ Ext.define('CV.view.ChadoPanel', {
     Ext.apply(this, {
       tbar:[{
       xtype:'buttongroup',
-      title:'Cutoff',
+      title:'Count cutoff',
       items:[slider , this.sliderNumberField ,{
       xtype:'button',
       text:'Optimize',

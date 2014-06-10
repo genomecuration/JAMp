@@ -1,23 +1,22 @@
 Ext.application({
     name: 'CV',
-    paths:{
-      'CV': 'app',
-      'Ext': 'extjs/src',
-      'Ext.ux': 'extjs/examples/ux',
-      'CV.ux.Router': 'app/ux/Router.js'
-    },
+//    paths:{
+//      'CV': 'app',
+//      'Ext': 'ext/src',
+//      'Ext.ux': 'ext/src/ux',
+//      'CV.ux.Router': 'app/ux/Router.js'
+//    },
     appFolder: 'app',
     controllers: [
         'Library',
         'Feature',
-        'Help'//,
-        // 'DE'
+        'Help'
     ],
     requires:[
       'CV.controller.Feature',
       'CV.controller.Help',
       'CV.controller.Library',
-      'CV.controller.DE'
+      'CV.ux.Router'
     ],
     autoCreateViewport: true,
     /**
@@ -33,31 +32,20 @@ Ext.application({
       Ext.override(Ext.app.Controller, {
           render: function(view)
           {
-              // console.profile();
-              //take viewport
               var tab, target = Ext.getCmp('main_tabpanel');
 
               target.setLoading( true );
-              // make sure header is highlighted. Important during initialization.
               this.header.toggle( true , false );
-              //load view
               if (Ext.isString(view)) {
                   view = this.getView(view).create();
               }
-              //hide event to make sure all the modal messages are hidden.
               target.fireHierarchyEvent('hide');
               
               if( target.items.getAt(0) !== view ){
-                //if it already exists, remove
-                // setting autoDestroy param to false, since we want to reuse the view.
                 target.removeAll( false );
-                // target.removeAll( true );
-  
-                //add to viewport
                 target.add( view );                
               }              
               target.setLoading( false );
-              // console.profileEnd();
           }
       });
 
@@ -75,14 +63,9 @@ Ext.application({
                   icon: Ext.Msg.ERROR
               });
           },
-          beforedispatch: function(uri, match, params)
-          {
-              console.log('beforedispatch ' + uri);
-          },
-          dispatch: function(uri, match, params, controller)
-          {
-              console.log('dispatch ' + uri);
-              //TIP: you could automize rendering task here, inside dispatch event
+          beforedispatch: function(uri, match, params){},
+          dispatch: function(uri, match, params, controller){
+//     console.log('dispatch ' + uri);
           }
       });
     },
@@ -93,7 +76,6 @@ Ext.application({
       'feature':'feature#show',
       'feature/:id':'feature#show',
       'feature/:id/:name':'feature#show',
-      'help':'help#show',
-      'de':'DE#show'
+      'help':'help#show'
     }
 });

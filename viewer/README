@@ -2,14 +2,10 @@ Demo is available here
  http://annotation.insectacentral.org/demo
 
 Requirements
-Two symlinks has to be made for this program to work. they are database.php and genome.php . The decision to create the symlink is based on the database that needs to be viewed.
-Example:
-To view chado database
-cd ws/
-ln -s chado_genes4all.php database.php
-ln -s chado_genes4all.genome.php genome.php
+Two symlinks have to be made for this program to work. See ws/
 
-System Requirements:
+
+System Requirements (tested with):
 Webserver - Apache 2
 PHP 5.5
 php5-pgsql
@@ -22,31 +18,4 @@ error_reporting = E_COMPILE_ERROR|E_RECOVERABLE_ERROR|E_ERROR|E_CORE_ERROR
 And restart apache (sudo apache2ctl restart).
 
 In the next version we will try to make sure this is not needed...
-
-
-
-====== Developer README =======
-
-Development url:
-chadoViewer/index.html
- 
- This should not require Sencha SDK/cmd or build.
-
-
-Production url:
- chadoViewer/index-prod.html
-
-Configure
-Edit the following file, app/config/ChadoViewer.js 
-Change the baseUrl parameter to point the chadoviewer webservice.
-It is generally of the format:
-/{Drupal-root}/ws/chadoviewer
-
-
-Build
-
-* Download and Install sencha SDK
-  http://www.sencha.com/products/sencha-cmd/download
-* At the root of the project, run the following command.
-	sencha build -p app.jsb3 -d . -v
 
