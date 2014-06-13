@@ -363,6 +363,9 @@ my (
      $expression_dew_outdir
 );
 
+my ($extra_expression_column_name,$extra_expression_column_file);
+my $extra_expression_column_type = 'real';
+
 my ( $network_description, $network_type, $network_name );
 
 my $blast_format             = 'blastxml';
@@ -458,6 +461,10 @@ my %NOTALLOWED_EVID = (
 
  #expression
  'expression_directory:s' => \$expression_dew_outdir,
+ 'extra_expression_name:s' => \$extra_expression_column_name,
+ 'extra_expression_type:s' => \$extra_expression_column_type,
+ 'extra_expression_file:s' => \$extra_expression_column_file,
+
 
  # dataset metadata
  'authorization|dataset_authority:s' => \$authorization_name,
@@ -2754,14 +2761,24 @@ sub process_dew_expression() {
  $dbh_store->begin_work();
  &store_library_metadata($library_alias_file);
  &store_expression_library_transcripts( $binary_expression_file, $stats_file );
+ print "Committing...\n";
  $dbh_store->commit();
+
  $dbh_store->begin_work();
  &store_pictures( $gene_coverage_directory, 'coverage' );
+ print "Committing...\n";
  $dbh_store->commit();
+
  $dbh_store->begin_work();
  &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
- &store_pictures( $gene_expression_directory_tpm,  'TPM' );
+ print "Committing...\n";
  $dbh_store->commit();
+
+ $dbh_store->begin_work();
+ &store_pictures( $gene_expression_directory_tpm,  'TPM' );
+ print "Committing...\n";
+ $dbh_store->commit();
+
 }
 
 sub store_expression_library_transcripts() {
@@ -2839,7 +2856,7 @@ OUTER: while ( my $ln = <IN> ) {
     $sql_hash_ref->{'check_transcript_expression_library'}
       ->execute( $data[0], $library_name );
     my $check =
-      !$sql_hash_ref->{'check_transcript_expression_library'}
+      $sql_hash_ref->{'check_transcript_expression_library'}
       ->fetchrow_arrayref();
     if ( !$check ) {
      $sql_hash_ref->{'store_transcript_expression_library'}
@@ -2847,7 +2864,7 @@ OUTER: while ( my $ln = <IN> ) {
      $sql_hash_ref->{'check_transcript_expression_library'}
        ->execute( $data[0], $library_name );
        $check =
-      !$sql_hash_ref->{'check_transcript_expression_library'}
+      $sql_hash_ref->{'check_transcript_expression_library'}
       ->fetchrow_arrayref();
      die "Can't store expression data..."
        if !$check;
@@ -3229,6 +3246,9 @@ sub prepare_native_inference_sqls() {
 "UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
  );
 
+ $sql_hash{'add_custom_statistics_transcript_expression_library'} = $dbh->prepare("ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type");
+ $sql_hash{'update_custom_statistics_transcript_expression_library'} = $dbh->prepare("UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_expression_library_id=?");
+
  return \%sql_hash;
 
 }
@@ -3346,10 +3366,10 @@ sub parse_transcript_gff() {
    if ( $data[8] =~ /ID=([^;]+);?/ ) {
     $gene_uname = $1 || die $ln;
     if ( $data[8] =~ /Name=([^;]+);?/ ) {
-     $gene_alias = $1;
+     $gene_alias = uri_unescape($1);
     }
     if ( $data[8] =~ /Dbxref=([^;]+);?/ ) {
-     $gene_dbxref = $1;
+     $gene_dbxref = uri_unescape($1);
     }
    }
    else {
@@ -3366,10 +3386,10 @@ sub parse_transcript_gff() {
    if ( $data[8] =~ /ID=([^;]+);?/ ) {
     $transcript_uname = $1 || die $ln;
     if ( $data[8] =~ /Name=([^;]+);?/ ) {
-     $transcript_alias = $1;
+     $transcript_alias = uri_unescape($1);
     }
     if ( $data[8] =~ /Dbxref=([^;]+);?/ ) {
-     $transcript_dbxref = $1;
+     $transcript_dbxref = uri_unescape($1);
     }
    }
    else {
@@ -3579,6 +3599,9 @@ sub store_native_transcripts() {
                                $translation_table_number, $cds_data->{'start'},
                                $cds_data->{'stop'},       $cds_data->{'strand'},
    );
+   $sql_hash_ref->{'check_cds'}->execute($cds_data->{'cds_uname'});
+   my $check = $sql_hash_ref->{'check_cds'}->fetchrow_arrayref();
+   confess "Couldn't add item ".$cds_data->{'cds_uname'}." in the CDS table\n" unless $check;
    $do_phys_file++;
   }
 
@@ -3891,7 +3914,7 @@ sub process_for_genome_gff() {
     if ( $gene_common_name =~ /\s/ ) {
      $gene_description = $gene_common_name;
      $gene_description =~ s/^\s*(\S+)\s*//;
-     $gene_description = uri_escape($gene_description);
+     $gene_description = $gene_description;
      $gene_common_name = $1 || die;
     }
     die "Gene name ($gene_common_name) is not unique\n"

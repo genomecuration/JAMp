@@ -11,7 +11,7 @@ function getIds( $selections ){
   }
   return $ids;
 }
-function mergeCvTermsSum( $merge , $ids = NULL, $cProp = 'count'){
+function mergeCvTermsSum( $merge  , $ids = NULL, $cProp = 'count'){
   $result = array();
   foreach( $merge as $key => $library){
     foreach ($library as $index => $term) {
@@ -145,12 +145,14 @@ function chadoviewer() {
                   $expression_library_dataset_and_ids[] = $lib_id;
                   // now we have to decide how to return the data.
                   $cvTermsSumList[ $lib_id ] = cvSummary_expression( $dsid, $cv_id, $lib_name );
-                  $total = totalTranscriptsExpression( $dsid,$lib_name );
-                  $cvTermsSumList[ $lib_id ] = addProportion( $cvTermsSumList[ $lib_id ], $total );
+                  //$total = totalTranscriptsExpression( $dsid,$lib_name );
+                  $cvTermsSumList[ $lib_id ] = addProportion( $cvTermsSumList[ $lib_id ]);
                   	
                 }
-                $data = mergeCvTermsSum( $cvTermsSumList );
-                $data = sumColumns( $data, $expression_library_dataset_and_ids );
+                if (!empty($cvTermsSumList)){
+                	$data = mergeCvTermsSum( $cvTermsSumList );
+                	$data = sumColumns( $data, $expression_library_dataset_and_ids );
+                }
                 break;
             }
             break;
@@ -432,12 +434,16 @@ function chadoviewer() {
                  */
                 $cvTermsSumList = array();
                 foreach ( $selectedIds as $key => $value ) {
-                  $cvTermsSumList[ $value ] = cvSummary( $value, $cv_id );
-                  $total = totalTranscripts( $value );
-                  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $total );
+                  $result = cvSummary( $value, $cv_id );
+                  $cvTermsSumList[ $value ] = $result;
+                  //$total = totalTranscripts( $value );
+                  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ]);
                 }
-                $data = mergeCvTermsSum( $cvTermsSumList );
-                $data = sumColumns( $data, $selectedIds );
+                if (!empty($cvTermsSumList)){
+                	$data = mergeCvTermsSum( $cvTermsSumList );
+                	$data = sumColumns( $data, $selectedIds );
+                }
+                
                 break;
               case 'dbxref' :
                 /**
@@ -688,11 +694,13 @@ function chadoviewer() {
                 $cvTermsSumList = array();
                 foreach ( $selectedIds as $key => $value ) {
                   $cvTermsSumList[ $value ] = speciescvTermSummary( $value , $cv_id , $cv_name );
-                  $total = totalTrancsriptsSpecies( $value );
-                  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $total, $value." count" );
+                  //$total = totalTrancsriptsSpecies( $value );
+                  $cvTermsSumList[ $value ] = addProportion( $cvTermsSumList[ $value ], $value." count" );
                 }
-                $data = mergeCvTermsSum( $cvTermsSumList );
-                $data = sumColumns( $data, $selectedIds );
+                if (!empty($cvTermsSumList)){
+                	$data = mergeCvTermsSum( $cvTermsSumList );
+                	$data = sumColumns( $data, $selectedIds );
+                }
                 break;
               case 'dbxref':
                 /**

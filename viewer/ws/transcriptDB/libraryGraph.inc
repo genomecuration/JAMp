@@ -142,7 +142,12 @@ function cvSummary($id, $cv_id) {
 	return $data;
 }
 
-function addProportion($data, $total, $input = 'count', $prop = 'proportion') {
+function addProportion($data, $input = 'count', $prop = 'proportion') {
+	$total = (int)0;
+	foreach ($data as $key => $value) {
+		$total+=$value['count'];
+	}
+	
 	foreach ($data as $key => $value) {
 		$value[$prop] = number_format(($value[$input] / $total) * 100, 2);
 		$data[$key] = $value;

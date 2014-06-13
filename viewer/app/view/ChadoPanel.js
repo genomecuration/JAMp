@@ -198,7 +198,7 @@ Ext.define('CV.view.ChadoPanel', {
     if ( this.maxCategories < this.store.getCount() ) {
       this.setLoading( {
         msgCls:'customLoading',
-        msg:'I\'m a pie chart and I don\'t see the point of displaying more than '+this.maxCategories+' categories. Please increase the threshold value using the above slider or use the bar graph.'
+        msg:'Too many categories ('+this.maxCategories+'). Please increase the threshold value using the above slider, see the raw data or use another type of graph.'
       } , true);
       // do not render
       return false;
