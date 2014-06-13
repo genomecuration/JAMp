@@ -4,7 +4,7 @@ Ext.define('CV.view.BarChart', {
   mixins : ['CV.ux.ThresholdFinder'],
   // i18n properties
   bottomAxeTitleText : "Terms",
-  leftAxeTitleText : "Count & Percentage",
+  leftAxeTitleText : "Count or Percentage",
   menuTitle : 'Bar Chart',
   legend : {
     position : 'right'
@@ -72,7 +72,18 @@ Ext.define('CV.view.BarChart', {
         // fields : ['2', '68'],
         title : this.leftAxeTitleText,
         grid : true,
-        minimum : 0//,
+        grid: {
+            odd: {
+                opacity: 1,
+                fill: '#ddd',
+                stroke: '#bbb',
+                'stroke-width': 1
+            }
+        },
+//        maximum : 50,
+        adjustMaximumByMajorUnit: 1,
+        adjustMinimumByMajorUnit: 1,
+        minimum : 0        //,
         // TODO: not implemented in 4.2. ideally if others column number is large, logarithmic scaling should be used.
         //scale:'logarithmic'
       }
