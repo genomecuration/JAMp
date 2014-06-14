@@ -376,7 +376,8 @@ my ( $network_description, $network_type, $network_name );
 
 my $blast_format             = 'blastxml';
 my $translation_table_number = 1;
-my %accepted_linkout_types   = ( 'gene' => 1, 'hit' => 1, 'CDS' => 1, 'genome' => 1 );
+my %accepted_linkout_types =
+  ( 'gene' => 1, 'hit' => 1, 'CDS' => 1, 'genome' => 1 );
 
 # start of default configurations (to go to separate .config file)
 # defaults for search cutoffs:
@@ -3431,8 +3432,9 @@ sub parse_transcript_gff() {
   next if ( $ln =~ /^\s*$/ || $ln =~ /^#/ );
   chomp($ln);
   my @data = split( "\t", $ln );
-  
+
   if ( $data[2] eq 'gene' ) {
+
    my ( $gene_uname, $genome_reference_sequence, $gene_alias, @gene_dbxrefs,
         @gene_notes );
 
@@ -3470,10 +3472,10 @@ sub parse_transcript_gff() {
 
    my %g = ();
    %g = (
-             'genome_reference' => $genome_reference_sequence,
-             'genome_start'     => $data[3],
-             'genome_end'       => $data[4],
-             'genome_strand'    => $data[6],
+          'genome_reference' => $genome_reference_sequence,
+          'genome_start'     => $data[3],
+          'genome_end'       => $data[4],
+          'genome_strand'    => $data[6],
    ) if $genome_reference_sequence;
    $g{'gene_alias'}  = $gene_alias    if $gene_alias;
    $g{'gene_dbxref'} = \@gene_dbxrefs if @gene_dbxrefs;
@@ -3544,7 +3546,8 @@ sub parse_transcript_gff() {
 #  }else{
 #   die "Can't find an ID in the GFF $cds_gff_file for:" . $ln;
 #  }
-  my ( $cds_uname, $transcript_uname, $gene_uname );
+  my ( $cds_uname, $transcript_uname );
+  $transcript_uname = $data[0]; # very mixed references this GFF...
   if ( $data[8] =~ /Parent=([^;]+)/ ) {
    $transcript_uname = $1;
    $cds_uname        = $1;
@@ -3554,7 +3557,6 @@ sub parse_transcript_gff() {
   }
 
   # trinity component or gene prediction
-  $gene_uname = $data[0];
 
   my %d = (
             'cds_uname' => $cds_uname,
@@ -3629,6 +3631,7 @@ sub store_native_transcripts() {
  print "Parsing transcript data...\n";
  my ( $gene_gff_data_ref, $transcript_gff_data_ref, $cds_gff_data_ref ) =
    &parse_transcript_gff();
+
  #store Gene data
  if ($gene_gff_data_ref) {
   $dbh->{"PrintError"} = 0;
@@ -3666,7 +3669,8 @@ sub store_native_transcripts() {
      if ( $db && $dbxref ) {
       my $dbxref_id = &store_dbxref( $db, $dbxref );
       $sql_hash_ref->{'check_gene_dbxref'}->execute( $gene_uname, $dbxref_id );
-      if ( !$sql_hash_ref->{'check_gene_dbxref'}->fetchrow_arrayref() ) {
+      my $check = $sql_hash_ref->{'check_gene_dbxref'}->fetchrow_arrayref();
+      if ( !$check ) {
        $sql_hash_ref->{'store_gene_dbxref'}->execute( $gene_uname, $dbxref_id );
       }
      }
@@ -3678,6 +3682,7 @@ sub store_native_transcripts() {
    $sql_hash_ref->{'store_gene_alias'}
      ->execute( $gene_ref->{'gene_alias'}, $gene_uname )
      if ( $gene_ref->{'gene_alias'} );
+
   }
   die if $dbh->{"ErrCount"};
   $dbh->commit;
@@ -4092,13 +4097,17 @@ sub process_for_genome_gff() {
  open( GFFOUT,  ">$cds_gff_file" );
  my $master_counter = 0;
 
- foreach my $reference_id ( sort keys %$scaffold_to_gene_list_href ) {
+ foreach my $reference_id ( sort { length($a) <=> length($b) || $a cmp $b }
+                            keys %$scaffold_to_gene_list_href )
+ {
   my $genome_seq = $genome_ref->{$reference_id};
   if ( !$genome_seq ) {
    warn "Cannot find sequence $reference_id from genome\n";
    next;
   }
-  my @gene_ids = sort @{ $scaffold_to_gene_list_href->{$reference_id} };
+  my @gene_ids =
+    sort { length($a) <=> length($b) || $a cmp $b }
+    @{ $scaffold_to_gene_list_href->{$reference_id} };
 
   foreach my $gene_id (@gene_ids) {
    my $counter      = 0;
@@ -4107,18 +4116,25 @@ sub process_for_genome_gff() {
    $preferences{'sequence_ref'} = \$genome_seq;
    $params{unspliced_transcript} = 1;    # highlights introns
    $gene_obj_ref->trivial_refinement();
-
    $gene_obj_ref->create_all_sequence_types( \$genome_seq, %params );
    my $gene_seq = $gene_obj_ref->get_gene_sequence();
    $gene_seq =~ s/(\S{80})/$1\n/g;
    chomp $gene_seq;
    my ( $gene_lend, $gene_rend ) =
      sort { $a <=> $b } $gene_obj_ref->get_gene_span();
+   my $gene_length = abs($gene_rend - $gene_lend) +1; 
    my $gene_orientation = $gene_obj_ref->get_orientation();
    my $source           = $gene_obj_ref->{source};
    my $gene_common_name = $gene_obj_ref->{com_name};
    my $gene_name        = $gene_id;
-   my ( $to_gff3_out_print, $gff3_out_print, $gene_description );
+   my $gene_dbxref =
+     $gene_obj_ref->{Dbxref_gene}
+     ? join( ',', @{ $gene_obj_ref->{Dbxref_gene} } )
+     : '';
+   my $gene_description =
+     $gene_obj_ref->{comment} ? $gene_obj_ref->{comment} : '';
+
+   my ( $to_gff3_out_print, $gff3_out_print );
 
    if ( $gene_common_name && $force_used_gene_gff_ids ) {
     $gene_description = $gene_common_name;
@@ -4127,9 +4143,8 @@ sub process_for_genome_gff() {
 
    if ($gene_common_name) {
     if ( $gene_common_name =~ /\s/ ) {
-     $gene_description = $gene_common_name;
+     $gene_description .= $gene_common_name;
      $gene_description =~ s/^\s*(\S+)\s*//;
-     $gene_description = $gene_description;
      $gene_common_name = $1 || die;
     }
     die "Gene name ($gene_common_name) is not unique\n"
@@ -4138,6 +4153,7 @@ sub process_for_genome_gff() {
     $gff3_out_print =
 "$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name;Alias=$gene_id";
     $gff3_out_print .= ";Note=$gene_description" if $gene_description;
+    $gff3_out_print .= ";Dbxref=$gene_dbxref"    if $gene_dbxref;
     $gff3_out_print .= "\n";
     print GENEOUT
 ">$gene_name type:gene original_name:$gene_id $reference_id:$gene_lend-$gene_rend($gene_orientation)";
@@ -4168,12 +4184,20 @@ sub process_for_genome_gff() {
     my $orientation = $isoform->get_orientation();
     my ( $model_lend, $model_rend ) =
       sort { $a <=> $b } $isoform->get_model_span();
-    my ( $gene_lend, $gene_rend ) =
+    my ( $isoform_lend, $isoform_rend ) =
       sort { $a <=> $b } $isoform->get_gene_span();
+   my $iso_length = abs($isoform_rend-$isoform_lend)+1;
+   my $iso_start = ($isoform_lend-$gene_lend)+1;
+   my $iso_end = $iso_start + $iso_length-1;
 
-    my $isoform_id             = $isoform->{Model_feat_name};
-    my $main_id                = $isoform_id;
-    my $description            = '';
+
+    my $isoform_id  = $isoform->{Model_feat_name};
+    my $main_id     = $isoform_id;
+    my $description = $isoform->{pub_comment} ? $isoform->{pub_comment} : '';
+    my $dbxref =
+      $isoform->{Dbxref_transcript}
+      ? join( ',', @{ $isoform->{Dbxref_transcript} } )
+      : '';
     my $alt_name               = '';
     my $transcript_common_name = $isoform->{transcript_name}
       || $isoform->{com_name};
@@ -4187,7 +4211,7 @@ sub process_for_genome_gff() {
     if ($transcript_common_name) {
      $alt_name = "($isoform_id) ";
      if ( $transcript_common_name =~ /\s/ ) {
-      $description = $transcript_common_name;
+      $description .= $transcript_common_name;
       $description =~ s/^\s*(\S+)\s*//;
       $transcript_common_name = $1 || die;
      }
@@ -4232,10 +4256,10 @@ sub process_for_genome_gff() {
     my $cds_length  = length($cds_seq);
     my $cDNA_length = length($cDNA_seq);
 
-    my ( $iso_start, $iso_end ) = ( int(0), int(0) );
+    my ( $cds_start, $cds_end ) = ( int(0), int(0) );
     if ( $cds_length != $cDNA_length ) {
-     $iso_start = index( $cDNA_seq, $cds_seq );
-     if ( $iso_start == -1 ) {
+     $cds_start = index( $cDNA_seq, $cds_seq );
+     if ( $cds_start == -1 ) {
       warn
 "Cannot find the coding sequence of model $main_id will have to skip!\n";
 
@@ -4244,21 +4268,22 @@ sub process_for_genome_gff() {
       #         die Dumper $isoform;
       next;
      }
-     $iso_end = $iso_start + $cds_length;    # 1base co-ordinate
-     $iso_start++;                           # 1base co-ordinate
+     $cds_end = $cds_start + $cds_length;    # 1base co-ordinate
+     $cds_start++;                           # 1base co-ordinate
     }
     else {
-     $iso_start = 1;
-     $iso_end   = $isoform->{CDS_sequence_length};
+     $cds_start = 1;
+     $cds_end   = $isoform->{CDS_sequence_length};
     }
 
 # this is semi-standard GFF3 (mix references) but we don't care as it is just represent things for the JAMP database
     $gff3_out_print .=
-      "$gene_name\tPrediction\tmRNA\t1\t$cDNA_length\t.\t+\t.\tID=$main_id";
+      "$gene_name\tPrediction\tmRNA\t$iso_start\t$iso_end\t.\t+\t.\tID=$main_id";
     $gff3_out_print .= ";Note=$description" if $description;
+    $gff3_out_print .= ";Dbxref=$dbxref"    if $dbxref;
     $gff3_out_print .= "\n"
-      . "$gene_name\tPrediction\texon\t1\t$cDNA_length\t.\t+\t.\tID=$main_id.exon;Parent=$main_id\n"
-      . "$gene_name\tPrediction\tCDS\t$iso_start\t$iso_end\t.\t+\t.\tID=cds.$main_id;Parent=$main_id\n"
+#      . "$gene_name\tPrediction\texon\t$iso_start\t$iso_end\t.\t+\t.\tID=$main_id.exon;Parent=$main_id\n"
+      . "$main_id\tPrediction\tCDS\t$cds_start\t$cds_end\t.\t+\t.\tID=cds.$main_id;Parent=$main_id\n"
       . "\n";
 
     #FASTA format
@@ -4282,6 +4307,7 @@ sub process_for_genome_gff() {
  close GENEOUT;
  close GFFOUT;
  print "\nFound $master_counter transcripts...\n";
+
  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
           $cds_gff_file );
 }
@@ -4438,32 +4464,31 @@ sub uniquefy_array() {
 }
 
 sub store_dbxref() {
- my $dbxref = shift;
  my $db     = shift;
+ my $dbxref = shift;
+
  return unless $dbxref;
 
  $sql_hash_ref->{'check_dbxref'}->execute( $db, $dbxref );
  my $dbxref_res = $sql_hash_ref->{'check_dbxref'}->fetchrow_arrayref();
- my $dbxref_id  = $dbxref_res->[0];
- return $dbxref_id if $dbxref_id;
+ return $dbxref_res->[0] if $dbxref_res->[0];
 
  $sql_hash_ref->{'check_db'}->execute($db);
  my $db_res = $sql_hash_ref->{'check_db'}->fetchrow_arrayref();
- my $db_id  = $db_res->[0];
- if ( !$db_id ) {
+
+ if ( !$db_res->[0] ) {
   $sql_hash_ref->{'create_db'}->execute($db);
   $sql_hash_ref->{'check_db'}->execute($db);
-  my $db_res = $sql_hash_ref->{'check_db'}->fetchrow_arrayref();
-  $db_id = $db_res->[0];
-  die "Cannot insert DB $db\n" unless $db_id;
+  $db_res = $sql_hash_ref->{'check_db'}->fetchrow_arrayref();
+  die "Cannot insert DB $db\n" unless $db_res->[0];
  }
 
+ my $db_id = $db_res->[0];
  $sql_hash_ref->{'store_dbxref'}->execute( $db_id, $dbxref );
  $sql_hash_ref->{'check_dbxref'}->execute( $db,    $dbxref );
  $dbxref_res = $sql_hash_ref->{'check_dbxref'}->fetchrow_arrayref();
- $dbxref_id  = $dbxref_res->[0];
- die "Cannot insert DBxref $db $dbxref\n" unless $dbxref_id;
- return $dbxref_id;
+ die "Cannot insert DBxref $db $dbxref\n" unless $dbxref_res->[0];
+ return $dbxref_res->[0];
 
 }
 

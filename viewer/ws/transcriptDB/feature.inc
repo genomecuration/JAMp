@@ -204,7 +204,6 @@ function feature_expression_metadata($id){
 function featureCV($id) {
   // this really isn't CV (controlled vocab) but linkouts such as database cross-referencing
   require ('SqlQueries.inc');
-// TODO add linkouts
   $tSql = $sqlQueries['feature']['UniprotUrl'];
   $uniprot_url = query_execute(null, $tSql, null);
   $uniprot_url = $uniprot_url[0]['urlprefix'];
@@ -213,7 +212,6 @@ function featureCV($id) {
   }
 
   $minmax = '';
-  
   // CV terms such as uniprot hits etc relate to the lower level transcript
   $parsed = datasetType($id);
   $id = $parsed['id'];

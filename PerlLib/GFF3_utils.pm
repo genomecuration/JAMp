@@ -31,10 +31,11 @@ sub index_GFF3_gene_objs {
  my %asmbl_id_to_gene_id_list;
  my %transcript_names;    #common names for transcript eg -RA
  my %transcript_to_gene;
+ my %gene_metadata;
+ my %transcript_metadata;
  my %cds_phases;
 
  my %gene_names;
- my %loci;
 
  open( my $fh, $gff_filename ) or die $!;
 
@@ -46,12 +47,12 @@ sub index_GFF3_gene_objs {
 
  # print STDERR "\n-parsing file $gff_filename\n";
  while (<$fh>) {
-  last if $_=~/^##FASTA/; # don't read FASTA !
+  last if $_ =~ /^##FASTA/;    # don't read FASTA !
   chomp;
 
-  unless (/\w/) { next; }    # empty line
+  unless (/\w/) { next; }      # empty line
 
-  if (/^\#/) { next; }       # comment entry in gff3
+  if (/^\#/) { next; }         # comment entry in gff3
 
   my @x = split(/\t/);
 
@@ -70,87 +71,134 @@ sub index_GFF3_gene_objs {
 
   unless ( $feat_type =~ /^(gene|mRNA|CDS|exon)$/ ) { next; }
 
-  $gene_info = uri_unescape($gene_info);
+  #$gene_info = uri_unescape($gene_info);
 
-  $gene_info =~ /ID=([^;\s]+);?/;
-  my $id = $1 or die "Error, couldn't get the id field $_";
+  $gene_info =~ /ID=([^;]+);?/;
+  my $feature_id = uri_unescape($1)
+    or die "Error, couldn't get the id field $_";
 
-  if ( exists $source_tracker{$id} && $source_tracker{$id} ne $source ) {
+  if ( exists $source_tracker{$feature_id}
+       && $source_tracker{$feature_id} ne $source )
+  {
    confess
-"Error, gene ID $id is given source $source when previously encountered with source $source_tracker{$id} ";
+"Error, gene ID $feature_id is given source $source when previously encountered with source $source_tracker{$feature_id} ";
   }
 
   if ( $feat_type eq 'gene' ) {
    my $gene_name = "";
    if ( $gene_info =~ /Name=\"?([^\;\"]+)\"?/ ) {
-    $gene_name = $1;
+    $gene_name = uri_unescape($1);
    }
    else {
     $gene_name = "";
    }
 
-   if ( $gene_info =~ /Note=\"?([^\;\"]+)\"?/ ) {
-    $gene_name .= " $1";
+   while ( $gene_info =~ /([A-Z][a-z]+)=?([^\;]+)/g ) {
+    my $key        = $1;
+    my $values_str = $2;
+    next if $key eq 'Name';
+    $values_str =~ s/^"//;
+    $values_str =~ s/"$//;
+    my @values = split( ',', $values_str );
+
+# we now have to check if the input GFF has broken the format due to not having escaped it, aggr
+    if ( $values_str =~ /\s/ ) {    # then it is unescaped!
+
+     for ( my $i = 0 ; $i < scalar(@values) ; $i++ ) {
+
+      if ( $i > 0 && $values[$i] =~ /^\s/ )
+      { # if it begins with a space, that means the comma was not used as a delimiter, but part of the unescaped sentence
+       $values[ $i - 1 ] .= uri_escape( $values[$i] );
+       delete( $values[$i] );
+      }
+      else {
+       $values[$i] = uri_escape( $values[$i] );
+      }
+     }
+    }
+    foreach my $value (@values) {
+     next unless $value;
+     push( @{ $gene_metadata{$feature_id}{$key} }, $value );
+    }
    }
 
-   $gene_names{$id} = $gene_name;
-
+   $gene_names{$feature_id} = $gene_name;
+   next;
   }
-
-  if ( $gene_info =~ /Alias=([^;]+)/ ) {
-   my $locus = $1;
-   $loci{$id} = $locus;
-  }
-
-  if ( $feat_type eq 'gene' ) { next; }   ## beyond this pt, gene is not needed.
 
   $gene_info =~ /Parent=([^;\s]+);?/;
   my $parent_str = $1 or die "Error, couldn't get the parent info $_";
-  my @parents = split(',',$parent_str);
-  foreach my $parent (@parents){
+  my @parents = split( ',', $parent_str );
+  foreach my $parent (@parents) {
+   if ( $feat_type eq 'mRNA' ) {
+    if ( $gene_info =~ /Name=([^\;]+)/ ) {
+     $transcript_names{$feature_id} = $1;    # only one currently
+    }
 
+#if ( $gene_info =~ /Note=\"?([^\;\"]+)\"?/ ) {
+#$transcript_names{$feature_id} .=       " $1";    # i don't like that we put it in the name...
+#    }
+    while ( $gene_info =~ /([A-Z][a-z]+)=([^\;]+)/g ) {
+     my $key        = $1;
+     my $values_str = $2;
+     next if $key eq 'Name';
+     $values_str =~ s/^"//;
+     $values_str =~ s/"$//;
+     my @values = split( ',', $values_str );
 
-  # print "id: $id, parent: $parent\n";
+# we now have to check if the input GFF has broken the format due to not having escaped it, aggr
+     if ( $values_str =~ /\s/ ) {    # then it is unescaped!
 
-  if ( $feat_type eq 'mRNA' ) {
-   if ( $gene_info =~ /Name=([^\;]+)/ ) {
-    $transcript_names{$id} = $1;          # only one currently
+      for ( my $i = 0 ; $i < scalar(@values) ; $i++ )
+      { # if it begins with a space, that means the comma was not used as a delimiter, but part of the unescaped sentence
+
+       if ( $i > 0 && $values[$i] =~ /^\s/ ) {
+        $values[ $i - 1 ] .= uri_escape( $values[$i] );
+        delete( $values[$i] );
+       }
+       else {
+        $values[$i] = uri_escape( $values[$i] );
+       }
+      }
+     }
+
+     foreach my $value (@values) {
+      next unless $value;
+      push( @{ $transcript_metadata{$feature_id}{$key} }, $value );
+     }
+    }
+    ## just get the identifier info
+    $transcript_to_gene{$feature_id} = $parent;
+    next;
    }
-   if ( $gene_info =~ /Note=\"?([^\;\"]+)\"?/ ) {
-    $transcript_names{$id} .= " $1";          # i don't like that we put it in the name...
 
+   # all the other ones.
+   my $transcript_id = $parent;
+   my $gene_id       = $transcript_to_gene{$transcript_id};
+   unless ( defined $gene_id ) {
+    print STDERR
+      "Error, no gene feature found for $transcript_id.... ignoring feature.\n";
+    next;
    }
-   ## just get the identifier info
-   $transcript_to_gene{$id} = $parent;
-   next;
-  }
 
-  my $transcript_id = $parent;
-  my $gene_id       = $transcript_to_gene{$transcript_id};
-  unless ( defined $gene_id ) {
-   print STDERR
-     "Error, no gene feature found for $transcript_id.... ignoring feature.\n";
-   next;
-  }
+   $gene_id_to_source_type{$gene_id} = $source;
 
-  $gene_id_to_source_type{$gene_id} = $source;
+   my ( $end5, $end3 ) =
+     ( $orient eq '+' ) ? ( $lend, $rend ) : ( $rend, $lend );
 
-  my ( $end5, $end3 ) =
-    ( $orient eq '+' ) ? ( $lend, $rend ) : ( $rend, $lend );
+   $gene_coords{$asmbl_id}->{$gene_id}->{$transcript_id}->{$feat_type}
+     ->{$end5} = $end3;
 
-  $gene_coords{$asmbl_id}->{$gene_id}->{$transcript_id}->{$feat_type}->{$end5} =
-    $end3;
+   # print "$asmbl_id, $gene_id, $transcript_id, $feat_type, $end5, $end3\n";
 
-  # print "$asmbl_id, $gene_id, $transcript_id, $feat_type, $end5, $end3\n";
-
-  if ( $cds_phase =~ /^\d+$/ ) {
-   $cds_phases{$gene_id}->{$transcript_id}->{$end5} = int($cds_phase);
-  }
+   if ( $cds_phase =~ /^\d+$/ ) {
+    $cds_phases{$gene_id}->{$transcript_id}->{$end5} = int($cds_phase);
+   }
   }
  }
  close $fh;
 
- ##
+##############################################################################################
  # print STDERR "\n-caching genes.\n";
  foreach my $asmbl_id ( sort keys %gene_coords ) {
   my $genes_href = $gene_coords{$asmbl_id};
@@ -210,38 +258,80 @@ sub index_GFF3_gene_objs {
     $gene_obj->{TU_feat_name}    = $gene_id;
     $gene_obj->{asmbl_id}        = $asmbl_id;
 
-    if ( my $gene_locus = $loci{$gene_id} ) {
-     $gene_obj->{pub_locus} = $gene_locus;
-    }
-    if ( my $transcript_locus = $loci{$transcript_id} ) {
-     $gene_obj->{model_pub_locus} = $transcript_locus;
-    }
-
     if ( $transcript_names{$transcript_id} ) {
-     $gene_obj->{com_name} = $gene_names{$gene_id} || $transcript_id;
-     #$gene_obj->{com_name} = $transcript_names{$transcript_id};
-     $gene_obj->{transcript_name} = $transcript_names{$transcript_id};
+     $gene_obj->{transcript_name}  = $transcript_names{$transcript_id};
      $gene_obj->{curated_com_name} = 1;
     }
-    else {
-     $gene_obj->{com_name} = $gene_names{$gene_id} || $transcript_id;
+    $gene_obj->{com_name} = $gene_names{$gene_id} || $transcript_id;
 
+    if ( $gene_metadata{$gene_id} ) {
+     foreach my $key ( keys %{ $gene_metadata{$gene_id} } ) {
+      my @values = @{ $gene_metadata{$gene_id}{$key} };
+      next unless $values[0];
+      if ( $key eq 'Alias' ) {
+       for ( my $i = 1 ; $i < scalar(@values) ; $i++ ) {
+        $gene_obj->{pub_locus} = $values[$i] if $i == 0;
+       }
+      }
+      elsif ( $key eq 'Note' ) {
+       $gene_obj->{comment} = join( ',', @values );    # for gene
+      }
+      elsif ( $key eq 'Dbxref' ) {
+       my %hasht;
+       foreach my $value (@values) {
+        $hasht{$value}++;
+       }
+       @{$gene_obj->{Dbxref_gene}}=keys %hasht;
+      }
+     }
+    }
+
+    if ( $transcript_metadata{$transcript_id} ) {
+     foreach my $key ( keys %{ $transcript_metadata{$transcript_id} } ) {
+      my @values = @{ $transcript_metadata{$transcript_id}{$key} };
+      next unless $values[0];
+      if ( $key eq 'Alias' ) {
+       for ( my $i = 1 ; $i < scalar(@values) ; $i++ ) {
+        $gene_obj->{model_pub_locus} = $values[$i] if $i == 0;
+       }
+      }
+      elsif ( $key eq 'Note' ) {
+
+       # already escaped.
+       $gene_obj->{pub_comment} = join( ',', @values );
+      }
+      elsif ( $key eq 'Dbxref' ) {
+       my %hasht;
+       foreach my $value (@values) {
+        $hasht{$value}++;
+       }
+       @{$gene_obj->{Dbxref_transcript}}=keys %hasht;
+      }
+     }
     }
 
     $gene_obj->{source} = $gene_id_to_source_type{$gene_id};
 
     ## set CDS phase info if available from the gff
     my $cds_phases_href = $cds_phases{$gene_id}->{$transcript_id};
+    
+    
     if ( ref $cds_phases_href ) {
      ## set the cds phases
      my @exons = $gene_obj->get_exons();
      foreach my $exon (@exons) {
       if ( my $cds = $exon->get_CDS_obj() ) {
        my ( $end5, $end3 ) = $cds->get_coords();
-       unless ($end5 && $end3){ confess "Error, no 5' $end5 or 3' $end3 end for cds $gene_id $transcript_id ";}
+       unless ( $end5 && $end3 ) {
+        confess
+          "Error, no 5' $end5 or 3' $end3 end for cds $gene_id $transcript_id ";
+       }
+
+       #$cds_phases_href->{$end5} = int(0) if !$cds_phases_href->{$end5}; 
        my $phase = int( $cds_phases_href->{$end5} );
-       unless (defined($phase) && $phase == 0 || $phase == 1 || $phase == 2 ) {
-        confess "Error, should have phase set for cds $gene_id $transcript_id $end5, but I do not know what $phase is. ";
+       unless ( defined($phase) && $phase == 0 || $phase == 1 || $phase == 2 ) {
+        confess
+"Error, should have phase set for cds $gene_id $transcript_id $end5, but I do not know what $phase is. ";
        }
        $cds->set_phase($phase);
       }
