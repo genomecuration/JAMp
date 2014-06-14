@@ -38,6 +38,7 @@ Ext.define('CV.view.GenomeBrowser', {
    */
   options:{
     graphType : 'Genome',
+    imageDir : 'css/images/canvasxpress/',
     useFlashIE : true,
     backgroundType : 'gradient',
     colorScheme: "user",

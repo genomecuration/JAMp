@@ -7,13 +7,14 @@ Ext.define('CV.view.feature.View', {
               'CV.store.Features',
               'CV.store.Annotations',
               'CV.view.feature.Annotations',
-              'CV.view.feature.FeatureAnnotations'
+              'CV.view.feature.FeatureAnnotations',
+              'CV.view.feature.Notes'
               ],
   region : 'center',
   layout : 'border',
   hideBorders : true,
   initComponent : function() {
-    var store = Ext.create('CV.store.Features'), metaStore, expression_metadataStore,sequenceView, genomeBrowser, combo, treestore;
+    var store = Ext.create('CV.store.Features'), metaStore,notesStore, expression_metadataStore,sequenceView, genomeBrowser, combo, treestore;
     var grid = Ext.create('CV.view.feature.Grid', {
       store : store,
       region : 'north',
@@ -24,6 +25,12 @@ Ext.define('CV.view.feature.View', {
       store : metaStore
     });
 
+    notesStore = Ext.create('CV.store.Notes');
+    var notesPanel = Ext.create('CV.view.feature.Notes', {
+    	region : 'center',
+        store : notesStore
+      });
+    
     expression_metadataStore = Ext.create('CV.store.FeatureCvTerms');
     var expression_metadataPanel = Ext.create('CV.view.feature.CvTerms', {
       store : expression_metadataStore

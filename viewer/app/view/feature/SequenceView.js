@@ -1,7 +1,7 @@
 Ext.define('CV.view.feature.SequenceView', {
   extend : 'Ext.tab.Panel',
   alias : 'widget.sequenceview',
-  requires : ['CV.view.feature.Fasta', 'CV.view.feature.NetworkPanel','CV.view.feature.ExpressionPanel', 'CV.store.Translations','CV.store.ProteinTranslation'],
+  requires : ['CV.view.feature.Fasta', 'CV.view.feature.NetworkPanel','CV.view.feature.ExpressionPanel','CV.view.feature.Notes', 'CV.store.Translations','CV.store.ProteinTranslation'],
   height : '100%',
   width : '80%',
   defaults : {
@@ -81,6 +81,8 @@ Ext.define('CV.view.feature.SequenceView', {
         xtype : 'networkpanel'
       }, {
         xtype : 'expressionpanel'
+      }, {
+        xtype : 'notespanel'
       }, {
         xtype : 'genomebrowser'
       }]

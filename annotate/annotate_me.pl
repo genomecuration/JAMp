@@ -104,6 +104,7 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      OR
      -gff_genome   :s    => GFF3 file linking genes to Genome (e.g. official gene predictions, alignments via GMAP, exonerate or prepare_golden_genes_for_predictors.pl)
      -genome_fasta :s    => The FASTA file for the Genome
+     -gene_ids           => Use the GFF gene/mRNA IDs instead of the Name tag (needed for JAMg, EVM or PASA)
      OR
      -delete       :s      => Delete dataset (provide an ID or name)
      
@@ -263,7 +264,7 @@ URL that provides the metadata for a particular accession by simply appending th
 
  TYPE    UNIQUE NAME     URL-PREFIX      DESCRIPTION OF DATABASE
 
-Type is either 'gene', 'CDS' or 'hit'. It is used by the browser to specify whether this linkout should be for genes, transcripts or the known_protein hits.
+Type is either 'genome', 'gene', 'CDS' or 'hit'. It is used by the browser to specify whether this linkout should be for genes, transcripts or the known_protein hits.
 The unique name needs to be unique within the dataset being loaded, but needs not be unique between datasets. 
 The last column can be either gene or transcript and is optional.  If not provided, gene is assumed.
 
@@ -273,12 +274,14 @@ For example use this for hits of say Q5NGP7 (accessible via www.uniprot.org/unip
 
 For JBrowse:
 
- gene JBrowse   http://mygenome.org/jbrowse/?loc=   This is a description of the JBrowse of my genome.
+ CDS JBrowse   http://mygenome.org/jbrowse/?loc=   This is a description of the JBrowse of my genome.
 
 Make sure that any URL options are before the key required for the query (loc in this case).
 For example, JBrowse is highly configurable and I highly recommend tracks=DNA at least (Annotations is from WebApollo), for example:
 
- gene JBrowse_mygenome   http://mygenome.org/jbrowse/?tracks=DNA%2CAnnotations&loc=   This is a description of the JBrowse of my genome.
+ CDS JBrowse_mygenome   http://mygenome.org/jbrowse/?tracks=DNA%2CAnnotations&loc=   This is a description of the JBrowse of my genome.
+
+Note that JBrowse rarely indexes 'genes', hence we use CDS (i.e. transcript).
 
 Once your file is created, provide it to the program with the option -linkout_conf. If you'd like the linkout to be specific to a dataset, also
 provide the relevant -dataset_uname. If you don't provide -dataset_uname then the linkout will be available to all datasets.
@@ -355,22 +358,25 @@ my ( $chado_username, $chado_password ) = ( $ENV{'USER'}, undef );
 my ( @do_protein_hhr, @do_protein_blasts, @do_protein_networks,
      @do_protein_ipr );
 my (
-     $create_annot_database, $do_uniprot_renaming, $do_go,
-     $do_ec,                 $do_kegg,             $do_eggnog,
-     $drop_annot_database,   $debug,               $database_tsv_file,
-     $do_chado,              $do_inferences,       $dohelp,
-     $do_slow,               $delete_dataset,      $nojson,
-     $expression_dew_outdir
+     $create_annot_database,   $do_uniprot_renaming,
+     $do_go,                   $do_ec,
+     $do_kegg,                 $do_eggnog,
+     $drop_annot_database,     $debug,
+     $database_tsv_file,       $do_chado,
+     $do_inferences,           $dohelp,
+     $do_slow,                 $delete_dataset,
+     $nojson,                  $expression_dew_outdir,
+     $force_used_gene_gff_ids, $genome_name_version
 );
 
-my ($extra_expression_column_name,$extra_expression_column_file);
+my ( $extra_expression_column_name, $extra_expression_custom_file );
 my $extra_expression_column_type = 'real';
 
 my ( $network_description, $network_type, $network_name );
 
 my $blast_format             = 'blastxml';
 my $translation_table_number = 1;
-my %accepted_linkout_types   = ( 'gene' => 1, 'hit' => 1, 'CDS' => 1 );
+my %accepted_linkout_types   = ( 'gene' => 1, 'hit' => 1, 'CDS' => 1, 'genome' => 1 );
 
 # start of default configurations (to go to separate .config file)
 # defaults for search cutoffs:
@@ -429,10 +435,15 @@ my %NOTALLOWED_EVID = (
  #	new protein annotation
  'contigs:s'      => \$contig_fasta_file,
  'transdecoder:s' => \$transdecoder,
+
  'gff_genome:s'   => \$genome_gff_file,
  'genome_fasta:s' => \$genome_fasta_file,
- 'translation:i'  => \$translation_table_number,
- 'delete:s'       => \$delete_dataset,
+ 'genome_name_version:s' =>
+   \$genome_name_version,     # use fasta filename if not given
+ 'gene_ids' => \$force_used_gene_gff_ids,
+
+ 'translation:i' => \$translation_table_number,
+ 'delete:s'      => \$delete_dataset,
 
  'doblast:s{,}'   => \@do_protein_blasts,
  'dohhr:s{,}'     => \@do_protein_hhr,
@@ -460,11 +471,10 @@ my %NOTALLOWED_EVID = (
  'nojson'                => \$nojson,
 
  #expression
- 'expression_directory:s' => \$expression_dew_outdir,
+ 'expression_directory:s'  => \$expression_dew_outdir,
  'extra_expression_name:s' => \$extra_expression_column_name,
  'extra_expression_type:s' => \$extra_expression_column_type,
- 'extra_expression_file:s' => \$extra_expression_column_file,
-
+ 'extra_expression_file:s' => \$extra_expression_custom_file,
 
  # dataset metadata
  'authorization|dataset_authority:s' => \$authorization_name,
@@ -492,6 +502,9 @@ if ($transdecoder) {
 }
 elsif ($genome_gff_file) {
  &check_required_files( $genome_gff_file, $genome_fasta_file );
+ if ( $genome_fasta_file && !$genome_name_version ) {
+  $genome_name_version = $genome_fasta_file;
+ }
 }
 
 pod2usage "No annotation database name\n" unless $annot_dbname;
@@ -509,7 +522,8 @@ pod2usage "A required file is missing\n"
    || scalar(@do_protein_hhr) > 0
    || scalar(@do_protein_ipr) > 0
    || scalar(@do_protein_networks) > 0
-   || $expression_dew_outdir;
+   || $expression_dew_outdir
+   || $extra_expression_custom_file;
 
 # anyother files
 &check_required_files(
@@ -552,7 +566,8 @@ if (    ( $protein_fasta_file && -s $protein_fasta_file )
      || scalar(@do_protein_hhr) > 0
      || scalar(@do_protein_ipr) > 0
      || scalar(@do_protein_networks) > 0
-     || $expression_dew_outdir )
+     || $expression_dew_outdir
+     || $extra_expression_custom_file )
 {
  &store_annotation_of_proteins();
 }
@@ -560,6 +575,8 @@ elsif ($linkout_conf) {
  my $dbh_store = &get_dataset_connection();
  if ($dataset_uname) {
   my $dataset_id = &check_dataset( $dbh_store, $dataset_uname );
+  die "Couldn't find dataset identifier for $dataset_uname\n"
+    unless $dataset_id;
   &add_linkout( $dbh_store, $linkout_conf, $dataset_id );
  }
  else {
@@ -735,7 +752,7 @@ sub create_new_annotation_db() {
 'CREATE TABLE linkout (linkout_id serial primary key, name varchar, description text, dataset_id int REFERENCES public.datasets(dataset_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, type varchar, urlprefix varchar )'
  );
  $dbh->do(
-   'CREATE UNIQUE INDEX linkout_dataset_id_name_idx ON linkout(dataset_id,name)'
+'CREATE UNIQUE INDEX linkout_dataset_id_name_idx ON linkout(dataset_id,name,type)'
  );
 
  $dbh->do( '
@@ -1092,7 +1109,7 @@ sub create_native_inference_tables() {
     alias varchar,
     nuc_sequence varchar,
     nuc_checksum varchar
-  );
+  )
   ' );
 
  $dbh->do( '
@@ -1103,6 +1120,31 @@ sub create_native_inference_tables() {
    ' );
  $dbh->do(
     'CREATE UNIQUE INDEX gene_dbxref_idx ON gene_dbxref(gene_uname,dbxref_id)');
+ $dbh->do( '
+CREATE TABLE gene_note (
+    gene_uname varchar REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    note text NOT NULL
+  )
+' );
+ $dbh->do('CREATE INDEX gene_note_idx ON gene_note(gene_uname)');
+
+ # # optionally #5'/3' of gene
+ $dbh->do( '
+  CREATE TABLE gene_genomeloc (
+    gene_genome_id serial primary key,
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    genome_name_version varchar  NOT NULL,
+    parent_feature_uname varchar  NOT NULL,
+    start integer default 1  NOT NULL,
+    stop integer default 1  NOT NULL,
+    strand char  NOT NULL
+  )
+  ' );
+
+ # # each gene is in one location on a genome version
+ $dbh->do(
+'ALTER TABLE ONLY gene_genomeloc ADD CONSTRAINT gene_genomeloc_c1 UNIQUE (gene_uname, genome_name_version)'
+ );
 
  #transcript
  $dbh->do( '
@@ -1128,7 +1170,7 @@ sub create_native_inference_tables() {
  CREATE TABLE transcript_gene (
     transcript_gene_id serial primary key,
     transcript_uname varchar NOT NULL REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-    gene_uname varchar REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    gene_uname varchar NOT NULL REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     start integer default 1  NOT NULL, 
     stop integer default 1  NOT NULL, 
     strand char  NOT NULL
@@ -1143,23 +1185,14 @@ sub create_native_inference_tables() {
 'CREATE UNIQUE INDEX transcript_gene_uidx1 ON transcript_gene(transcript_uname)'
  );
 
-# # optionally #5'/3' of transcript
-# $dbh->do( '
-#  CREATE TABLE transcript_genomeloc (
-#    transcript_genome_id serial primary key,
-#    transcript_uname varchar NOT NULL REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-#    genome_name_version varchar  NOT NULL,
-#    parent_feature_uname varchar  NOT NULL,
-#    start integer default 1  NOT NULL,
-#    stop integer default 1  NOT NULL,
-#    strand char  NOT NULL
-#  );
-#  ' );
-#
-# # each transcript is in one location on a genome version
-# $dbh->do( '
-#ALTER TABLE ONLY transcript_genomeloc ADD CONSTRAINT transcript_genomeloc_c1 UNIQUE (transcript_uname, genome_name_version, parent_feature_uname, strand);
-#' );
+ $dbh->do( '
+CREATE TABLE transcript_note (
+    transcript_uname varchar REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+    note text NOT NULL
+  )
+' );
+ $dbh->do(
+       'CREATE INDEX transcript_note_idx ON transcript_note(transcript_uname)');
 
  $dbh->do( '
   CREATE TABLE cds (
@@ -2775,7 +2808,17 @@ sub process_dew_expression() {
  $dbh_store->commit();
 
  $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_tpm,  'TPM' );
+ &store_pictures( $gene_expression_directory_tpm, 'TPM' );
+ print "Committing...\n";
+ $dbh_store->commit();
+
+}
+
+sub process_extra_expression() {
+ my ( $dbh_store, $custom_file, $column_name, $column_type ) = @_;
+
+ $dbh_store->begin_work();
+
  print "Committing...\n";
  $dbh_store->commit();
 
@@ -2817,6 +2860,7 @@ sub process_expression_stats() {
   my $sql_res =
     $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
   unless ( $sql_res && $sql_res->[0] ) {
+
 #   this is now controlled by the binary file. if the gene is not expressed, don't process.
 #   warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
 #   $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
@@ -2863,9 +2907,9 @@ OUTER: while ( my $ln = <IN> ) {
        ->execute( $data[0], $library_name );
      $sql_hash_ref->{'check_transcript_expression_library'}
        ->execute( $data[0], $library_name );
-       $check =
-      $sql_hash_ref->{'check_transcript_expression_library'}
-      ->fetchrow_arrayref();
+     $check =
+       $sql_hash_ref->{'check_transcript_expression_library'}
+       ->fetchrow_arrayref();
      die "Can't store expression data..."
        if !$check;
     }
@@ -2904,7 +2948,8 @@ sub store_pictures() {
    }
    else {
     warn "No transcript name found for md5sum $md5sum\n";
-    $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
+    $warnings_msgs++;
+    die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
     next;
    }
   }
@@ -3089,7 +3134,7 @@ sub prepare_native_inference_sqls() {
  $sql_hash{'check_dbxref'} = $dbh->prepare(
 "SELECT dbxref_id from dbxref WHERE db_id=(SELECT db_id FROM db WHERE uname=?) AND accession = ?"
  );
- $sql_hash{'create_dbref'} =
+ $sql_hash{'store_dbxref'} =
    $dbh->prepare("INSERT INTO dbxref (db_id,accession) VALUES (?,?)");
 
  #new
@@ -3098,6 +3143,21 @@ sub prepare_native_inference_sqls() {
  $sql_hash{'check_number_gene'} =
    $dbh->prepare("SELECT count(uname) FROM gene");
  $sql_hash{'check_gene_all'} = $dbh->prepare("SELECT uname FROM gene");
+
+ $sql_hash{'check_gene_note'} =
+   $dbh->prepare("SELECT note FROM gene_note WHERE gene_uname=? AND note=?");
+ $sql_hash{'store_gene_note'} =
+   $dbh->prepare("INSERT INTO gene_note (gene_uname,note) VALUES (?,?)");
+
+ $sql_hash{'check_transcript_note'} = $dbh->prepare(
+        "SELECT note FROM transcript_note WHERE transcript_uname=? AND note=?");
+ $sql_hash{'store_transcript_note'} = $dbh->prepare(
+            "INSERT INTO transcript_note (transcript_uname,note) VALUES (?,?)");
+
+ $sql_hash{'check_gene_dbxref'} = $dbh->prepare(
+        "SELECT dbxref_id FROM gene_dbxref WHERE gene_uname=? AND dbxref_id=?");
+ $sql_hash{'store_gene_dbxref'} =
+   $dbh->prepare("INSERT INTO gene_dbxref (gene_uname,dbxref_id) VALUES (?,?)");
 
  $sql_hash{'check_transcript'} =
    $dbh->prepare("SELECT uname FROM transcript WHERE uname=?");
@@ -3127,8 +3187,6 @@ sub prepare_native_inference_sqls() {
  #new
  $sql_hash{'store_gene_name_seq'} = $dbh->prepare(
            "INSERT INTO gene (uname,nuc_sequence,nuc_checksum) VALUES (?,?,?)");
- $sql_hash{'store_gene_dbxref'} =
-   $dbh->prepare("INSERT INTO gene_dbxref (gene_uname,dbxref_id) VALUES (?,?)");
  $sql_hash{'store_gene_alias'} =
    $dbh->prepare("UPDATE gene SET alias=? WHERE uname=?");
 
@@ -3138,8 +3196,13 @@ sub prepare_native_inference_sqls() {
           "UPDATE transcript SET nuc_sequence=?, nuc_checksum=? WHERE uname=?");
  $sql_hash{'store_transcript_name_seq'} = $dbh->prepare(
      "INSERT INTO transcript (uname,nuc_sequence,nuc_checksum) VALUES (?,?,?)");
+
+ $sql_hash{'check_gene_dbxref'} = $dbh->prepare(
+"SELECT dbxref_id FROM transcript_dbxref WHERE transcript_uname=? AND dbxref_id=?"
+ );
  $sql_hash{'store_transcript_dbxref'} = $dbh->prepare(
      "INSERT INTO transcript_dbxref (transcript_uname,dbxref_id) VALUES (?,?)");
+
  $sql_hash{'store_transcript_alias'} =
    $dbh->prepare("UPDATE transcript SET alias=? WHERE uname=?");
 
@@ -3245,10 +3308,26 @@ sub prepare_native_inference_sqls() {
  $sql_hash{'update_statistics_transcript_expression_library'} = $dbh->prepare(
 "UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
  );
+ if ( $extra_expression_column_name && $extra_expression_column_type ) {
+  $sql_hash{'store_custom_statistics_transcript_expression_library'} =
+    $dbh->prepare(
+"ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type"
+    );
+  $sql_hash{'update_custom_statistics_transcript_expression_library'} =
+    $dbh->prepare(
+"UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_expression_library_id=?"
+    );
+ }
 
- $sql_hash{'add_custom_statistics_transcript_expression_library'} = $dbh->prepare("ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type");
- $sql_hash{'update_custom_statistics_transcript_expression_library'} = $dbh->prepare("UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_expression_library_id=?");
-
+ #
+ if ($genome_name_version) {
+  $sql_hash{'store_gene_genomeloc'} = $dbh->prepare(
+"INSERT INTO gene_genomeloc (gene_uname,genome_name_version,parent_feature_uname,start,stop,strand) VALUES (?,'$genome_name_version',?,?,?,?)"
+  );
+  $sql_hash{'check_gene_genomeloc'} = $dbh->prepare(
+"SELECT gene_genome_id FROM gene_genomeloc WHERE gene_uname=? AND genome_name_version='$genome_name_version'"
+  );
+ }
  return \%sql_hash;
 
 }
@@ -3343,59 +3422,101 @@ sub store_chado_genes() {
 }
 
 sub parse_transcript_gff() {
- my ( %cds_gff_data, %transcript_gff_data, $number_transcripts );
- open( GFF, $cds_gff_file ) || die;
- my ( $gene_uname, $cds_uname, $transcript_uname, $genome_reference_sequence,
-      $gene_alias, $gene_dbxref );
- while ( my $ln = <GFF> ) {
-  if ( $ln =~ /^\s*$/ || $ln =~ /^#/ ) {
-   undef($gene_uname);
-   undef($cds_uname);
-   undef($transcript_uname);
-   undef($genome_reference_sequence);
-   undef($gene_alias);
-   undef($gene_dbxref);
-   next;
-  }
 
-  if ( $genome_gff_file && $ln =~ /\tgene\t/ ) {
-   chomp($ln);
-   my @data = split( "\t", $ln );
-   next unless $data[2] eq 'gene';
-   $genome_reference_sequence = $data[0];
-   if ( $data[8] =~ /ID=([^;]+);?/ ) {
-    $gene_uname = $1 || die $ln;
-    if ( $data[8] =~ /Name=([^;]+);?/ ) {
-     $gene_alias = uri_unescape($1);
-    }
-    if ( $data[8] =~ /Dbxref=([^;]+);?/ ) {
-     $gene_dbxref = uri_unescape($1);
+ # if using genome gff this has been re-written to a new format/file
+ my ( %gene_gff_data, %cds_gff_data, %transcript_gff_data,
+      $number_transcripts );
+ open( GFF, $cds_gff_file ) || die;
+ while ( my $ln = <GFF> ) {
+  next if ( $ln =~ /^\s*$/ || $ln =~ /^#/ );
+  chomp($ln);
+  my @data = split( "\t", $ln );
+  
+  if ( $data[2] eq 'gene' ) {
+   my ( $gene_uname, $genome_reference_sequence, $gene_alias, @gene_dbxrefs,
+        @gene_notes );
+
+   if ($genome_gff_file) {
+    $genome_reference_sequence = $data[0];
+    if ( $data[8] =~ /ID=([^;]+);?/ ) {
+     $gene_uname = $1 || die $ln;
     }
    }
    else {
-    die "Can't find an ID in the GFF $cds_gff_file for:" . $ln;
+    $gene_uname = $data[0];
    }
-   next;
+   die "Can't find a gene ID in the GFF $cds_gff_file for:" . $ln
+     if !$gene_uname;
+   if ( $data[8] =~ /Name=([^;]+)/ ) {
+    $gene_alias = uri_unescape($1);
+   }
+   elsif ( $data[8] =~ /Alias=([^;]+)/ ) {
+    $gene_alias = uri_unescape($1);
+   }
+   if ( $data[8] =~ /Dbxref=([^;]+)/ ) {
+    my $n = $1;
+    my @n_a = split( ',', $n );
+    foreach my $a (@n_a) {
+     push( @gene_dbxrefs, uri_unescape($a) );
+    }
+   }
+   if ( $data[8] =~ /Note=([^;]+)/ ) {
+    my $n = $1;
+    my @n_a = split( ',', $n );
+    foreach my $a (@n_a) {
+     push( @gene_notes, uri_unescape($a) );
+    }
+   }
+
+   my %g = ();
+   %g = (
+             'genome_reference' => $genome_reference_sequence,
+             'genome_start'     => $data[3],
+             'genome_end'       => $data[4],
+             'genome_strand'    => $data[6],
+   ) if $genome_reference_sequence;
+   $g{'gene_alias'}  = $gene_alias    if $gene_alias;
+   $g{'gene_dbxref'} = \@gene_dbxrefs if @gene_dbxrefs;
+   $g{'gene_note'}   = \@gene_notes   if @gene_notes;
+
+   #store gene data
+   $gene_gff_data{$gene_uname} = \%g;
+
   }
 
-  if ( $ln =~ /\tmRNA\t/ ) {
-   chomp($ln);
-   my @data = split( "\t", $ln );
-   my ( $transcript_alias, $transcript_dbxref );
+  if ( $data[2] eq 'mRNA' ) {
+   my (
+        $transcript_alias, @transcript_dbxrefs,
+        $transcript_uname, @transcript_notes
+   );
    next unless $data[2] eq 'mRNA';
    if ( $data[8] =~ /ID=([^;]+);?/ ) {
     $transcript_uname = $1 || die $ln;
-    if ( $data[8] =~ /Name=([^;]+);?/ ) {
+    if ( $data[8] =~ /Name=([^;]+)/ ) {
      $transcript_alias = uri_unescape($1);
     }
-    if ( $data[8] =~ /Dbxref=([^;]+);?/ ) {
-     $transcript_dbxref = uri_unescape($1);
+    elsif ( $data[8] =~ /Alias=([^;]+)/ ) {
+     $transcript_alias = uri_unescape($1);
+    }
+    if ( $data[8] =~ /Dbxref=([^;]+)/ ) {
+     my $n = $1;
+     my @n_a = split( ',', $n );
+     foreach my $a (@n_a) {
+      push( @transcript_dbxrefs, uri_unescape($a) );
+     }
+    }
+    if ( $data[8] =~ /Note=([^;]+)/ ) {
+     my $n = $1;
+     my @n_a = split( ',', $n );
+     foreach my $a (@n_a) {
+      push( @transcript_notes, uri_unescape($a) );
+     }
     }
    }
    else {
     die "Can't find an ID in the GFF mRNA $cds_gff_file for:" . $ln;
    }
-   $gene_uname = $data[0] if !$genome_gff_file;
+   my $gene_uname = $data[0];
 
    my %t = (
              'gene_uname' => $gene_uname,
@@ -3404,18 +3525,14 @@ sub parse_transcript_gff() {
              'strand'     => $data[6]       # +,- or .
    );
 
-   $t{'transcript_alias'}  = $transcript_alias if $transcript_alias;
-   $t{'transcript_dbxref'} = $transcript_alias if $transcript_dbxref;
-   $t{'gene_alias'}        = $gene_alias       if $gene_alias;
-   $t{'gene_dbxref'}       = $gene_dbxref      if $gene_dbxref;
+   $t{'transcript_alias'}  = $transcript_alias    if $transcript_alias;
+   $t{'transcript_dbxref'} = \@transcript_dbxrefs if @transcript_dbxrefs;
+   $t{'transcript_note'}   = \@transcript_notes   if @transcript_notes;
 
    $transcript_gff_data{$transcript_uname} = \%t;
    next;
   }
 
-  next unless $ln =~ /\tCDS\t/;
-  chomp($ln);
-  my @data = split( "\t", $ln );
   next unless $data[2] eq 'CDS';
 
   #coding transcripts:
@@ -3427,8 +3544,8 @@ sub parse_transcript_gff() {
 #  }else{
 #   die "Can't find an ID in the GFF $cds_gff_file for:" . $ln;
 #  }
-
-  if ( $data[8] =~ /Parent=([^;]+);?/ ) {
+  my ( $cds_uname, $transcript_uname, $gene_uname );
+  if ( $data[8] =~ /Parent=([^;]+)/ ) {
    $transcript_uname = $1;
    $cds_uname        = $1;
   }
@@ -3436,8 +3553,8 @@ sub parse_transcript_gff() {
    die "Can't find a Parent in the GFF CDS $cds_gff_file for:" . $ln;
   }
 
-  # trinity component
-  $gene_uname = $data[0] if !$genome_gff_file;
+  # trinity component or gene prediction
+  $gene_uname = $data[0];
 
   my %d = (
             'cds_uname' => $cds_uname,
@@ -3450,7 +3567,7 @@ sub parse_transcript_gff() {
   $cds_gff_data{$transcript_uname} = \%d;
  }
  close GFF;
- return ( \%transcript_gff_data, \%cds_gff_data );
+ return ( \%gene_gff_data, \%transcript_gff_data, \%cds_gff_data );
 }
 
 sub store_native_genes() {
@@ -3478,7 +3595,7 @@ sub store_native_genes() {
  while ( my $seq_obj = $contig_obj->next() ) {
   $counter++;
   if ( $counter % 1000 == 0 ) {
-   print " $counter reference contigs loaded\t\t\r";
+   print " $counter reference genes/contigs loaded\t\t\r";
    die if $dbh->{"ErrCount"};
    $dbh->commit;
    $dbh->begin_work;
@@ -3495,7 +3612,7 @@ sub store_native_genes() {
     ->execute( $gene_uname, $seq, md5_hex($seq) );
 
  }
- print " $counter reference contigs loaded\t\t\r";
+ print " $counter reference genes/contigs loaded\t\t\r";
  die if $dbh->{"ErrCount"};
  $dbh->commit;
  print "\n";
@@ -3509,7 +3626,63 @@ sub store_native_genes() {
 
 sub store_native_transcripts() {
  my $dbh = shift;
- my ( $transcript_gff_data_ref, $cds_gff_data_ref ) = &parse_transcript_gff();
+ print "Parsing transcript data...\n";
+ my ( $gene_gff_data_ref, $transcript_gff_data_ref, $cds_gff_data_ref ) =
+   &parse_transcript_gff();
+ #store Gene data
+ if ($gene_gff_data_ref) {
+  $dbh->{"PrintError"} = 0;
+  $dbh->{"RaiseError"} = 1;
+  $dbh->begin_work;
+  foreach my $gene_uname ( keys %{$gene_gff_data_ref} ) {
+   my $gene_ref = $gene_gff_data_ref->{$gene_uname} || next;
+   if ($genome_gff_file) {
+    $sql_hash_ref->{'check_gene_genomeloc'}->execute($gene_uname);
+    if ( !$sql_hash_ref->{'check_gene_genomeloc'}->fetchrow_arrayref() ) {
+     $sql_hash_ref->{'store_gene_genomeloc'}->execute( $gene_uname,
+                                                $gene_ref->{'genome_reference'},
+                                                $gene_ref->{'genome_start'},
+                                                $gene_ref->{'genome_end'},
+                                                $gene_ref->{'genome_strand'} );
+     $sql_hash_ref->{'check_gene_genomeloc'}->execute($gene_uname);
+     if ( !$sql_hash_ref->{'check_gene_genomeloc'}->fetchrow_arrayref() ) {
+      confess "Cannot store gene genome data for $gene_uname\n";
+     }
+    }
+   }
+
+   if ( $gene_ref->{'gene_note'} ) {
+    foreach my $note ( @{ $gene_ref->{'gene_note'} } ) {
+     $sql_hash_ref->{'check_gene_note'}->execute( $gene_uname, $note );
+     if ( !$sql_hash_ref->{'check_gene_note'}->fetchrow_arrayref() ) {
+      $sql_hash_ref->{'store_gene_note'}->execute( $gene_uname, $note );
+     }
+    }
+   }
+
+   if ( $gene_ref->{'gene_dbxref'} ) {
+    foreach my $dbx ( @{ $gene_ref->{'gene_dbxref'} } ) {
+     my ( $db, $dbxref ) = split( ':', $dbx );
+     if ( $db && $dbxref ) {
+      my $dbxref_id = &store_dbxref( $db, $dbxref );
+      $sql_hash_ref->{'check_gene_dbxref'}->execute( $gene_uname, $dbxref_id );
+      if ( !$sql_hash_ref->{'check_gene_dbxref'}->fetchrow_arrayref() ) {
+       $sql_hash_ref->{'store_gene_dbxref'}->execute( $gene_uname, $dbxref_id );
+      }
+     }
+    }
+
+   }
+
+   #alias (one only)
+   $sql_hash_ref->{'store_gene_alias'}
+     ->execute( $gene_ref->{'gene_alias'}, $gene_uname )
+     if ( $gene_ref->{'gene_alias'} );
+  }
+  die if $dbh->{"ErrCount"};
+  $dbh->commit;
+ }
+
  my $number_transcripts        = scalar( keys %{$cds_gff_data_ref} );
  my $number_stored_transcripts = int(0);
  my $obj                       = new Fasta_reader($cdna_fasta_file);    # genes
@@ -3552,6 +3725,9 @@ sub store_native_transcripts() {
     ->execute( $transcript_uname, $seq, md5_hex($seq) );
 
   my $transcript_data_ref = $transcript_gff_data_ref->{$transcript_uname};
+  die Dumper($transcript_data_ref)
+    . "\nCannot find a gene name for this transcript ($transcript_uname)\n"
+    unless $transcript_data_ref->{'gene_uname'};
 
   #link to GENE
   $sql_hash_ref->{'store_transcript_gene'}->execute(
@@ -3560,34 +3736,35 @@ sub store_native_transcripts() {
           $transcript_data_ref->{'strand'}
   );
 
-  #dbxref
-  if ( $transcript_data_ref->{'transcript_dbxref'} ) {
-   my ( $db, $dbxref ) =
-     split( ':', $transcript_data_ref->{'transcript_dbxref'} );
-   if ( $db && $dbxref ) {
-    my $dbxref_id = &store_dbxref( $db, $dbxref );
-    $sql_hash_ref->{'store_transcript_dbxref'}
-      ->execute( $transcript_uname, $dbxref_id );
-   }
-  }
-  if ( $transcript_data_ref->{'gene_dbxref'} ) {
-   my ( $db, $dbxref ) = split( ':', $transcript_data_ref->{'gene_dbxref'} );
-   if ( $db && $dbxref ) {
-    my $dbxref_id = &store_dbxref( $db, $dbxref );
-    $sql_hash_ref->{'store_gene_dbxref'}
-      ->execute( $transcript_data_ref->{'gene_uname'}, $dbxref_id );
+  #notes
+  if ( $transcript_data_ref->{'transcript_note'} ) {
+   foreach my $note ( @{ $transcript_data_ref->{'transcript_note'} } ) {
+    $sql_hash_ref->{'check_transcript_note'}
+      ->execute( $transcript_uname, $note );
+    if ( !$sql_hash_ref->{'check_transcript_note'}->fetchrow_arrayref() ) {
+     $sql_hash_ref->{'store_transcript_note'}
+       ->execute( $transcript_uname, $note );
+    }
    }
   }
 
-  #aliases
+  #dbxrefs
+  if ( $transcript_data_ref->{'transcript_dbxref'} ) {
+   foreach my $dbx ( @{ $transcript_data_ref->{'transcript_dbxref'} } ) {
+    my ( $db, $dbxref ) =
+      split( ':', $dbx );
+    if ( $db && $dbxref ) {
+     my $dbxref_id = &store_dbxref( $db, $dbxref );
+     $sql_hash_ref->{'store_transcript_dbxref'}
+       ->execute( $transcript_uname, $dbxref_id );
+    }
+   }
+  }
+
+  #aliases (one only)
   if ( $transcript_data_ref->{'transcript_alias'} ) {
    $sql_hash_ref->{'store_transcript_alias'}
      ->execute( $transcript_data_ref->{'transcript_alias'}, $transcript_uname );
-  }
-  if ( $transcript_data_ref->{'gene_alias'} ) {
-   $sql_hash_ref->{'store_transcript_alias'}
-     ->execute( $transcript_data_ref->{'gene_alias'},
-                $transcript_data_ref->{'gene_uname'} );
   }
 
   # check if coding, store CDS data
@@ -3599,9 +3776,13 @@ sub store_native_transcripts() {
                                $translation_table_number, $cds_data->{'start'},
                                $cds_data->{'stop'},       $cds_data->{'strand'},
    );
-   $sql_hash_ref->{'check_cds'}->execute($cds_data->{'cds_uname'});
-   my $check = $sql_hash_ref->{'check_cds'}->fetchrow_arrayref();
-   confess "Couldn't add item ".$cds_data->{'cds_uname'}." in the CDS table\n" unless $check;
+   $sql_hash_ref->{'check_cds'}->execute( $cds_data->{'cds_uname'} );
+   unless ( $sql_hash_ref->{'check_cds'}->fetchrow_arrayref() ) {
+    warn Dumper $transcript_data_ref;
+    confess "Couldn't add item "
+      . $cds_data->{'cds_uname'}
+      . " in the CDS table\n";
+   }
    $do_phys_file++;
   }
 
@@ -3654,8 +3835,10 @@ sub add_linkout() {
  my $linkout_sql_check =
    $dataset_id
    ? $dbh->prepare(
-        "SELECT linkout_id from public.linkout WHERE name=? AND dataset_id = ?")
-   : $dbh->prepare("SELECT linkout_id from public.linkout WHERE name=?");
+"SELECT linkout_id from public.linkout WHERE name=? AND type=? AND dataset_id = ?"
+   )
+   : $dbh->prepare(
+               "SELECT linkout_id from public.linkout WHERE name=? AND type=?");
 
  open( IN, $conf_file );
 
@@ -3678,14 +3861,18 @@ sub add_linkout() {
      . " not supported, only CDS, gene and hit! Skipping...\n";
    next;
   }
+  print "Adding " . $data[1] . " for " . $data[0] . "\n";
   if ( !$dataset_id ) {
-   $linkout_sql_check->execute( $data[1] );
+   $linkout_sql_check->execute( $data[1], $data[0] );
   }
   else {
-   $linkout_sql_check->execute( $data[1], $dataset_id );
+   $linkout_sql_check->execute( $data[1], $data[0], $dataset_id );
   }
   my $result = $linkout_sql_check->fetchrow_arrayref();
-  next if ( $result && $result->[0] );
+  if ( $result && $result->[0] ) {
+   print "Linkout already exists\n";
+   next;
+  }
 
   $data[2] = 'No description' unless $data[2];
   $linkout_sql_prepared->execute( $data[0], $data[1], $data[2], $data[3] );
@@ -3840,6 +4027,26 @@ sub store_annotation_of_proteins() {
 
  }
 
+ if ($extra_expression_custom_file) {
+  if ( !-s $extra_expression_custom_file ) {
+   warn "Cannot find the $extra_expression_custom_file file\n";
+  }
+  elsif ( !$extra_expression_column_name ) {
+   warn
+"Using an extra expression file requires the -extra_expression_name option\n";
+  }
+  else {
+   print
+"Processing extra expression data using the file $extra_expression_custom_file and storing it as a $extra_expression_column_name (type:$extra_expression_column_type)\n";
+   &process_extra_expression(
+                              $dbh_store,
+                              $extra_expression_custom_file,
+                              $extra_expression_column_name,
+                              $extra_expression_column_type
+   );
+  }
+ }
+
  if ( scalar(@do_protein_ipr) > 0 ) {
   print "Processing InterProScan files\n";
   &process_protein_ipr( $dbh_store, \@do_protein_ipr );
@@ -3859,13 +4066,15 @@ sub process_cmd {
 }
 
 sub process_for_genome_gff() {
+
 #return  $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file, $cds_gff_file
  $protein_fasta_file = $genome_gff_file . '.proteins.fasta';
  $contig_fasta_file  = $genome_gff_file . '.gene.fasta';
  $cdna_fasta_file    = $genome_gff_file . '.mRNA.fasta';
  $cds_gff_file       = $genome_gff_file . '.mRNA.gff3';
  if ( -s $cds_gff_file ) {
-  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,$cds_gff_file );
+  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
+           $cds_gff_file );
  }
  print "Preparing genome $genome_fasta_file with $genome_gff_file\n";
  my %unique_names_check;
@@ -3898,6 +4107,7 @@ sub process_for_genome_gff() {
    $preferences{'sequence_ref'} = \$genome_seq;
    $params{unspliced_transcript} = 1;    # highlights introns
    $gene_obj_ref->trivial_refinement();
+
    $gene_obj_ref->create_all_sequence_types( \$genome_seq, %params );
    my $gene_seq = $gene_obj_ref->get_gene_sequence();
    $gene_seq =~ s/(\S{80})/$1\n/g;
@@ -3909,6 +4119,11 @@ sub process_for_genome_gff() {
    my $gene_common_name = $gene_obj_ref->{com_name};
    my $gene_name        = $gene_id;
    my ( $to_gff3_out_print, $gff3_out_print, $gene_description );
+
+   if ( $gene_common_name && $force_used_gene_gff_ids ) {
+    $gene_description = $gene_common_name;
+    undef($gene_common_name);
+   }
 
    if ($gene_common_name) {
     if ( $gene_common_name =~ /\s/ ) {
@@ -3925,15 +4140,22 @@ sub process_for_genome_gff() {
     $gff3_out_print .= ";Note=$gene_description" if $gene_description;
     $gff3_out_print .= "\n";
     print GENEOUT
-">$gene_name type:gene original_name:$gene_id $reference_id:$gene_lend-$gene_rend($gene_orientation)\n$gene_seq\n";
+">$gene_name type:gene original_name:$gene_id $reference_id:$gene_lend-$gene_rend($gene_orientation)";
+    print GENEOUT " description:$gene_description" if $gene_description;
+    print GENEOUT "\n$gene_seq\n";
    }
    else {
     $gff3_out_print =
-"$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name\n";
+"$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name";
+    $gff3_out_print .= ";Note=$gene_description" if $gene_description;
+    $gff3_out_print .= "\n";
     print GENEOUT
-">$gene_name type:gene $reference_id:$gene_lend-$gene_rend($gene_orientation)\n$gene_seq\n";
+">$gene_name type:gene $reference_id:$gene_lend-$gene_rend($gene_orientation)";
+    print GENEOUT " description:$gene_description" if $gene_description;
+    print GENEOUT "\n$gene_seq\n";
    }
 
+   # TODO we don't support dbxrefs in the gene_obj gff tools yet
    foreach
      my $isoform ( $gene_obj_ref, $gene_obj_ref->get_additional_isoforms() )
    {
@@ -3949,45 +4171,55 @@ sub process_for_genome_gff() {
     my ( $gene_lend, $gene_rend ) =
       sort { $a <=> $b } $isoform->get_gene_span();
 
-    my $isoform_id  = $isoform->{Model_feat_name};
-    my $main_id     = $isoform_id;
-    my $description = '';
-    my $alt_name    = '';
-    my $common_name = $isoform->{transcript_name} || $isoform->{com_name};
+    my $isoform_id             = $isoform->{Model_feat_name};
+    my $main_id                = $isoform_id;
+    my $description            = '';
+    my $alt_name               = '';
+    my $transcript_common_name = $isoform->{transcript_name}
+      || $isoform->{com_name};
+
+    if ( $transcript_common_name && $force_used_gene_gff_ids ) {
+     $description = $transcript_common_name;
+     undef($transcript_common_name);
+    }
 
     # use common name if available.
-    if ($common_name) {
+    if ($transcript_common_name) {
      $alt_name = "($isoform_id) ";
-     if ( $common_name =~ /\s/ ) {
-      $description = $common_name;
+     if ( $transcript_common_name =~ /\s/ ) {
+      $description = $transcript_common_name;
       $description =~ s/^\s*(\S+)\s*//;
-      $common_name = $1 || die;
+      $transcript_common_name = $1 || die;
      }
 
-     if ( $common_name =~ /-R[A-Z]+$/ ) {
-      $main_id = $common_name;
+     if ( $transcript_common_name =~ /-R[A-Z]+$/ ) {
+      $main_id = $transcript_common_name;
      }
      else {
-      $main_id = $common_name . '-RA';
+      $main_id = $transcript_common_name . '-RA';
      }
 
-     if ( $unique_names_check{$common_name} ) {
-      if ( $common_name =~ /-R[A-Z]+$/ ) {
+     if ( $unique_names_check{$transcript_common_name} ) {
+      if ( $transcript_common_name =~ /-R[A-Z]+$/ ) {
        die
-"Common name $common_name ends in transcript notation but it is not unique!\n";
+"Common name $transcript_common_name ends in transcript notation but it is not unique!\n";
       }
       my $letter = 'B';
-      for ( my $i = 1 ; $i < $unique_names_check{$common_name} ; $i++ ) {
+      for ( my $i = 1 ;
+            $i < $unique_names_check{$transcript_common_name} ;
+            $i++ )
+      {
        $letter++;
       }
-      $main_id = $common_name . '-R' . $letter;
+      $main_id = $transcript_common_name . '-R' . $letter;
      }
-     $unique_names_check{$common_name}++;
+     $unique_names_check{$transcript_common_name}++;
 
      # set description as note and update name
      $isoform->{transcript_name} = $main_id;
      $isoform->{com_name}        = $main_id;
      $isoform->{pub_comment}     = $description if $description;
+
     }
 
     # get sequences
@@ -4022,7 +4254,9 @@ sub process_for_genome_gff() {
 
 # this is semi-standard GFF3 (mix references) but we don't care as it is just represent things for the JAMP database
     $gff3_out_print .=
-        "$gene_name\tPrediction\tmRNA\t1\t$cDNA_length\t.\t+\t.\tID=$main_id\n"
+      "$gene_name\tPrediction\tmRNA\t1\t$cDNA_length\t.\t+\t.\tID=$main_id";
+    $gff3_out_print .= ";Note=$description" if $description;
+    $gff3_out_print .= "\n"
       . "$gene_name\tPrediction\texon\t1\t$cDNA_length\t.\t+\t.\tID=$main_id.exon;Parent=$main_id\n"
       . "$gene_name\tPrediction\tCDS\t$iso_start\t$iso_end\t.\t+\t.\tID=cds.$main_id;Parent=$main_id\n"
       . "\n";
@@ -4047,7 +4281,7 @@ sub process_for_genome_gff() {
  close CDNAOUT;
  close GENEOUT;
  close GFFOUT;
- print "\nCompleted $master_counter transcripts...\n";
+ print "\nFound $master_counter transcripts...\n";
  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
           $cds_gff_file );
 }
@@ -4224,7 +4458,7 @@ sub store_dbxref() {
   die "Cannot insert DB $db\n" unless $db_id;
  }
 
- $sql_hash_ref->{'create_dbref'}->execute( $db_id, $dbxref );
+ $sql_hash_ref->{'store_dbxref'}->execute( $db_id, $dbxref );
  $sql_hash_ref->{'check_dbxref'}->execute( $db,    $dbxref );
  $dbxref_res = $sql_hash_ref->{'check_dbxref'}->fetchrow_arrayref();
  $dbxref_id  = $dbxref_res->[0];

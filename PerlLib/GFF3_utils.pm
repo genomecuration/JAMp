@@ -116,7 +116,10 @@ sub index_GFF3_gene_objs {
    if ( $gene_info =~ /Name=([^\;]+)/ ) {
     $transcript_names{$id} = $1;          # only one currently
    }
+   if ( $gene_info =~ /Note=\"?([^\;\"]+)\"?/ ) {
+    $transcript_names{$id} .= " $1";          # i don't like that we put it in the name...
 
+   }
    ## just get the identifier info
    $transcript_to_gene{$id} = $parent;
    next;
@@ -237,7 +240,7 @@ sub index_GFF3_gene_objs {
        my ( $end5, $end3 ) = $cds->get_coords();
        unless ($end5 && $end3){ confess "Error, no 5' $end5 or 3' $end3 end for cds $gene_id $transcript_id ";}
        my $phase = int( $cds_phases_href->{$end5} );
-       unless ($phase && $phase == 0 || $phase == 1 || $phase == 2 ) {
+       unless (defined($phase) && $phase == 0 || $phase == 1 || $phase == 2 ) {
         confess "Error, should have phase set for cds $gene_id $transcript_id $end5, but I do not know what $phase is. ";
        }
        $cds->set_phase($phase);

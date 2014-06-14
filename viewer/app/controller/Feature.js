@@ -53,6 +53,9 @@ Ext.define('CV.controller.Feature', {
     ref:'transcriptlist',
     selector: 'featureview transcriptlist'
   },{
+	  ref:'notespanel',
+	  selector: 'featureview notespanel'
+   },  {
 	ref:'expressionimage',
 	selector: 'featureview expressionimage'
   },{
@@ -184,10 +187,11 @@ Ext.define('CV.controller.Feature', {
     CV.ux.Router.redirect(url);
   },
   treeSelect : function(item , name) {
-    var grid, panel, filter={}, metadataPanel,expressionmetadataPanel, gene, mrna, cds, section, annot,nl,expressionList, protein;
+    var grid, panel, filter={}, metadataPanel,notesPanel, expressionmetadataPanel, gene, mrna, cds, section, annot,nl,expressionList, protein;
     section = item? 'details': 'start';
     grid = this.getFeatureGrid();
     metadataPanel = this.getMetadataPanel();
+    notesPanel = this.getNotespanel();
     expressionmetadataPanel = this.getExpressionmetadataPanel();
     gene = this.getGenePanel();
     mrna = this.getMrnaPanel();
@@ -213,6 +217,9 @@ Ext.define('CV.controller.Feature', {
           metadataPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
           metadataPanel.store.load();
           
+          notesPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
+          notesPanel.store.load();
+
           expressionmetadataPanel.store.getProxy().setExtraParam( this.featureIdProp , item );
           expressionmetadataPanel.store.load();
           
@@ -247,6 +254,7 @@ Ext.define('CV.controller.Feature', {
           grid.store.clearFilter( true );
           grid.store.load();
           metadataPanel.store.removeAll();
+          notesPanel.store.removeAll();
           expressionmetadataPanel.store.removeAll();
           gene.setFasta('');
           mrna.setFasta('');
@@ -365,6 +373,7 @@ Ext.define('CV.controller.Feature', {
       expressionImage.store.removeAll();
       expressionList.store.getRootNode().removeAll();
       genepanel.store.removeAll(),
+      
       mrnapanel.store.removeAll(),
       cdspanel.store.removeAll(),
       proteinpanel.store.removeAll();
