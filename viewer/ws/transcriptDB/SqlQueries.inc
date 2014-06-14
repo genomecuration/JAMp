@@ -238,8 +238,8 @@ $sqlQueries = array(
 
 	'feature' => array(
 		'linkout_type' => 'SELECT name,description,urlprefix FROM linkout WHERE dataset_id = %1$d AND type=\'%2$s\'',
-	  'dbxref_gene'=>'SELECT db.uname as db_name,db.urlprefix,dbxref.accession FROM dataset_%1$d.gene_dbxref a JOIN dataset_%1$d.dbxref x ON a.dbxref_id=x.dbxref_id JOIN dataset_%1$d.db ON x.db_id=db.db_id WHERE a.gene_uname=\'%2$s\'',
-	  'dbxref_transcript'=>'SELECT db.uname as db_name,db.urlprefix,dbxref.accession FROM dataset_%1$d.transcript_dbxref a JOIN dataset_%1$d.dbxref x ON a.dbxref_id=x.dbxref_id JOIN dataset_%1$d.db ON x.db_id=db.db_id WHERE a.transcript_uname=\'%2$s\'',
+	  'dbxref_gene'=>'SELECT db.uname as db_name,db.urlprefix,x.accession FROM dataset_%1$d.gene_dbxref a JOIN dataset_%1$d.dbxref x ON a.dbxref_id=x.dbxref_id JOIN dataset_%1$d.db ON x.db_id=db.db_id WHERE a.gene_uname=\'%2$s\'',
+	  'dbxref_transcript'=>'SELECT db.uname as db_name,db.urlprefix,x.accession FROM dataset_%1$d.transcript_dbxref a JOIN dataset_%1$d.dbxref x ON a.dbxref_id=x.dbxref_id JOIN dataset_%1$d.db ON x.db_id=db.db_id WHERE a.transcript_uname=\'%2$s\'',
 	   'gUniprotUrl'=>'SELECT name AS term , urlprefix || \'%2$s\' AS value, \'%2$s\' AS transcript FROM public.linkout WHERE (dataset_id is NULL or dataset_id = %1$d) AND type=\'gene\'',
 		'transcript_notes' => 'SELECT note from dataset_%1$d.transcript_note WHERE transcript_uname=\'%2$s\'',
 		'gene_notes' => 'SELECT note from dataset_%1$d.gene_note WHERE gene_uname=\'%2$s\'',

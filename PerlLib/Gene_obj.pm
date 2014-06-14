@@ -191,7 +191,8 @@ sub new {
   gene_synonyms  => [],                   #list of synonymous model feat_names
   GeneOntology   => []
   ,    #list of Gene_ontology assignment objects.  ...see GeneOntology.pm
-
+  Dbxref_gene => [], # dbxref identifiers as DB:ACCESSION (by AP)
+  Dbxref_transcript => [], # dbxref identifiers as DB:ACCESSION (by AP)
   ## Additional functional attributes:
   secondary_gene_names    => [],
   secondary_product_names => [],
@@ -2026,6 +2027,7 @@ sub get_gene_ontology_objs {
  }
 }
 
+
 =over 4
 
 =item set_5prime_partial()
@@ -3591,13 +3593,14 @@ sub to_GFF3_format_extended {
 
  my $strand = $gene_obj->get_orientation();
 
- my @noteText_gene;
+ my (@noteText_gene);
 
  if ( $gene_obj->{is_pseudogene} ) {
   push( @noteText_gene, "pseudogene" );
  }
 
- push( @noteText_gene, uri_escape($gene_obj->{pub_comment}) ) if $gene_obj->{pub_comment};
+ push( @noteText_gene, $gene_obj->{pub_comment}) if $gene_obj->{pub_comment};
+ 
 
  ## parse preferences
  my $reference_id     = $preferences{seqid}        || $gene_obj->{asmbl_id};
@@ -3639,8 +3642,12 @@ sub to_GFF3_format_extended {
 "$reference_id\t$source\t$feat_type\t$gene_lend\t$gene_rend\t.\t$strand\t.\tID=$gene_id;Name=$com_name;$gene_alias"
    ; ## note, non-coding gene features are currently represented by a simple single coordinate pair.
    if (@noteText_gene){
-	$gff3_text .= "Note=".join(";",@noteText_gene).";";	
+	$gff3_text .= "Note=".join(",",@noteText_gene).";";	
    }
+   if ($gene_obj->{Dbxref_gene}){
+    $gff3_text .= "Dbxref=".join(",",@{$gene_obj->{Dbxref_gene}}).";";
+   }
+   
    $gff3_text .= "\n";
 
  if ( $gene_obj->{gene_type} eq "protein-coding" ) {
@@ -3660,14 +3667,20 @@ sub to_GFF3_format_extended {
    }
    my ( $mrna_lend, $mrna_rend ) = $isoform->get_transcript_span();
 
-   push( @noteText_mrna, uri_escape($isoform->{pub_comment}) ) if $isoform->{pub_comment};
+   if ($isoform->{pub_comment}){
+    # GFF3_utils does not decode the comments to allow for multiple ones
+    push( @noteText_mrna, $isoform->{pub_comment} );
+   }
 
 
    $gff3_text .=
 "$reference_id\t$source\tmRNA\t$mrna_lend\t$mrna_rend\t.\t$strand\t.\tID=$model_id;Parent=$gene_id;Name=$transcript_common_name;$model_alias";
 
    if (@noteText_mrna){
-	$gff3_text .= "Note=".join(";",@noteText_mrna);	
+	$gff3_text .= "Note=".join(",",@noteText_mrna);	
+   }
+   if ($isoform->{Dbxref_transcript}){
+    $gff3_text .= "Dbxref=".join(",",@{$isoform->{Dbxref_transcript}}).";";
    }
    $gff3_text .= "\n";
 
