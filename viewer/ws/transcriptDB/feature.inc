@@ -189,9 +189,22 @@ function feature_expression_metadata($id){
 }
 
 
-function featureCV($id) {
-  require ('SqlQueries.inc');
+/*
+ * root": [
 
+    {
+        "term": "uniprot",
+        "value": "<a href='http://www.uniprot.org/uniprot/Q9Y7N6' target='_blank'>Q9Y7N6</a>",
+        "fmin": 1,
+        "fmax": 2019,
+        "gr": "Coord. 1 - 2019"
+    },
+    {
+ */
+function featureCV($id) {
+  // this really isn't CV (controlled vocab) but linkouts such as database cross-referencing
+  require ('SqlQueries.inc');
+// TODO add linkouts
   $tSql = $sqlQueries['feature']['UniprotUrl'];
   $uniprot_url = query_execute(null, $tSql, null);
   $uniprot_url = $uniprot_url[0]['urlprefix'];
@@ -200,33 +213,105 @@ function featureCV($id) {
   }
 
   $minmax = '';
-  $res['root']=array();
+  
   // CV terms such as uniprot hits etc relate to the lower level transcript
   $parsed = datasetType($id);
   $id = $parsed['id'];
   $dsId = $parsed['dataset_id'];
-
+  $return_array = array();
+  
   //AP: if it is a gene, then we can get the transcript name and transverse.
   if ($parsed['type'] == Type::gene){
+    // add linkouts for 'gene' and 'genome'
+    $linkout_sql_gene = sprintf($sqlQueries['feature']['linkout_type'],pg_escape_string($dsId), 'gene');
+    $linkout_sql_gene_res = query_execute(null,$linkout_sql_gene);
+    if (!empty($linkout_sql_gene_res)){
+      foreach ($linkout_sql_gene_res as $res){
+        $url_linkout = "<a href='".$res['urlprefix'].$id."' target='_blank'>$id</a>";
+        $return_array[] = array('term'=>$res['name'],'value'=>$url_linkout,'gr'=>'-Linkouts');
+      }
+    }
+    $linkout_sql_genome = sprintf($sqlQueries['feature']['linkout_type'],pg_escape_string($dsId), 'genome');
+    $linkout_sql_genome_res = query_execute(null,$linkout_sql_genome);
+    if (!empty($linkout_sql_genome_res )){
+      foreach ($linkout_sql_genome_res  as $res){
+        $url_linkout = "<a href='".$res['urlprefix'].$id."' target='_blank'>$id</a>";
+        $return_array[] = array('term'=>$res['name'],'value'=>$url_linkout,'gr'=>'-Linkouts');
+      }
+    }
+    
+    // add dbxref for gene 
+    $dbxref_sql = sprintf($sqlQueries['feature']['dbxref_gene'],pg_escape_string($dsId), pg_escape_string($id));
+    $dbxref_sql_res = query_execute(null,$dbxref_sql);
+    if (!empty($dbxref_sql_res)){
+      foreach ($dbxref_sql_res as $res){
+        $url_linkout = "<a href='".$res['urlprefix'].$res['accession']."' target='_blank'>".$res['accession']."</a>";
+        $return_array[] = array('term'=>$res['db_name'],'value'=>$url_linkout,'gr'=>'-Cross reference');
+      }
+    }
+    
+    
+    // get any UniProt linkouts originating from transcripts.
     $transcripts_sql = sprintf($sqlQueries['gettranscripts'],pg_escape_string($dsId), pg_escape_string($id));
     $transcript_results = query_execute(null, $transcripts_sql, null);
-    if (empty($transcript_results)){
-      return array('root'=>null);
-    }else{
+    if (!empty($transcript_results)){
       foreach ($transcript_results as $transcript){
-        $uniprot_hits = knownProteinHits(pg_escape_string($dsId), pg_escape_string($transcript),$parsed['type']);
+        $uniprot_hits = knownProteinHits(pg_escape_string($dsId), $transcript,$parsed['type']);
         if (!empty($uniprot_hits)){
-          $res['root'] = array_merge($res['root'],uniprot_grouping($uniprot_hits,$uniprot_url));
+          //merge
+          $return_array = array_merge($return_array,uniprot_grouping($uniprot_hits,$uniprot_url));
         }
       }
     }
   }else{
+    // add linkouts for CDS
+    $linkout_sql_gene = sprintf($sqlQueries['feature']['linkout_type'],pg_escape_string($dsId), 'CDS');
+    $linkout_sql_gene_res = query_execute(null,$linkout_sql_gene);
+    if (!empty($linkout_sql_gene_res)){
+      foreach ($linkout_sql_gene_res as $res){
+        $url_linkout = "<a href='".$res['urlprefix'].$id."' target='_blank'>$id</a>";
+        $return_array[] = array('term'=>$res['name'],'value'=>$url_linkout,'gr'=>'-Linkouts');
+      }
+    }
+   	// add dbxref for transcript 
+   	$dbxref_sql = sprintf($sqlQueries['feature']['dbxref_transcript'],pg_escape_string($dsId), pg_escape_string($id));
+    $dbxref_sql_res = query_execute(null,$dbxref_sql);
+    if (!empty($dbxref_sql_res)){
+      foreach ($dbxref_sql_res as $res){
+        $url_linkout = "<a href='".$res['urlprefix'].$res['accession']."' target='_blank'>".$res['accession']."</a>";
+        $return_array[] = array('term'=>$res['db_name'],'value'=>$url_linkout,'gr'=>'-Cross reference');
+      }
+    }
+    
+    // uniprot hits for transcript
     $uniprot_hits = knownProteinHits($dsId,array('name'=>$id),$parsed['type']);
     if (!empty($uniprot_hits)){
-      $res['root'] = uniprot_grouping($uniprot_hits,$uniprot_url);
+      $return_array = array_merge($return_array,uniprot_grouping($uniprot_hits,$uniprot_url));
     }
   }
-  return $res;
+  if (empty($return_array)){
+    return array('root'=>null);
+  }else{
+    return array('root'=>$return_array);
+  }
+  
+}
+
+function get_note($id){
+  require ('SqlQueries.inc');
+  $parsed = datasetType($id);
+  $id = $parsed['id'];
+  $dsId = $parsed['dataset_id'];
+  $note_sql  = '';
+  $notes_array = array();
+  if ($parsed['type'] == Type::gene){
+    $note_sql = sprintf($sqlQueries['feature']['gene_notes'],pg_escape_string($dsId), pg_escape_string($id));
+  }else{
+    $note_sql = sprintf($sqlQueries['feature']['transcript_notes'],pg_escape_string($dsId), pg_escape_string($id));
+  }
+  //var_dump($note_sql );
+    $notes_array = query_execute(null, $note_sql);
+  return $notes_array;
 }
 
 

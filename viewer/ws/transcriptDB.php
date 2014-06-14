@@ -1007,6 +1007,9 @@ function chadoviewer() {
           $data = list_expression_pictures($idFeature);
           break;
 
+        case 'note' :
+          //return any notes that may be available 
+          $data = get_note($idFeature);
         default :
           break;
       }
