@@ -4744,16 +4744,13 @@ sub _get_cds_start_pos {
    my $length  = $orf->{length};
    my $protein = $orf->{protein};
    if ( $length > $cds_length - 3 && $start <= 3 && $protein =~ /\*$/ ) {
-    unless ($bestOrfPos) {
-     $bestOrfPos = $start;
-    }
+     $bestOrfPos = $start unless $bestOrfPos;
    }
   }
  }
-
- if ( $bestOrfPos && $bestOrfPos != $orfPos ) {
-  $orfPos = $bestOrfPos;
- }
+ 
+ $orfPos = $bestOrfPos if ( $bestOrfPos && $bestOrfPos != $orfPos && $bestOrfPos <= 3);
+ #if ( $bestOrfPos && $bestOrfPos != $orfPos ) {  $orfPos = $bestOrfPos; }
 
  if ( $orfPos > 3 ) {
   confess
