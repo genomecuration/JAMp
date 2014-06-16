@@ -4111,13 +4111,14 @@ sub process_for_genome_gff() {
 
   foreach my $gene_id (@gene_ids) {
    my $counter      = 0;
-   my $gene_obj_ref = $gene_obj_indexer->get_gene($gene_id);
+   my $gene_obj_ref = $gene_obj_indexer->get_gene($gene_id) ||next;
    my ( %params, %preferences );
    $preferences{'sequence_ref'} = \$genome_seq;
    $params{unspliced_transcript} = 1;    # highlights introns
-   $gene_obj_ref->trivial_refinement();
+   #$gene_obj_ref->trivial_refinement();
    $gene_obj_ref->create_all_sequence_types( \$genome_seq, %params );
-   my $gene_seq = $gene_obj_ref->get_gene_sequence();
+   my $gene_seq = $gene_obj_ref->get_gene_sequence() ||next;
+   
    $gene_seq =~ s/(\S{80})/$1\n/g;
    chomp $gene_seq;
    my ( $gene_lend, $gene_rend ) =
@@ -4252,7 +4253,8 @@ sub process_for_genome_gff() {
     my $cds_seq  = $isoform->get_CDS_sequence();       # not to be printed
     next unless $cDNA_seq && $prot_seq && $cds_seq;
     $to_gff3_out_print++;
-
+    $cds_seq = uc($cds_seq);
+    $cDNA_seq = uc($cDNA_seq);
     my $cds_length  = length($cds_seq);
     my $cDNA_length = length($cDNA_seq);
 
@@ -4260,8 +4262,8 @@ sub process_for_genome_gff() {
     if ( $cds_length != $cDNA_length ) {
      $cds_start = index( $cDNA_seq, $cds_seq );
      if ( $cds_start == -1 ) {
-      warn
-"Cannot find the coding sequence of model $main_id will have to skip!\n";
+      die
+"Cannot find the coding sequence of model $main_id will have to skip!\n$cDNA_seq\n vs \n$cds_seq\n";
 
       #           warn $cDNA_seq;
       #          warn $cds_seq;
@@ -4307,7 +4309,6 @@ sub process_for_genome_gff() {
  close GENEOUT;
  close GFFOUT;
  print "\nFound $master_counter transcripts...\n";
-
  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
           $cds_gff_file );
 }
