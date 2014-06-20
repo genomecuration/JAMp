@@ -20,6 +20,7 @@ Ext.define('CV.view.feature.NetworkCanvas', {
     'backgroundGradient1Color': 'rgb(112,179,222)',
     'backgroundGradient2Color': 'rgb(226,236,248)',
     'gradient': true,
+    'imageDir' : 'css/images/canvasxpress/',
     'graphType': 'Network',
     'nodeFontColor': 'rgb(29,34,43)',
     'showAnimation': true

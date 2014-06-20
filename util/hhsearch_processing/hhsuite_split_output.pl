@@ -2,10 +2,14 @@
 
 =pod
 
-        'i|fa|fasta=s' => \$file,
-        'debug' =>\$debug,
-        'hhr' =>\$do_hhr
+=head1 USAGE
 
+Split HH result file to create a file for each query with just the A3M alignments
+
+	in  => HHBlits output that has both HH results and A3M alignments
+        hhr => Print out HH results in a separate file as well as A3M
+
+Results will be in one (or two with -hhr) directories: a3m_out and hhr_out
 
 =cut
 
@@ -15,20 +19,20 @@ use warnings;
 use Pod::Usage;
 use Getopt::Long;
 
-my ($file,$do_hhr,$debug);
+my ($hhr_a3m_output,$do_hhr,$debug);
 
 GetOptions(
-        'i|fa|fasta=s' => \$file,
+        'in:s' => \$hhr_a3m_output,
 	'debug' =>\$debug,
 	'hhr' =>\$do_hhr
 );
 
-$file = shift unless $file;
-pod2usage unless $file;
+$hhr_a3m_output = shift unless $hhr_a3m_output;
+pod2usage unless $hhr_a3m_output;
 
 my $orig_sep = $/;
 $/ = "Done!\n";
-open (IN,$file)||die;
+open (IN,$hhr_a3m_output)||die;
 mkdir('a3m_out');
 mkdir('hhr_out') if $do_hhr;
 

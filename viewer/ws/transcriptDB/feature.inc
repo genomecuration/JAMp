@@ -297,11 +297,13 @@ function featureCV($id) {
 
 function get_note($id){
   require ('SqlQueries.inc');
-  $parsed = datasetType($id);
-  $id = $parsed['id'];
-  $dsId = $parsed['dataset_id'];
   $note_sql  = '';
   $notes_array = array();
+  $parsed = datasetType($id);
+  if (empty($id)){return $notes_array;}
+  $id = $parsed['id'];
+  $dsId = $parsed['dataset_id'];
+  if (empty($dsId)){return $notes_array;}
   if ($parsed['type'] == Type::gene){
     $note_sql = sprintf($sqlQueries['feature']['gene_notes'],pg_escape_string($dsId), pg_escape_string($id));
   }else{

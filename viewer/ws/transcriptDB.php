@@ -1059,8 +1059,12 @@ function chadoviewer() {
       $data = autocomplete( $_GET['query'], $selectedIds );
       break;
     case 'help':
-      $help = file_get_contents($scriptDirBase.'/help.inc');
-      $data = array(array('text'=>$help));
+      $html = file_get_contents($scriptDirBase.'/help.inc');
+      $data = array(array('text'=>$html));
+      break;
+    case 'about':
+      $html = file_get_contents($scriptDirBase.'/about.inc');
+      $data = array(array('text'=>$html));
       break;
     case 'test':
       $data = array(array('text'=>'test'));

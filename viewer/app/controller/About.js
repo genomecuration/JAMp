@@ -1,22 +1,21 @@
-Ext.define('CV.controller.Help', {
+Ext.define('CV.controller.About', {
   extend : 'Ext.app.Controller',
-  requires:['CV.config.ChadoViewer','CV.view.help.View','CV.ux.Router'],
-  views : ['CV.view.help.View'],
+  requires:['CV.config.ChadoViewer','CV.view.about.View','CV.ux.Router'],
+  views : ['CV.view.about.View'],
   refs:[{
-    ref : 'help',
-    selector : 'helpview'
+    ref : 'about',
+    selector : 'aboutview'
   }],
   // config
-  name: 'Help',
-  uri : 'help',
-  text: 'Help',
-  text:'About',
+  name: 'About',
+  uri : 'about',
+  text: 'About',
   init : function() {
     var treeView, gridView;
-    gridView = Ext.create('CV.view.help.View');
+    gridView = Ext.create('CV.view.about.View');
     gridView.show();
     this.control({
-      'viewport > radiogroup > button[text=Help]' : {
+      'viewport > radiogroup > button[text=About]' : {
         render : this.headerInit,
         scope : this
       }
@@ -30,7 +29,7 @@ Ext.define('CV.controller.Help', {
     this.header = btn;
   },
   show : function(params) {
-    var view = this.getHelp();
+    var view = this.getAbout();
     this.render( view );
   }
 }); 

@@ -7,17 +7,8 @@ Ext.application({
 //      'CV.ux.Router': 'app/ux/Router.js'
 //    },
     appFolder: 'app',
-    controllers: [
-        'Library',
-        'Feature',
-        'Help'
-    ],
-    requires:[
-      'CV.controller.Feature',
-      'CV.controller.Help',
-      'CV.controller.Library',
-      'CV.ux.Router'
-    ],
+    controllers: [        'Library',        'Feature',        'Help',        'About'    ],
+    requires:[      'CV.controller.Feature',      'CV.controller.Help','CV.controller.About',      'CV.controller.Library',      'CV.ux.Router'    ],
     autoCreateViewport: true,
     /**
      * flag used to determine if faceting needs to be switched on.
@@ -76,6 +67,7 @@ Ext.application({
       'feature':'feature#show',
       'feature/:id':'feature#show',
       'feature/:id/:name':'feature#show',
-      'help':'help#show'
+      'help':'help#show',
+      'about':'about#show'
     }
 });

@@ -1,16 +1,22 @@
-# November 2013
- Script:	support BLASTP
-                support networks
+# June 2014
+ Script:	support BLASTP?
  Writing:	tutorial
-		webpage
 		GUI INSTALL
 		Help text
-
- WEB:           Support networks
 
 ##################################### 
 # Future
  Script:	support PFAM?
 		support InterProScan
 
- WEB:		Protein translation on browser: http://bioinformatics.org/sms2/sms2.tar.gz
+Others
+    Theming and language support: because not every community is the same!
+    Performance improvements: we haven't done any work on improving performance and there are some clear low hanging fruits
+	* for example, each request makes a new connection to the psql server; there clearly ought to be a single live connection (even with pgbouncer)
+    Better and more powerful graphs: our graph user-interface can use improvements including more user-interactions.
+	* including fixing some issues with existing graphs
+    More data mining: currently only ontology functional annotations are searchable. Some user-interface work can vastly improve user experience by e.g. allowing users to search for genes with particular expression profiles or network memberships.
+    More data types: we have in-silico annotation, networks and gene expression experiments covered but we still lack phylogenies, wet-lab experiments (e.g. knock-outs) and other functional experiments.
+    More use-cases: because there is no reason why the Tree of Life can't have a JAMp!
+
+
