@@ -15,7 +15,7 @@ NETWORK colour with black background
 support Graph::GML 
 come up with an example where there is a valid graph network
 
-ALlow for cd-hit clustering so that protein annotations are not inflated. Or perhaps we should impose cd-hit clustering?
+Allow for cd-hit clustering so that protein annotations are not inflated. Or perhaps we should impose cd-hit clustering?
 Accepting a cd-hit input can do two things:
  - store the clustering information
  - skip reading the hhblits entries for those skipped/clustered data
@@ -130,7 +130,10 @@ Network:
 
 Expression:
 
-    * -expression_directory => Base directory of the DEW output
+    * -expression_directory  => Base directory of the DEW output
+      -extra_expression_file => If you have a file with other expression counts, you can load them here (tab delimited)
+      -extra_expression_name => Column to use in database (will be shown in web view)
+      -extra_expression_type => What type of psql value is the column (eg text, int, real; defaults to real)
 
 
 Metadata can be added/controlled:
@@ -404,7 +407,7 @@ my %NOTALLOWED_EVID = (
 
 ## end of default configurations
 
-&GetOptions(
+pod2usage $! unless &GetOptions(
  'help'  => \$dohelp,
  'debug' => \$debug,
 
@@ -2794,7 +2797,7 @@ sub process_dew_expression() {
  ) = @_;
  $dbh_store->begin_work();
  &store_library_metadata($library_alias_file);
- &store_expression_library_transcripts( $binary_expression_file, $stats_file );
+ &store_expression_library_transcripts($dbh_store, $binary_expression_file, $stats_file );
  print "Committing...\n";
  $dbh_store->commit();
 
@@ -2816,28 +2819,65 @@ sub process_dew_expression() {
 }
 
 sub process_extra_expression() {
- my ( $dbh_store, $custom_file, $column_name, $column_type ) = @_;
+ my ( $dbh_store, $custom_file ) = @_;
+ open (IN,$custom_file) || die $!;
+ my $header_str = <IN>;
+ chomp($header_str);
+ my @headers = split("\t",$header_str);
+ for (my $h=1;$h<(@headers);$h++){
+  my $library_name = $headers[$h];
+    $sql_hash_ref->{'check_expression_library'}->execute( $headers[0] );
+    my $check = $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
+    confess "Cannot find library $library_name\n" if !$check;
+ }
+ # all ok.
+ $sql_hash_ref->{'prepare_custom_statistics_transcript_expression_library'}->execute();
 
+ my $counter = int(0);
  $dbh_store->begin_work();
+ while (my $ln=<IN>){
+	chomp($ln);
+	my @data = split("\t",$ln);
+	next unless $data[1];
+	$counter++;
+	my $transcript_name = $data[0];
 
+	foreach (my $h=1;$h<(@data);$h++){
+		my $library_name = $headers[$h];
+		my $value = $data[$h];
+		$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
+		my $check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
+		if (!$check){
+			warn "Have to skip $transcript_name as it is not loaded in the transcript_expression_library table\n";
+			next;
+		}
+	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression_library'}->execute($value,$transcript_name,$library_name);
+	}
+	if ($counter % 1000 == 0){
+		 print "Committing ($counter)...   \r";
+		 $dbh_store->commit();
+	}
+ }
  print "Committing...\n";
  $dbh_store->commit();
-
+ close IN;
 }
 
 sub store_expression_library_transcripts() {
+ my $dbh_store = shift;
  my $binary_expression = shift;
  my $stats_file        = shift;
- &process_binary($binary_expression);
- &process_expression_stats($stats_file);
+ &process_binary($dbh_store,$binary_expression);
+ &process_expression_stats($dbh_store,$stats_file);
 }
 
 sub process_expression_stats() {
+ my $dbh_store = shift;
  my $stats_file = shift;
  open( IN, $stats_file ) || die($!);
  my @headers = split( "\t", <IN> );
  chomp( $headers[-1] );
-
+ my $counter;
 # currently:
 # Checksum Gene alias  Readset Raw_Counts  RPKM    Express_FPKM    Express_TPM Express_eff.counts  KANGADE_counts  TMM_Normalized.count    TMM.FPKM    TMM.TPM
  print "Processing expression statistics via $stats_file\n";
@@ -2849,13 +2889,19 @@ sub process_expression_stats() {
   my $md5_sum          = $data[0];
   my $transcript_uname = $data[1];
   my $library_uname    = $data[2];
+   $sql_hash_ref->{'check_transcript'}->execute( $transcript_uname);
+   my $tr_check = $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
+   if (!$tr_check){
+	warn "Have to skip $transcript_uname because it doesn't exist in the transcript table\n";
+	next;
+   }
+
 
   # do it this way in case headers change again
   my %hash;
   for ( my $i = 3 ; $i < scalar(@data) ; $i++ ) {
    $hash{ $headers[$i] } = $data[$i];
   }
-
   $sql_hash_ref->{'check_transcript_expression_library'}
     ->execute( $transcript_uname, $library_uname );
   my $sql_res =
@@ -2868,7 +2914,7 @@ sub process_expression_stats() {
    next;
   }
   my $id = $sql_res->[0];
-
+  $counter++;
   # undefined values are SET as null
 
   $sql_hash_ref->{'update_statistics_transcript_expression_library'}->execute(
@@ -2878,24 +2924,39 @@ sub process_expression_stats() {
                          $hash{'TMM_Normalized.count'}, $hash{'TMM.FPKM'},
                          $hash{'TMM.TPM'},              $id
   );
+  if ($counter % 1000 == 0){
+	print "Committed $counter    \r";
+	$dbh_store->commit();
+	$dbh_store->begin_work();
+  }
  }
+ print "Committed $counter    \r";
+ $dbh_store->commit();
+ $dbh_store->begin_work();
  close IN;
 }
 
 sub process_binary() {
+ my $dbh_store = shift;
  my $binary_expression = shift;
  open( IN, $binary_expression ) || die($!);
- my @headers = split( "\t", <IN> );
- chomp( $headers[-1] );
+ my $header_str =  <IN>;chomp($header_str);
+ my @headers = split( "\t", $header_str );
  print "Linking transcripts to expression libraries via $binary_expression\n";
-
+ my $counter=1;
 OUTER: while ( my $ln = <IN> ) {
   next if $ln =~ /^\s*$/;
   chomp($ln);
   my @data = split( "\t", $ln );
-  next unless $data[1];
+  next unless $data[1] && $data[1] =~ /^[01]$/;
+  $sql_hash_ref->{'check_transcript'}->execute( $data[0]);
+  my $tr_check = $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
+  if (!$tr_check){
+	warn "Have to skip ".$data[0]." because it doesn't exist in the transcript table\n";
+	next;
+  }
+  $counter++;
   for ( my $i = 1 ; $i < scalar(@data) ; $i++ ) {
-   next OUTER unless $data[$i] =~ /^[01]$/;
    my $library_name = $headers[$i];
    if ( $data[$i] == 1 ) {
     $sql_hash_ref->{'check_transcript_expression_library'}
@@ -2913,10 +2974,18 @@ OUTER: while ( my $ln = <IN> ) {
        ->fetchrow_arrayref();
      die "Can't store expression data..."
        if !$check;
+	  if ($counter % 1000 == 0){
+		print "Committed $counter    \r";
+		$dbh_store->commit();
+		$dbh_store->begin_work();
+	  }
     }
    }
   }
  }
+ print "Committed $counter    \r";
+ $dbh_store->commit();
+ $dbh_store->begin_work();
  close IN;
 }
 
@@ -2935,28 +3004,35 @@ sub store_pictures() {
    $format = lc($1);
   }
   next unless $format && $allowed_formats{$format};
-  if ( $picture_basename =~ /^([^\-\_\.]+)/ ) {
-   $md5sum = $1;
-   $sql_hash_ref->{'get_transcript_from_md5sum'}->execute($md5sum);
-   my $res = $sql_hash_ref->{'get_transcript_from_md5sum'}->fetchrow_arrayref();
-   if ($res) {
-    $transcript_uname = $res->[0];
-    $sql_hash_ref->{'check_transcript_expression_image'}
-      ->execute( $transcript_uname, $graph_type, $format );
-    next
-      if $sql_hash_ref->{'check_transcript_expression_image'}
-       ->fetchrow_arrayref();
-   }
-   else {
-    warn "No transcript name found for md5sum $md5sum\n";
-    $warnings_msgs++;
-    die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
-    next;
-   }
-  }
-  else {
-   next;
-  }
+  # changed it to using the name because when aligning CDS, we don't have a 
+  # sequence checksum (yet).
+  $picture_basename =~s/_gene_expression\.\w{3}$//;
+  $picture_basename =~s/_gene_coverage\.\w{3}$//;
+  $transcript_uname = $picture_basename;
+  $sql_hash_ref->{'check_transcript'}->execute( $transcript_uname);
+  confess ("Cannot find transcript $transcript_uname in the database (taken from file $picture)\n") unless $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
+  $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $graph_type, $format );
+  next if $sql_hash_ref->{'check_transcript_expression_image'}->fetchrow_arrayref();
+
+  #if ( $picture_basename =~ /^([^\-\_\.]+)/ ) {
+#   $md5sum = $1;
+#   $sql_hash_ref->{'get_transcript_from_md5sum'}->execute($md5sum);
+#   my $res = $sql_hash_ref->{'get_transcript_from_md5sum'}->fetchrow_arrayref();
+#   if ($res) {
+#    $transcript_uname = $res->[0];
+#    $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $graph_type, $format );
+#    next  if $sql_hash_ref->{'check_transcript_expression_image'}->fetchrow_arrayref();
+#   }
+#   else {
+#    warn "No transcript name found for md5sum $md5sum\n";
+#    $warnings_msgs++;
+#    die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
+#    next;
+#   }
+#  }
+#  else {
+#   next;
+#  }
   my $filedata = &read_whole_file($picture);
   next unless $filedata;
   $sql_hash_ref->{'store_transcript_expression_image'}
@@ -3303,21 +3379,14 @@ sub prepare_native_inference_sqls() {
 "INSERT INTO transcript_expression_library (transcript_uname,library_uname) VALUES (?,?)"
  );
 
- $sql_hash{'get_transcript_from_md5sum'} =
-   $dbh->prepare("SELECT uname from transcript WHERE nuc_checksum=?");
+ $sql_hash{'get_transcript_from_md5sum'} = $dbh->prepare("SELECT uname from transcript WHERE nuc_checksum=?");
 
  $sql_hash{'update_statistics_transcript_expression_library'} = $dbh->prepare(
 "UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
  );
  if ( $extra_expression_column_name && $extra_expression_column_type ) {
-  $sql_hash{'store_custom_statistics_transcript_expression_library'} =
-    $dbh->prepare(
-"ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type"
-    );
-  $sql_hash{'update_custom_statistics_transcript_expression_library'} =
-    $dbh->prepare(
-"UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_expression_library_id=?"
-    );
+  $sql_hash{'prepare_custom_statistics_transcript_expression_library'} =  $dbh->prepare("ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type"    );
+  $sql_hash{'store_custom_statistics_transcript_expression_library'} =    $dbh->prepare("UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_uname=? AND transcript_expression_library_id=? "    );
  }
 
  #
@@ -3985,11 +4054,11 @@ sub store_annotation_of_proteins() {
    my @binary_expression_files =
      glob( $expression_dew_outdir . '/*.expression_levels.binary.tsv' );
    my $gene_coverage_directory =
-     $expression_dew_outdir . '/gene_coverage_plots';
+     $expression_dew_outdir . '/gene_coverage_plots/gene_names';
    my $gene_expression_directory_fpkm =
-     $expression_dew_outdir . '/gene_expression_fpkm';
+     $expression_dew_outdir . '/gene_expression_fpkm/gene_names';
    my $gene_expression_directory_tpm =
-     $expression_dew_outdir . '/gene_expression_tpm';
+     $expression_dew_outdir . '/gene_expression_tpm/gene_names';
 
    my @stats_files =
      glob( $expression_dew_outdir . '/*.expression_levels.stats.tsv' );
@@ -4045,9 +4114,7 @@ sub store_annotation_of_proteins() {
 "Processing extra expression data using the file $extra_expression_custom_file and storing it as a $extra_expression_column_name (type:$extra_expression_column_type)\n";
    &process_extra_expression(
                               $dbh_store,
-                              $extra_expression_custom_file,
-                              $extra_expression_column_name,
-                              $extra_expression_column_type
+                              $extra_expression_custom_file
    );
   }
  }

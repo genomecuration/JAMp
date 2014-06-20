@@ -124,6 +124,7 @@ Ext.define('CV.controller.Feature', {
   },
   options:{
     graphType : 'Genome',
+    imageDir : 'css/images/canvasxpress/',
     useFlashIE : true,
     backgroundType : 'gradient',
     backgroundGradient1Color : 'rgb(0,183,217)',

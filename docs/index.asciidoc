@@ -5,25 +5,30 @@
 = Just_Annotate_My_proteins (JAMp) =
 
 == Introduction == 
-Whether working on a model species for biomedical, economical or evolutionary research, next-generation sequencing has enabled biologists to rapidly generate a reference sequence for downstream applications and hypotheses generation. With the exception of a limited number of species, functional annotation is conducted by _in-silico_ experiments based on sequence similarity. JAMp is a platform that allows biologists to reclaim the analysis of transcript reconstruction experiments by providing an automated, user-friendly overview of these _in-silico_ experiments.
-
-== How does it look? == 
-A core element of JAMp is its rich Graphical User Interface (GUI). Such interfaces are important not only because they allow biologists to explore their data without using the command line and spreadsheets but because it provide a vastly more efficient human-machine interface (i.e. yes, many expert bioinformaticians also use GUIs to conduct analyses!). See http://annotation.insectacentral.org/demo[this demo].
+Whether working on a model or non-model species for biomedical, economical or evolutionary research, next-generation sequencing has enabled biologists to rapidly generate a reference sequence for downstream applications and hypotheses generation. With the exception of a limited number of species, functional annotation is conducted by _in-silico_ experiments based on sequence similarity. Some groups are also enriching their data with expression studies. JAMp is a platform that allows biologists to reclaim the analysis of transcript reconstruction experiments by providing an automated process for generating functional annotations and a user-friendly overview of these _in-silico_ experiments. The entire software is built so that novice command-line users can take a transcriptome assembly and generate websites like those found in our http://annotation.insectacentral.org/demo[demo].
 
 == How does it work == 
-Like most bioinformatic software, JAMp and its dependencies must first be installed before end-users can use it. The process is by itself simple but Linux system administration is often an onerous task so feel free to ask our mailto:jamps-users@lists.sourceforge.net[user mailing list] if you require help.
+Like most bioinformatic software, JAMp and its dependencies must first be installed before end-users can use it. The process is by itself simple but Linux system administration is often an onerous task so feel free to ask our mailto:jamps-users@lists.sourceforge.net[user mailing list] if you require help. 
 
 * First, administrators install the software, including the annotation database and a website that drives the GUI. This needs to occur only once and they are very simple
 ** Administrators also have to install the HHblits software that we use for conducting the Hidden Markov searches. As a High Performance Computing (HPC) environment is required, your HPC administrators might be able to help (no compilation is required so that too ought to be simple - and we may be able to help)
-* Second, for every reference sequence (e.g. a Trinity RNA-Seq transcript assembly), users with some command of the Linux command line) conduct the _in-silico_ experiment (currently HHblits is supported). A perl script then stores the output and relevant metadata (e.g. name of species) into the JAMp database
-* The users (and the anyone with access to the website, such as paper reviewers and readers) use their browser to explore the functional annotations using a powerful yet intuitive GUI.
+* Second, the assembly file is used to predict proteins with our quick-n-easy protein prediction software http://transdecoder.sourceforge.net/[TransDecoder] 
+* Third, you conduct the _in-silico_ experiment (currently HHblits is supported). These are conducted using Hidden-Markov searches against a SwissProt database (the universal archive of all proteins that have experimental functional information).
+* Optionally, you can align any RNA-Seq datasets you have against your reference and generate a number of informative graphs with our software http://dew.sourceforge.net[DEW]. 
+* Once all the _in-silico_ experiments are complete, a script then stores the output and relevant metadata (e.g. name of species) into the JAMp database. This database can drive multiple websites/datasets, each with their own user-authentication criteria.
+* Finally, the users (and the anyone with access to the website, such as paper reviewers and readers) use their browser to explore the functional annotations using a powerful yet intuitive GUI.
 
 Too easy!
+
+== How does it look? == 
+
+A core element of JAMp is its rich Graphical User Interface (GUI). Such interfaces are important not only because they allow biologists to explore their data without using the command line and spreadsheets but because it provide a vastly more efficient human-machine interface (i.e. yes, many expert bioinformaticians also use GUIs to conduct analyses!). See http://annotation.insectacentral.org/demo[this demo] for an example of how your community's new website could look like.
+
 
 == Controlled Vocabularies == 
 We use a number of control vocabularies (and ontologies) to organize the way we present functional annotation knowledge. There is no limit to what kind of vocabularies JAMp can support but we are currently using the http://www.geneontology.org[Gene Ontology]. http://www.chem.qmul.ac.uk/iubmb/enzyme/[Enzyme Classification] (currently primarily for bacteria), http://eggnog.embl.de[EggNOG] and http:www.genome.jp/kegg/[Kyoto Encyclopedia of Genes and Genomes] (KEGG).
 
-WARNING: Users must understand a bit about the process of electronic inference. We have an unknown protein and we wish to infer what it may do. We don't have any functional data so we look for (using a software, i.e. ''in-silico''), a 'similar' known protein that has experimental evidence. We then infer that our protein has the same function. JAMP ensures that only known proteins with real experimental evidence are used in this inference, in other words, we are being careful not to do a double inference: assigning a function to our unknown protein because it is similar to another protein that has no experimental data but is similar to one that does. In theory this reduces the sensitivity of our search but the way we populate the database and identify our similar known proteins is not by BLAST but by a Hidden Markov search which is far more sensitive (see below).
+WARNING: Users must understand a bit about the process of electronic inference. We have an unknown protein and we wish to infer what it may do or what process it may be involved in. We don't have any functional data so we look for (using a software, i.e. ''in-silico''), a 'similar' known protein that has experimental evidence. We then infer that our protein has the same function. JAMp ensures that only known proteins with real experimental evidence are used in this inference, in other words, we are being careful not to do a double inference: assigning a function to our unknown protein because it is similar to another protein that has no experimental data but is similar to one that does. In theory this reduces the sensitivity of our search but the way we populate the database and identify our similar known proteins is not by BLAST but by a Hidden Markov search which is far more sensitive (see below).
 
 == High-Performance Computing == 
 IMPORTANT: Overall, annotating with JAMp is significantly faster than annotating with the traditional BLASTx approach. This is especially true in the NGS era. In the past, transcriptomic projects were composed of a few hundred reliable genes and therefore tasks based on BLAST (e.g. BLAST2GO), were commonplace. In the RNAseq era, it is commonplace that dozens of thousands of high quality transcripts are reconstructed. Further, full genome sequencing (and gene model reconstruction) is now available for hundrends of species. Further, the so called non-model species are often significantly divergent from Arabidopsis, Fruitfly, Human/Mouse, Yeast etc that a model-based, recursive yet time-consuming searches are required (such PSI-BLAST or an HMM search). 
@@ -39,27 +44,36 @@ Basically, _Just_Annotate_My_proteins_ does exactly what it reads on the tin! Yo
  
 Freely distributed from https://sourceforge.net/projects/jamps/files/RC/[here]. Please subscribe to the https://lists.sourceforge.net/lists/listinfo/jamps-users[user mailing list].
 
-It's not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document).
+It's not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document). Any JAMp websites you build can be released under any license you want decides but you must keep the Author & license copyright notice (and add your copyright at the bottom).
 
- 
-== Running JAMg
+== What's next?
 
-See README in distribution. More information coming up.
+We have a number of new features in mind but we haven't yet sought any funding. If you want to sponsor or enhance JAMp with your efforts, let us mailto:alexie.papanicolaou@csiro.au[know].
 
+.Example new features
+* Theming and language support: because not every community is the same!
+* Performance improvements: we haven't done any work on improving performance and there are some clear low hanging fruits
+* Better and more powerful graphs: our graph user-interface can use improvements including more user-interactions.
+* More data mining: currently only ontology functional annotations are searchable. Some user-interface work can vastly improve user experience by e.g. allowing users to search for genes with particular expression profiles or network memberships.
+* More data types: we have _in-silico_ annotation, networks and gene expression experiments covered but we still lack phylogenies, wet-lab experiments (e.g. knock-outs) and other functional experiments.
+* More use-cases: because there is no reason why the Tree of Life can't have a JAMp!
 
 == Authors & license ==
 
-Copyright 2012-2014 the http://csiro.au[Commonwealth Scientific and Industrial Research Organization].
+Copyright 2012-2014 the http://www.csiro.au[Commonwealth Scientific and Industrial Research Organization].
 
- Temi Varghese and Alexie Papanicolaou
+ Alexie Papanicolaou and Temi Varghese
 
  CSIRO Ecosystem Sciences
- temi.varghese@csiro.au
  alexie.papanicolaou@csiro.au
 
- Copyright CSIRO 2013-2014.
- This software is released under the Mozilla Public License v.2. You can find the terms and conditions at http://www.mozilla.org/MPL/2.0.
- It is provided "as is" without warranty of any kind.
+ This software and Website is Copyright CSIRO 2013-2014. They are provided "as is" without warranty of any kind.
+ The software is released under a modified Apache License v.2. You can find the terms and conditions in the software distribution.
+ Demonstration JAMp websites are released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.
+
+== Website copyright ==
+
+ This website is released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.
 
 
 

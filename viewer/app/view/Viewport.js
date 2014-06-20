@@ -5,7 +5,7 @@
 Ext.define('CV.view.Viewport', {
     extend: 'Ext.Viewport',
     layout: 'fit',
-    requires: ['CV.controller.Library','CV.controller.Feature','CV.controller.Help','CV.view.help.View','Ext.layout.container.Border','Ext.resizer.Splitter','CV.ux.Router'],
+    requires: ['CV.controller.Library','CV.controller.Feature','CV.controller.Help','CV.controller.About','CV.view.about.View','CV.view.help.View','Ext.layout.container.Border','Ext.resizer.Splitter','CV.ux.Router'],
     initComponent: function() {
       var me = this, treeStore, treePanel, gridPanel, gridStore, btns = [], btnTmp = {
         text: '',
@@ -13,15 +13,11 @@ Ext.define('CV.view.Viewport', {
         id: 'Btn'
       };
       
-      // Ext.iterate( CV.controller , function ( key , value ) {
-        // if ( value.name !== 'Help'){
-          // btns.push( me.createButtonConfig( value ) );
-        // }
-      // });
       btns.push( me.createButtonConfig( CV.controller.Library ) );
       btns.push( me.createButtonConfig( CV.controller.Feature ) );
       // do for 
       btns.push( {xtype:'tbfill'} ); 
+      btns.push( this.createButtonConfig( CV.controller.About ) );
       btns.push( this.createButtonConfig( CV.controller.Help ) );
 
       
