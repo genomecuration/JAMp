@@ -10,7 +10,6 @@ Ext.define('CV.controller.Help', {
   name: 'Help',
   uri : 'help',
   text: 'Help',
-  text:'About',
   init : function() {
     var treeView, gridView;
     gridView = Ext.create('CV.view.help.View');

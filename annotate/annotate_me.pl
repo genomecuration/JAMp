@@ -861,7 +861,7 @@ sub create_new_annotation_db() {
  
 CREATE TABLE inference (
     inference_id serial primary key,
-    name character varying(255),
+    name text,
     description text,
     filepath text NOT NULL,
     program character varying(255) NOT NULL,
@@ -950,7 +950,7 @@ sub create_chado_inference_tables() {
  $dbh->do( '
  CREATE TABLE inference (
     inference_id serial primary key,
-    name character varying(255),
+    name text,
     description text,
     filepath text NOT NULL UNIQUE,
     program character varying(255) NOT NULL,
@@ -1255,7 +1255,7 @@ CREATE TABLE transcript_note (
  $dbh->do( '
  CREATE TABLE inference (
     inference_id serial primary key,
-    name character varying(255),
+    name text,
     description text,
     filepath text NOT NULL UNIQUE,
     program character varying(255) NOT NULL,
@@ -3010,7 +3010,11 @@ sub store_pictures() {
   $picture_basename =~s/_gene_coverage\.\w{3}$//;
   $transcript_uname = $picture_basename;
   $sql_hash_ref->{'check_transcript'}->execute( $transcript_uname);
-  confess ("Cannot find transcript $transcript_uname in the database (taken from file $picture)\n") unless $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
+  unless ($sql_hash_ref->{'check_transcript'}->fetchrow_arrayref()){
+	  warn "Cannot find transcript $transcript_uname in the database (taken from file $picture). Skipping\n" ;
+	  next;
+  }
+ 
   $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $graph_type, $format );
   next if $sql_hash_ref->{'check_transcript_expression_image'}->fetchrow_arrayref();
 
