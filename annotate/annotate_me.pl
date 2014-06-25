@@ -1123,7 +1123,7 @@ sub create_native_inference_tables() {
    )
    ' );
  $dbh->do(
-    'CREATE UNIQUE INDEX gene_dbxref_idx ON gene_dbxref(gene_uname,dbxref_id)');
+    'CREATE INDEX gene_dbxref_idx ON gene_dbxref(gene_uname,dbxref_id)');
  $dbh->do( '
 CREATE TABLE gene_note (
     gene_uname varchar REFERENCES gene(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
@@ -1167,7 +1167,7 @@ CREATE TABLE gene_note (
    )
    ' );
  $dbh->do(
-'CREATE UNIQUE INDEX transcript_dbxref_idx ON transcript_dbxref(transcript_uname,dbxref_id)'
+'CREATE INDEX transcript_dbxref_idx ON transcript_dbxref(transcript_uname,dbxref_id)'
  );
 
  $dbh->do( '
@@ -1219,7 +1219,7 @@ CREATE TABLE transcript_note (
    ' );
 
  $dbh->do(
-       'CREATE UNIQUE INDEX cds_dbxref_idx ON cds_dbxref(cds_uname,dbxref_id)');
+       'CREATE INDEX cds_dbxref_idx ON cds_dbxref(cds_uname,dbxref_id)');
 
  $dbh->do( '
   CREATE TABLE cds_transcript (
@@ -2160,6 +2160,9 @@ RECORD: while ( my $record = <IN> ) {
    my $date_searched = shift(@record_lines);
    if ( $date_searched =~ /^Date\s+(.+)/ ) {
     $date_searched = $1;
+   }else{
+	$date_searched = 'Unknown';
+	warn "Date is unknown for query $query. Will set as unknown\n";
    }
    my $command = shift(@record_lines);
    if ( $command =~ /^Command\s+(.+)/ ) {
@@ -2375,7 +2378,7 @@ Score: the raw score, which does not include the secondary structure score.
    $sql_hash_ref->{'check_inference'}->execute($absolute_infile_name);
    $inference_exists = $sql_hash_ref->{'check_inference'}->fetchrow_arrayref();
    unless ( $inference_exists && $inference_exists->[0] ) {
-    confess "Couldn't store inference in database for $infile.\n";
+    confess "Couldn't store inference in database for $infile.";
    }
   }
 
@@ -2823,44 +2826,64 @@ sub process_extra_expression() {
  open (IN,$custom_file) || die $!;
  my $header_str = <IN>;
  chomp($header_str);
+ my %skipped_lib_indexes;
  my @headers = split("\t",$header_str);
  for (my $h=1;$h<(@headers);$h++){
   my $library_name = $headers[$h];
-    $sql_hash_ref->{'check_expression_library'}->execute( $headers[0] );
+    $sql_hash_ref->{'check_expression_library'}->execute( $library_name );
     my $check = $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
-    confess "Cannot find library $library_name\n" if !$check;
+    if (!$check){
+	$skipped_lib_indexes{$h}=1;
+	    warn "Cannot find library $library_name. Will skip from processing\n";
+    }
  }
  # all ok.
+ $dbh_store->{"PrintError"} = 0;
+ $dbh_store->{"RaiseError"} = 0;
  $sql_hash_ref->{'prepare_custom_statistics_transcript_expression_library'}->execute();
-
  my $counter = int(0);
+ $dbh_store->{"RaiseError"} = 1;
  $dbh_store->begin_work();
+
  while (my $ln=<IN>){
 	chomp($ln);
 	my @data = split("\t",$ln);
+	confess "There are more data than headers for line:\n$ln\n vs \n$header_str\n\n" unless scalar(@data) == scalar(@headers);
 	next unless $data[1];
 	$counter++;
 	my $transcript_name = $data[0];
+	confess "No transcript name? $ln\n" unless $transcript_name;
 
 	foreach (my $h=1;$h<(@data);$h++){
+		next if $skipped_lib_indexes{$h};
 		my $library_name = $headers[$h];
+		confess "No library name for library $h?\n$header_str\n" unless $library_name;
 		my $value = $data[$h];
+		confess "No value for value $h?\n$ln\n" unless defined($value);
 		$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
 		my $check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
 		if (!$check){
-			warn "Have to skip $transcript_name as it is not loaded in the transcript_expression_library table\n";
-			next;
+			$sql_hash_ref->{'store_transcript_expression_library'}->execute( $transcript_name, $library_name );
+			$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
+			$check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
+			confess "Cannot add a new transcript_expression_library for \n$ln\n" if !$check;
 		}
-	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression_library'}->execute($value,$transcript_name,$library_name);
+		
+	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression_library'}->execute($value,$transcript_name,$check->[0]);
+		confess if $dbh_store->{"ErrCount"};
 	}
 	if ($counter % 1000 == 0){
-		 print "Committing ($counter)...   \r";
 		 $dbh_store->commit();
+		 print "Committed ($counter) transcripts...   \r";
+		 confess if $dbh_store->{"ErrCount"};
+	 	 $dbh_store->begin_work();
 	}
  }
  print "Committing...\n";
  $dbh_store->commit();
  close IN;
+ $dbh_store->{"PrintError"} = 1;
+ $dbh_store->{"RaiseError"} = 0;
 }
 
 sub store_expression_library_transcripts() {
@@ -3389,6 +3412,9 @@ sub prepare_native_inference_sqls() {
 "UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
  );
  if ( $extra_expression_column_name && $extra_expression_column_type ) {
+  $extra_expression_column_name  = lc($extra_expression_column_name );
+  $extra_expression_column_type = lc($extra_expression_column_type);
+  die "Extra expression column type must be real, integer or varchar\n" unless $extra_expression_column_type eq 'real' || $extra_expression_column_type eq 'integer' || $extra_expression_column_type eq 'varchar';
   $sql_hash{'prepare_custom_statistics_transcript_expression_library'} =  $dbh->prepare("ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type"    );
   $sql_hash{'store_custom_statistics_transcript_expression_library'} =    $dbh->prepare("UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_uname=? AND transcript_expression_library_id=? "    );
  }
@@ -4552,14 +4578,14 @@ sub store_dbxref() {
   $sql_hash_ref->{'create_db'}->execute($db);
   $sql_hash_ref->{'check_db'}->execute($db);
   $db_res = $sql_hash_ref->{'check_db'}->fetchrow_arrayref();
-  die "Cannot insert DB $db\n" unless $db_res->[0];
+  confess "Cannot insert DB $db\n" unless $db_res->[0];
  }
 
  my $db_id = $db_res->[0];
  $sql_hash_ref->{'store_dbxref'}->execute( $db_id, $dbxref );
  $sql_hash_ref->{'check_dbxref'}->execute( $db,    $dbxref );
  $dbxref_res = $sql_hash_ref->{'check_dbxref'}->fetchrow_arrayref();
- die "Cannot insert DBxref $db $dbxref\n" unless $dbxref_res->[0];
+ confess "Cannot insert DBxref $db $dbxref\n" unless $dbxref_res->[0];
  return $dbxref_res->[0];
 
 }

@@ -157,7 +157,7 @@ function feature_expression_metadata($id){
             $library_name = $data_array['library_uname'];
             foreach ($data_array as $key=>$value){
               if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
-              $key =  $key.':'.$library_name;
+              $key =  $library_name.':'.$key;
               $transcript_expression_sum[$key]+=$value;
             }
           }
@@ -177,7 +177,7 @@ function feature_expression_metadata($id){
         $library_name = $data_array['library_uname'];
         foreach ($data_array as $key=>$value){
           if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
-          $key =  $key.':'.$library_name;
+          $key =  $library_name.':'.$key;
           $return_array[] = array('term'=>$key,'value'=>$value);
         }
       }
