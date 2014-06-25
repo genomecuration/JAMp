@@ -15,6 +15,13 @@ Ext.application({
      */
     facets:true,
     launch:function(){
+	Ext.override(Ext.data.Connection, {
+	    timeout: 120000
+	});
+	Ext.Ajax.timeout = 120000;
+	Ext.override(Ext.data.proxy.Ajax, { timeout: 120000 });
+	Ext.override(Ext.form.action.Action, { timeout: 120 });
+
       /* 
         * Override Ext.app.Controller to provide render capability. I believe each application
         * will handle rendering task different (some will render into a viewport, some in tabs, etc...), 

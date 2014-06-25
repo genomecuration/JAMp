@@ -50,7 +50,7 @@ Ext.define('CV.view.feature.View', {
         collapsible : true,
         closeable : true,
         split:true,
-        width:200,
+        width:400,
         layout : {
           // layout-specific configs go here
           type : 'accordion',
