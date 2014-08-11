@@ -383,8 +383,16 @@ function get_featureFasta($feature_id, $seqtype=NULL){
               case 'cds' :
                 $sql = sprintf($sqlQueries['fastaCDS'], pg_escape_string($params['dataset_id']), pg_escape_string($transcript_id));
                 $result = query_execute(null, $sql, null);
-                $start = $result[0]['cds_start'] - 1;
-                $stop = ($result[0]['cds_stop'] - 1);
+                if (empty($result) || empty($result[0])){
+                   break;
+                }elseif ($result[0]['strand'] === '+'){
+                   $start = $result[0]['cds_start'] - 1;
+                   $stop = ($result[0]['cds_stop'] - 1);
+                }else{
+                   # this applies only to transcriptome assemblies, as genome assemblies are always +strand
+                   $start = strlen($result[0]['residues']) - $result[0]['cds_stop'] ;
+                   $stop = strlen($result[0]['residues']) - $result[0]['cds_start'] ;
+                }
                 $len = $stop - $start + 1;
                 $cds_sequence = substr($result[0]['residues'], $start, $len);
                 $result[0] = array_replace($result[0], array('residues' => $cds_sequence));
@@ -417,8 +425,16 @@ function get_featureFasta($feature_id, $seqtype=NULL){
         case 'cds' :
           $sql = sprintf($sqlQueries['fastaCDS'], pg_escape_string($params['dataset_id']), pg_escape_string($params['id']));
           $result = query_execute(null, $sql, null);
-          $start = $result[0]['cds_start'] - 1;
-          $stop = ($result[0]['cds_stop'] - 1);
+          if (empty($result) || empty($result[0])){
+             break;
+          }elseif ($result[0]['strand'] === '+'){
+             $start = $result[0]['cds_start'] - 1;
+             $stop = ($result[0]['cds_stop'] - 1);
+          }else{
+             # this applies only to transcriptome assemblies, as genome assemblies are always +strand
+             $start = strlen($result[0]['residues']) - $result[0]['cds_stop'] ;
+             $stop = strlen($result[0]['residues']) - $result[0]['cds_start'] ;
+          }
           $len = $stop - $start + 1;
           $cds_sequence = substr($result[0]['residues'], $start, $len);
           $result[0] = array_replace($result[0], array('residues' => $cds_sequence));
