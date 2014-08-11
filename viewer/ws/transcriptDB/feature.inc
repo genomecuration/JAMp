@@ -387,8 +387,8 @@ function get_featureFasta($feature_id, $seqtype=NULL){
                    break;
                 }elseif ($result[0]['strand'] === '+'){
                    $start = $result[0]['cds_start'] - 1;
-                   $stop = ($result[0]['cds_stop'] - 1);
-                }else{
+                   $stop =  $result[0]['cds_stop'] - 1;
+                }elseif ($result[0]['strand'] === '-'){
                    # this applies only to transcriptome assemblies, as genome assemblies are always +strand
                    $start = strlen($result[0]['residues']) - $result[0]['cds_stop'] ;
                    $stop = strlen($result[0]['residues']) - $result[0]['cds_start'] ;
@@ -429,8 +429,8 @@ function get_featureFasta($feature_id, $seqtype=NULL){
              break;
           }elseif ($result[0]['strand'] === '+'){
              $start = $result[0]['cds_start'] - 1;
-             $stop = ($result[0]['cds_stop'] - 1);
-          }else{
+             $stop =  $result[0]['cds_stop'] - 1;
+          }elseif ($result[0]['strand'] === '-'){
              # this applies only to transcriptome assemblies, as genome assemblies are always +strand
              $start = strlen($result[0]['residues']) - $result[0]['cds_stop'] ;
              $stop = strlen($result[0]['residues']) - $result[0]['cds_start'] ;

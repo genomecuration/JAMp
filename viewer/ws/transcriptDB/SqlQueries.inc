@@ -26,7 +26,7 @@ $sqlQueries = array(
  * @param 1: dataset id
  * @param 2: uname id
  */
-	'fastaCDS'=>'SELECT c.uname AS feature_id  , nuc_sequence AS residues , c.uname AS uniquename, cds_start, cds_stop FROM dataset_%1$d.cds c JOIN dataset_%1$d.transcript t ON c.transcript_uname = t.uname WHERE c.uname = \'%2$s\'',
+	'fastaCDS'=>'SELECT c.uname AS feature_id, c.strand  , nuc_sequence AS residues , c.uname AS uniquename, cds_start, cds_stop FROM dataset_%1$d.cds c JOIN dataset_%1$d.transcript t ON c.transcript_uname = t.uname WHERE c.uname = \'%2$s\'',
 	'fastaTranscript'=>'SELECT t.uname AS feature_id , nuc_sequence AS residues, t.uname AS uniquename FROM dataset_%1$d.transcript t WHERE t.uname = \'%2$s\'',
 /*
  * @param 1: id of dataset
