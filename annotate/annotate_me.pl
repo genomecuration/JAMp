@@ -3600,12 +3600,13 @@ sub parse_transcript_gff() {
           'genome_reference' => $genome_reference_sequence,
           'genome_start'     => $data[3],
           'genome_end'       => $data[4],
-          'genome_strand'    => $data[6],
+          'genome_strand'    => $data[6]
+          
    ) if $genome_reference_sequence;
    $g{'gene_alias'}  = $gene_alias    if $gene_alias;
    $g{'gene_dbxref'} = \@gene_dbxrefs if @gene_dbxrefs;
    $g{'gene_note'}   = \@gene_notes   if @gene_notes;
-
+   
    #store gene data
    $gene_gff_data{$gene_uname} = \%g;
 
@@ -3649,7 +3650,8 @@ sub parse_transcript_gff() {
              'gene_uname' => $gene_uname,
              'start'      => $data[3],
              'stop'       => $data[4],
-             'strand'     => $data[6]       # +,- or .
+             'strand'     => $data[6],       # +,- or .
+             'transcript_length'     => abs($data[4] - $data[3]) + 1
    );
 
    $t{'transcript_alias'}  = $transcript_alias    if $transcript_alias;
@@ -3851,6 +3853,7 @@ sub store_native_transcripts() {
   print "Adding transcript $transcript_uname\n" if $debug;
 
   my $seq = $seq_obj->get_sequence();
+  my $transcript_length = length($seq);
   $sql_hash_ref->{'store_transcript_name_seq'}
     ->execute( $transcript_uname, $seq, md5_hex($seq) );
 
@@ -3901,6 +3904,19 @@ sub store_native_transcripts() {
 
   if ( $cds_gff_data_ref->{$transcript_uname} ) {
    my $cds_data = $cds_gff_data_ref->{$transcript_uname};
+   
+   # TODO: we are currently storing reverse strand data for transcriptomes, however it
+   # would be better to flip the co-oords and store the positive strand only
+   # so we can have a direct link to transcript. would require editing the older transcriptomes
+   if ($cds_data->{'strand'} eq '-' && $transcript_length){
+     my $flipped_start = $transcript_length - $cds_data->{'stop'} + 1;
+     my $flipped_end = $transcript_length - $cds_data->{'start'} + 1;
+     $cds_data->{'start'} = $flipped_start;
+     $cds_data->{'stop'} = $flipped_end;
+     $cds_data->{'strand'} = '+';
+   }
+   
+   
    $sql_hash_ref->{'store_cds'}->execute(
                                $cds_data->{'cds_uname'},  $transcript_uname,
                                $translation_table_number, $cds_data->{'start'},
