@@ -104,7 +104,8 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      OR
      -gff_genome   :s    => GFF3 file linking genes to Genome (e.g. official gene predictions, alignments via GMAP, exonerate or prepare_golden_genes_for_predictors.pl)
      -genome_fasta :s    => The FASTA file for the Genome
-     -gene_ids           => Use the GFF gene/mRNA IDs instead of the Name tag (needed for JAMg, EVM or PASA)
+     -gene_ids           => Use the GFF gene/mRNA IDs instead of the Name tag (needed for JAMg, EVM or PASA). Useful if subsequent manual curation (all IDs tags must be globally unique)
+     -names_unique       => If NOT -gene_ids and -names_unique given, then the Name tag is used as is (no -RA suffixes).  Useful if subsequent manual curation (all Name tags must be globally unique)
      OR
      -delete       :s      => Delete dataset (provide an ID or name)
      
@@ -369,7 +370,7 @@ my (
      $do_inferences,           $dohelp,
      $do_slow,                 $delete_dataset,
      $nojson,                  $expression_dew_outdir,
-     $force_used_gene_gff_ids, $genome_name_version
+     $force_used_gene_gff_ids, $genome_name_version, $assume_unique_gene_gff_names
 );
 
 my ( $extra_expression_column_name, $extra_expression_custom_file );
@@ -445,6 +446,7 @@ pod2usage $! unless &GetOptions(
  'genome_name_version:s' =>
    \$genome_name_version,     # use fasta filename if not given
  'gene_ids' => \$force_used_gene_gff_ids,
+ 'names_unique' => \$assume_unique_gene_gff_names,
 
  'translation:i' => \$translation_table_number,
  'delete:s'      => \$delete_dataset,
@@ -2682,7 +2684,12 @@ sub process_protein_network_tab() {
    undef($res);
 
    foreach my $cds_uname (@members) {
-    $sql_hash_ref->{'store_cds_network'}->execute( $cds_uname, $network_id );
+    $sql_hash_ref->{'check_cds'}->execute($cds_uname);
+    if (!$sql_hash_ref->{'check_cds'}->fetchrow_arrayref()){
+	warn "CDS $cds_uname does not exist. Will not store for network\n";
+    }else{
+	$sql_hash_ref->{'store_cds_network'}->execute( $cds_uname, $network_id );
+    }
    }
    $record_number++;
    print "Processed: $record_number\t\t\r" if ( $record_number % 10 == 0 );
@@ -2779,7 +2786,12 @@ sub process_protein_network_mcl() {
    undef($res);
 
    foreach my $cds_uname (@members) {
-    $sql_hash_ref->{'store_cds_network'}->execute( $cds_uname, $network_id );
+    $sql_hash_ref->{'check_cds'}->execute($cds_uname);
+    if (!$sql_hash_ref->{'check_cds'}->fetchrow_arrayref()){
+	warn "CDS $cds_uname does not exist. Will not store for network\n";
+    }else{
+	$sql_hash_ref->{'store_cds_network'}->execute( $cds_uname, $network_id );
+    }
    }
   }
 
@@ -2853,6 +2865,12 @@ sub process_extra_expression() {
 	$counter++;
 	my $transcript_name = $data[0];
 	confess "No transcript name? $ln\n" unless $transcript_name;
+	$sql_hash_ref->{'check_transcript'}->execute( $transcript_name);
+	my $tr_check = $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
+	if (!$tr_check){
+		warn "Have to skip $transcript_name because it doesn't exist in the transcript table\n";
+		next;
+	}
 
 	foreach (my $h=1;$h<(@data);$h++){
 		next if $skipped_lib_indexes{$h};
@@ -2965,6 +2983,13 @@ sub process_binary() {
  open( IN, $binary_expression ) || die($!);
  my $header_str =  <IN>;chomp($header_str);
  my @headers = split( "\t", $header_str );
+ my %libraries_to_do;
+ for ( my $i = 1 ; $i < scalar(@headers) ; $i++ ) {
+  my $library_name = $headers[$i];
+  $sql_hash_ref->{'check_expression_library'}->execute($library_name);
+  $libraries_to_do{$i} = 1 if $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
+ }
+
  print "Linking transcripts to expression libraries via $binary_expression\n";
  my $counter=1;
 OUTER: while ( my $ln = <IN> ) {
@@ -2980,6 +3005,7 @@ OUTER: while ( my $ln = <IN> ) {
   }
   $counter++;
   for ( my $i = 1 ; $i < scalar(@data) ; $i++ ) {
+   next unless $libraries_to_do{$i};
    my $library_name = $headers[$i];
    if ( $data[$i] == 1 ) {
     $sql_hash_ref->{'check_transcript_expression_library'}
@@ -4314,7 +4340,7 @@ sub process_for_genome_gff() {
       $transcript_common_name = $1 || die;
      }
 
-     if ( $transcript_common_name =~ /-R[A-Z]+$/ ) {
+     if ($assume_unique_gene_gff_names || $transcript_common_name =~ /-R[A-Z]+$/ ) {
       $main_id = $transcript_common_name;
      }
      else {
@@ -4322,9 +4348,8 @@ sub process_for_genome_gff() {
      }
 
      if ( $unique_names_check{$transcript_common_name} ) {
-      if ( $transcript_common_name =~ /-R[A-Z]+$/ ) {
-       die
-"Common name $transcript_common_name ends in transcript notation but it is not unique!\n";
+      if ($assume_unique_gene_gff_names || $transcript_common_name =~ /-R[A-Z]+$/ ) {
+       die "Common name $transcript_common_name: user asked to be unique or ends in transcript notation but it is not unique!\n";
       }
       my $letter = 'B';
       for ( my $i = 1 ;
