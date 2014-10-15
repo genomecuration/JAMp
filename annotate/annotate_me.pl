@@ -4287,8 +4287,13 @@ sub process_for_genome_gff() {
      $gene_description =~ s/^\s*(\S+)\s*//;
      $gene_common_name = $1 || die;
     }
-    die "Gene name ($gene_common_name) is not unique\n"
-      if $unique_names_check{$gene_common_name};
+    if ($unique_names_check{$gene_common_name}){
+      if ($debug){
+        warn Dumper $gene_obj_ref;
+        #warn Dumper \%unique_names_check;
+      }
+      die "Gene name ($gene_common_name) is not unique\n";
+    }
     $gene_name = $gene_common_name;
     $gff3_out_print =
 "$reference_id\t$source\tgene\t$gene_lend\t$gene_rend\t.\t$gene_orientation\t.\tID=$gene_name;Alias=$gene_id";
@@ -4377,6 +4382,7 @@ sub process_for_genome_gff() {
       $main_id = $transcript_common_name . '-R' . $letter;
      }
      $unique_names_check{$transcript_common_name}++;
+     #$unique_names_check{$transcript_common_name} = $isoform if $debug;
 
      # set description as note and update name
      $isoform->{transcript_name} = $main_id;
