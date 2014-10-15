@@ -5,6 +5,9 @@ extjs 4.2
 Commercial License
 http://www.sencha.com/legal/sencha-sdk-software-license-agreement
 
+You may use the ExtJS files in this application only if you don't modify ANY of the code here (Sencha or otherwise).
+If you wish to modify this code, you must download an open source license from Sencha.
+
 
 d3
 --
@@ -47,8 +50,6 @@ CanvasXpress - JavaScript Canvas Library Copyright (c) 2009-2013 Isaac Neuhaus i
 
 Redistributions of the source code must retain this copyright notice and the following disclaimer.
 
-CanvasXpress is licensed under the terms of the Open Source GPL version 3.0 license.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-Please see a copy of the GNU General Public License at http://www.gnu.org/licenses.
+CanvasXpress is licensed under a commercial license to CSIRO
+You may use the CanvasXpress files in this application only if you don't modify ANY of the code here.
+If you wish to modify this code, you must download an open source license from CanvasXpress.
