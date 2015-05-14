@@ -12,7 +12,7 @@ Like most bioinformatic software, JAMp and its dependencies must first be instal
 
 * First, administrators install the software, including the annotation database and a website that drives the GUI. This needs to occur only once and they are very simple
 ** Administrators also have to install the HHblits software that we use for conducting the Hidden Markov searches. As a High Performance Computing (HPC) environment is required, your HPC administrators might be able to help (no compilation is required so that too ought to be simple - and we may be able to help)
-* Second, the assembly file is used to predict proteins with our quick-n-easy protein prediction software http://transdecoder.sourceforge.net/[TransDecoder] 
+* Second, the assembly file is used to predict proteins with our quick-n-easy protein prediction software http://transdecoder.github.io/[TransDecoder] 
 * Third, you conduct the _in-silico_ experiment (currently HHblits is supported). These are conducted using Hidden-Markov searches against a SwissProt database (the universal archive of all proteins that have experimental functional information).
 * Optionally, you can align any RNA-Seq datasets you have against your reference and generate a number of informative graphs with our software http://dew.sourceforge.net[DEW]. 
 * Once all the _in-silico_ experiments are complete, a script then stores the output and relevant metadata (e.g. name of species) into the JAMp database. This database can drive multiple websites/datasets, each with their own user-authentication criteria.
@@ -42,7 +42,7 @@ Basically, _Just_Annotate_My_proteins_ does exactly what it reads on the tin! Yo
 
 == Obtaining JAMg
  
-Freely distributed from https://sourceforge.net/projects/jamps/files/RC/[here]. Please subscribe to the https://lists.sourceforge.net/lists/listinfo/jamps-users[user mailing list].
+Freely distributed from https://github.com/genomecuration/JAMp[here]. Please subscribe to the https://lists.sourceforge.net/lists/listinfo/jamps-users[user mailing list].
 
 It's not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document). Any JAMp websites you build can be released under any license you want decides but you must keep the Author & license copyright notice (and add your copyright at the bottom).
 
