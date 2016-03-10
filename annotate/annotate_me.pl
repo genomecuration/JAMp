@@ -443,18 +443,17 @@ pod2usage $! unless &GetOptions(
 
  'gff_genome:s'   => \$genome_gff_file,
  'genome_fasta:s' => \$genome_fasta_file,
- 'genome_name_version:s' =>
-   \$genome_name_version,     # use fasta filename if not given
+ 'genome_name_version:s' => \$genome_name_version,     # use fasta filename if not given
  'gene_ids' => \$force_used_gene_gff_ids,
  'names_unique' => \$assume_unique_gene_gff_names,
 
  'translation:i' => \$translation_table_number,
  'delete:s'      => \$delete_dataset,
 
- 'doblast:s{,}'   => \@do_protein_blasts,
- 'dohhr:s{,}'     => \@do_protein_hhr,
- 'doipr:s{,}'     => \@do_protein_ipr,
- 'donetwork:s{,}' => \@do_protein_networks,
+ 'do_blast|doblast:s{,}'   => \@do_protein_blasts,
+ 'do_hhr|dohhr:s{,}'     => \@do_protein_hhr,
+ 'do_iprdoipr:s{,}'     => \@do_protein_ipr,
+ 'do_network|donetwork:s{,}' => \@do_protein_networks,
 
  # not used / implemented
  'blast_format:s' => \$blast_format,
@@ -493,8 +492,7 @@ pod2usage $! unless &GetOptions(
 
 );
 
-die
-"Cannot provide both a genome-guided annotation and Transdecoder at the same time\n"
+die "Cannot provide both a genome-guided annotation and Transdecoder at the same time\n"
   if $genome_gff_file && $transdecoder;
 
 #globals
