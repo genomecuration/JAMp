@@ -575,6 +575,7 @@ if (    ( $protein_fasta_file && -s $protein_fasta_file )
      || $expression_dew_outdir
      || $extra_expression_custom_file )
 {
+
  &store_annotation_of_proteins();
 }
 elsif ($linkout_conf) {
@@ -4556,11 +4557,11 @@ relkind in (\'\'r\'\',\'\'v\'\',\'\'S\'\') AND
 nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'pg_temp_1\'\') AND 
 relname LIKE \'\'%\'\'
 LOOP
-EXECUTE \'\'GRANT SELECT ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' || $1;
+EXECUTE \'\'GRANT SELECT ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' ||  \'\'"\'\' || $1 || \'\'"\'\';
 num := num + 1;
 END LOOP;
 FOR obj IN SELECT nspname FROM pg_namespace ns WHERE nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'public\'\',\'\'pg_temp_1\'\') LOOP
-EXECUTE \'\'GRANT USAGE ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' || $1;
+EXECUTE \'\'GRANT USAGE ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' ||  \'\'"\'\' || $1 || \'\'"\'\';
 num := num + 1;
 END LOOP;
 RETURN num;
@@ -4579,11 +4580,11 @@ relkind in (\'\'r\'\',\'\'v\'\',\'\'S\'\') AND
 nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'pg_temp_1\'\') AND 
 relname LIKE \'\'%\'\'
 LOOP
-EXECUTE \'\'GRANT ALL ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' || $1;
+EXECUTE \'\'GRANT ALL ON \'\' || obj.nspname || \'\' . \'\' || obj.relname || \'\' TO \'\' ||  \'\'"\'\' || $1 || \'\'"\'\';
 num := num + 1;
 END LOOP;
 FOR obj IN SELECT nspname FROM pg_namespace ns WHERE nspname NOT IN ( \'\'information_schema\'\',\'\'pg_catalog\'\',\'\'pg_toast\'\',\'\'pg_toast_temp_1\'\',\'\'public\'\',\'\'pg_temp_1\'\') LOOP
-EXECUTE \'\'GRANT ALL ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' || $1;
+EXECUTE \'\'GRANT ALL ON SCHEMA \'\' || obj.nspname || \'\' TO \'\' ||  \'\'"\'\' || $1 || \'\'"\'\';
 num := num + 1;
 END LOOP;
 RETURN num;
