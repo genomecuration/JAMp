@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.6" />
+<meta name="generator" content="AsciiDoc 8.6.9" />
 <title>Just_Annotate_My_proteins (JAMp)</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -87,9 +87,15 @@ ul, ol, li > p {
 ul > li     { color: #aaa; }
 ul > li > * { color: black; }
 
-pre {
+.monospaced, code, pre {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
   padding: 0;
   margin: 0;
+}
+pre {
+  white-space: pre-wrap;
 }
 
 #author {
@@ -219,7 +225,7 @@ div.exampleblock > div.content {
 }
 
 div.imageblock div.content { padding-left: 0; }
-span.image img { border-style: none; }
+span.image img { border-style: none; vertical-align: text-bottom; }
 a.image:visited { color: white; }
 
 dl {
@@ -349,7 +355,7 @@ div.colist td img {
   margin-bottom: 0.1em;
 }
 
-div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
+div.toclevel0, div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
   margin-top: 0;
   margin-bottom: 0;
 }
@@ -407,17 +413,13 @@ span.underline { text-decoration: underline; }
 span.overline { text-decoration: overline; }
 span.line-through { text-decoration: line-through; }
 
+div.unbreakable { page-break-inside: avoid; }
+
 
 /*
  * xhtml11 specific
  *
  * */
-
-tt {
-  font-family: monospace;
-  font-size: inherit;
-  color: navy;
-}
 
 div.tableblock {
   margin-top: 1.0em;
@@ -451,12 +453,6 @@ div.tableblock > table[frame="vsides"] {
  * html5 specific
  *
  * */
-
-.monospaced {
-  font-family: monospace;
-  font-size: inherit;
-  color: navy;
-}
 
 table.tableblock {
   margin-top: 1.0em;
@@ -537,6 +533,8 @@ body.manpage div.sectionbody {
 @media print {
   body.manpage div#toc { display: none; }
 }
+
+
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
@@ -581,7 +579,7 @@ toc: function (toclevels) {
 
   function tocEntries(el, toclevels) {
     var result = new Array;
-    var re = new RegExp('[hH]([2-'+(toclevels+1)+'])');
+    var re = new RegExp('[hH]([1-'+(toclevels+1)+'])');
     // Function that scans the DOM tree for header elements (the DOM2
     // nodeIterator API would be a better technique but not supported by all
     // browsers).
@@ -610,7 +608,7 @@ toc: function (toclevels) {
   var i;
   for (i = 0; i < toc.childNodes.length; i++) {
     var entry = toc.childNodes[i];
-    if (entry.nodeName == 'div'
+    if (entry.nodeName.toLowerCase() == 'div'
      && entry.getAttribute("class")
      && entry.getAttribute("class").match(/^toclevel/))
       tocEntriesToRemove.push(entry);
@@ -656,7 +654,7 @@ footnotes: function () {
   var entriesToRemove = [];
   for (i = 0; i < noteholder.childNodes.length; i++) {
     var entry = noteholder.childNodes[i];
-    if (entry.nodeName == 'div' && entry.getAttribute("class") == "footnote")
+    if (entry.nodeName.toLowerCase() == 'div' && entry.getAttribute("class") == "footnote")
       entriesToRemove.push(entry);
   }
   for (i = 0; i < entriesToRemove.length; i++) {
@@ -737,7 +735,7 @@ asciidoc.install();
 <div id="header">
 <h1>Just_Annotate_My_proteins (JAMp)</h1>
 <span id="author">Alexie Papanicolaou</span><br />
-<span id="email"><tt>&lt;<a href="mailto:alexie@butterflybase.org">alexie@butterflybase.org</a>&gt;</tt></span><br />
+<span id="email"><code>&lt;<a href="mailto:alexie@butterflybase.org">alexie@butterflybase.org</a>&gt;</code></span><br />
 <span id="revdate">25 November 2013</span>
 </div>
 <div id="content">
@@ -766,7 +764,7 @@ Administrators also have to install the HHblits software that we use for conduct
 </li>
 <li>
 <p>
-Second, the assembly file is used to predict proteins with our quick-n-easy protein prediction software <a href="http://transdecoder.sourceforge.net/">TransDecoder</a>
+Second, the assembly file is used to predict proteins with our quick-n-easy protein prediction software <a href="http://transdecoder.github.io/">TransDecoder</a>
 </p>
 </li>
 <li>
@@ -843,7 +841,7 @@ Transcriptome experiments that produce a reference sequence (an assembly)
 <div class="sect1">
 <h2 id="_obtaining_jamg">Obtaining JAMg</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Freely distributed from <a href="https://sourceforge.net/projects/jamps/files/RC/">here</a>. Please subscribe to the <a href="https://lists.sourceforge.net/lists/listinfo/jamps-users">user mailing list</a>.</p></div>
+<div class="paragraph"><p>Freely distributed from <a href="https://github.com/genomecuration/JAMp">here</a>. Please subscribe to the <a href="https://lists.sourceforge.net/lists/listinfo/jamps-users">user mailing list</a>.</p></div>
 <div class="paragraph"><p>It&#8217;s not published. We really appreciate any comments and feedback you can provide, so please do no matter how minor you think they are (e.g. typos in this document). Any JAMp websites you build can be released under any license you want decides but you must keep the Author &amp; license copyright notice (and add your copyright at the bottom).</p></div>
 </div>
 </div>
@@ -891,18 +889,18 @@ More use-cases: because there is no reason why the Tree of Life can&#8217;t have
 <div class="paragraph"><p>Copyright 2012-2014 the <a href="http://www.csiro.au">Commonwealth Scientific and Industrial Research Organization</a>.</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>Alexie Papanicolaou and Temi Varghese</tt></pre>
+<pre><code>Alexie Papanicolaou and Temi Varghese</code></pre>
 </div></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>CSIRO Ecosystem Sciences
-alexie.papanicolaou@csiro.au</tt></pre>
+<pre><code>CSIRO Ecosystem Sciences
+alexie.papanicolaou@csiro.au</code></pre>
 </div></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>This software and Website is Copyright CSIRO 2013-2014. They are provided "as is" without warranty of any kind.
+<pre><code>This software and Website is Copyright CSIRO 2013-2014. They are provided "as is" without warranty of any kind.
 The software is released under a modified Apache License v.2. You can find the terms and conditions in the software distribution.
-Demonstration JAMp websites are released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.</tt></pre>
+Demonstration JAMp websites are released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.</code></pre>
 </div></div>
 </div>
 </div>
@@ -911,7 +909,7 @@ Demonstration JAMp websites are released under a Creative Commons Attribution-Sh
 <div class="sectionbody">
 <div class="literalblock">
 <div class="content">
-<pre><tt>This website is released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.</tt></pre>
+<pre><code>This website is released under a Creative Commons Attribution-ShareAlike 4.0 International License: http://creativecommons.org/licenses/by-sa/4.0.</code></pre>
 </div></div>
 </div>
 </div>
@@ -919,7 +917,7 @@ Demonstration JAMp websites are released under a Creative Commons Attribution-Sh
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2014-06-18 15:34:53 EST
+Last updated 2015-05-15 02:27:49 EST
 </div>
 </div>
 </body>
