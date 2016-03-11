@@ -4405,8 +4405,7 @@ sub process_for_genome_gff() {
     if ( $cds_length != $cDNA_length ) {
      $cds_start = index( $cDNA_seq, $cds_seq );
      if ( $cds_start == -1 ) {
-      die
-"Cannot find the coding sequence of model $main_id will have to skip!\n$cDNA_seq\n vs \n$cds_seq\n";
+      warn "SKIPPING: Cannot find the coding sequence of model $main_id will have to skip!\n$cDNA_seq\n vs \n$cds_seq\n";
 
       #           warn $cDNA_seq;
       #          warn $cds_seq;
