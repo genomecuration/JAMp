@@ -107,7 +107,7 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      -gene_ids           => Use the GFF gene/mRNA IDs instead of the Name tag (needed for JAMg, EVM or PASA). Useful if subsequent manual curation (all IDs tags must be globally unique)
      -names_unique       => If NOT -gene_ids and -names_unique given, then the Name tag is used as is (no -RA suffixes).  Useful if subsequent manual curation (all Name tags must be globally unique)
      OR
-     -delete       :s      => Delete dataset (provide an ID or name)
+     -delete       :s    => Delete dataset (provide an ID or name)
      
      The program then searches for the file name and if 
      * it finds [filename]*blast*, it considers it a BLAST
@@ -116,18 +116,18 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      
 Analyses available:
 
-     -doblast     => Process BLAST files
-     -dohhr       => Process HHblits files 
-     -doipr       => Process InterProScan files
-     -donetwork   => Process .network files as tab: subject, query, weight (optionally)
+     -doblast   :s   => Process BLAST files
+     -dohhr     :s   => Process HHblits files 
+     -doipr     :s   => Process InterProScan files
+     -donetwork :s   => Process .network files as tab: subject, query, weight (optionally)
 
 Network:
 
-    * -network_name        => Name of network
-    * -network_type        => Type of network (MCL, CDHIT etc). Decides how to parse the network file
-      -network_description => Describe what kind of network is this (once per type)
-      -network_directed    => Network: The edjes are directed (column1 to column2); 
-      -nojson              => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
+    * -network_name        :s => Name of network
+    * -network_type        :s => Type of network (MCL, CDHIT etc). Decides how to parse the network file
+    * -network_description :s => Describe what kind of network is this (once per type)
+      -network_directed       => Network: The edjes are directed (column1 to column2); 
+      -nojson                 => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
 
 Expression:
 
