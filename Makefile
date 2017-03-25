@@ -5,7 +5,8 @@ all:
 	cd 3rd_party/cdbtools/cdbfasta && $(MAKE) && cp cdbfasta ../../bin/ && cp cdbyank ../../bin/ && $(MAKE) clean
 	cd 3rd_party/parafly && ./configure --prefix=`pwd`/../ && if [ ! -d bin ]; then mkdir bin; fi && $(MAKE) install
 	cd 3rd_party/transdecoder && $(MAKE)
-	cd databases/hhblits && echo "Uncompressing databases, this may take a while..." find . -name "*tar.bz2" -exec tar -xjf '{}' \;
+	cd databases/hhblits && echo "Uncompressing HHBlits databases, this may take a while..." && find . -name "*tar.bz2" -exec tar -xjf '{}' \;
+	cd databases/ncbi_taxonomy && echo "Uncompressing NCBI Tax databases, this may take a while..." && find . -name "*tar.bz2" -exec tar -xjf '{}' \; && ../../util/prepare_ncbi_taxonomy.pl
 	chmod -R a+rx 3rd_party/bin
 	echo "Installation complete."
 clean:

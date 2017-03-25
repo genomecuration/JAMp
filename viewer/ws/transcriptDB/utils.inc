@@ -437,7 +437,7 @@ function ahref( $text , $href){
 	$extra_bit = '';
 	if (!empty($lib_uname) && $lib_uname !== 'All'){
 	  $lib_uname = pg_escape_string($lib_uname);
-	  $extra_bit = "WHERE library_uname ='$lib_uname'";
+	  $extra_bit = "WHERE expression_library_experiment_id IN (SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname ='$lib_uname')";
 	}
 	$sql = sprintf($sqlQueries['library']['itemsCountExpression'], pg_escape_string($dsId),$extra_bit );
 	$counts = query_execute(null, $sql);

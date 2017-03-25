@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-#VERSION 0.6 May 2014
+#VERSION 0.8 Mar 2017
 
 =pod
 
@@ -69,20 +69,21 @@ Changelog
 
 Options with :s expect a string and :i expect an integer. The character | means either or (e.g. -i|fasta means you can use -i or -fasta)
 
-NB: Options with * are mandatory.
+NB: Options with ** are mandatory.
 
 Annotation database connection
 
-   * -annot_dbname :s   => Name of postgres database
+ **  -annot_dbname :s   => Name of postgres database
      -annot_host   :s   => Hostname, optional
      -annot_port   :i   => Port for database connection, optional
      -annot_user   :s   => Username for database connection, optional. This is the user with full priviliges
      -annot_pass   :s   => Password for database connection, optional
      -annot_read   :s   => Optionally, username who will be given SELECT permissions in the whole database 
+     -ncbi_taxdir     :s    => NCBI taxonomy flatfile directory
 
 General options
 
-     -blast_format :s   => Format of BLAST report (BioPerl: 'blast', 'blastxml' etc)
+     -blast_format :s   => Format of BLAST report (BioPerl: 'blast', 'blastxml' etc). Defaults to blastxml
      -help              => This menu.
 
 Creating a new annotation database
@@ -90,7 +91,7 @@ Creating a new annotation database
      -create            => Create the annotation database using known protein annotations. Takes a long time, so better download it.
      -uniprot           => Load uniprot terms. Caution this will create a 20-25 Gb table which is currently not needed by JAMp
      -go                => Load Gene Ontology terms
-     -inference         => Associate inferrences by electronic similarity with the relevant GO terms 
+     -inference         => Careful: Associate GO terms even if evidence is weak inferrences
      -ec                => Load Enzyme Classification
      -eggnog            => Load EggNog (gene clusters for eukaryotes)
      -databases :s      => TSV file with cross-reference database descriptions
@@ -109,42 +110,41 @@ Populating an annotation db with inferred gene annotations. We support Trinity a
      OR
      -delete       :s    => Delete dataset (provide an ID or name)
      
-     The program then searches for the file name and if 
-     * it finds [filename]*blast*, it considers it a BLAST
-     * it finds [filename]*hhr, it considers it a HHblits output
-     * it finds [filename]*ipr*, it considers it an InterProScan output
      
 Analyses available:
 
-     -doblast   :s   => Process BLAST files
-     -dohhr     :s   => Process HHblits files 
-     -doipr     :s   => Process InterProScan files
-     -donetwork :s   => Process .network files as tab: subject, query, weight (optionally)
+     -doblast   :s{,}   => Process BLAST files
+     -dohhr     :s{,}   => Process HHblits files 
+     -doipr     :s{,}   => Process InterProScan files
+     -donetwork :s{,}   => Process .network files as tab: subject, query, weight (optionally)
 
 Network:
 
-    * -network_name        :s => Name of network
-    * -network_type        :s => Type of network (MCL, CDHIT etc). Decides how to parse the network file
-    * -network_description :s => Describe what kind of network is this (once per type)
-      -network_directed       => Network: The edjes are directed (column1 to column2); 
-      -nojson                 => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
+   * -network_name        :s => Name of network
+   * -network_type        :s => Type of network (MCL, CDHIT etc). Decides how to parse the network file
+     -network_description :s => Describe what kind of network is this (once per type)
+     -network_directed       => Network: The edjes are directed (column1 to column2); 
+     -nojson                 => Network: Do not store a JSON for drawing network relationships (e.g. if it is a clustering rather than a directed network)
 
 Expression:
 
-    * -expression_directory  => Base directory of the DEW output
-      -extra_expression_file => If you have a file with other expression counts, you can load them here (tab delimited)
-      -extra_expression_name => Column to use in database (will be shown in web view)
-      -extra_expression_type => What type of psql value is the column (eg text, int, real; defaults to real)
+   * -expression_directory   :s  => Base directory of the DEW output
+   * -expression_name        :s  => Short (32 characters) text that describes the experiment
+     -expression_description :s  => Longer description of experiment, optional
+     -extra_expression_file  :s  => If you have a file with other expression counts, you can load them here (tab delimited)
+     -extra_expression_id    :s  => Column to use in database (will be shown in web view)
+     -extra_expression_type  :s  => What type of psql value is the column (eg text, int, real; defaults to real)
 
 
 Metadata can be added/controlled:
 
      -authorization|dataset_authority :s => An owner name to control authorization for web interface. 
-     -linkout_conf                    :s => A text file that specifies how these data can be linked-out to a website (see DESCRIPTION)
+     -linkout_conf                    :s => A text file that specifies how these data can be linked-out to a website (see DESCRIPTION). 
+                                            Required if creating new DB
 
 The following metadata can be provided or are interactively asked during import:
    
-     -dataset_uname                   :s => Name for dataset (must be unique)
+  ** -dataset_uname                   :s => Name for dataset (must be unique)
      -dataset_description             :s => A description for the dataset
      -dataset_species                 :s => Species name (latin binomial)
      -dataset_library                 :s => A name for the 'library' these data belong to, e.g. cDNA library
@@ -223,7 +223,7 @@ Further, HHblits has issues with very large proteins. The default max number of 
 
 You need to visit the Google Code page and work from there.
 
- https://code.google.com/p/interproscan
+ https://github.com/ebi-pf-team/interproscan/wiki
  
 Edit interproscan.properties to make sure you have the right binaries for any software you want to use 
 (e.g. SignalP, phobius, prosite, TMHMM including the model files to $INTERPROSCAN_HOME/data/tmhmm/model/2.0)
@@ -259,6 +259,10 @@ TAS / IDA >  IMP / IGI / IPI > ISS / IEP > NAS > RCA > IEA >> NR
  # ND: No biological Data available
  # RCA: inferred from Reviewed Computational Analysis
  # NR: Not Recorded
+
+=head2 NCBI TaxID database
+
+You can get it from here: ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz but one is distributed here
 
 
 =head2 DATABASE CROSS-REFERENCES
@@ -326,10 +330,13 @@ use XML::LibXML::Reader;
 use Digest::MD5 qw(md5_hex);
 use JSON;
 use URI::Escape;
+use Bio::Taxon;
+use Bio::DB::Taxonomy;
+use Time::localtime;
 
 use FindBin qw($RealBin);
 $ENV{'PATH'} .= ":$RealBin:$RealBin/../3rd_party/bin";
-use lib ("$FindBin::RealBin/../PerlLib");
+use lib ("$RealBin/../PerlLib");
 use Gene_obj;
 use Fasta_reader;
 use GFF3_utils;
@@ -352,6 +359,13 @@ my (
      $dataset_description, $dataset_uname,   $linkout_conf,
      $directed_network,    $warnings_msgs
 );
+
+my $hostname = $ENV{'HOSTNAME'} ? $ENV{'HOSTNAME'} : `hostname`;chomp($hostname);
+$hostname = 'unknown' if !$hostname;
+
+my $ncbi_taxdir = $RealBin."/../databases/ncbi_taxonomy/";
+my %get_ncbitaxid_lookup;
+
 my ( $contig_fasta_file, $genome_gff_file, $transdecoder, $genome_fasta_file );
 my $max_network_size   = 250;
 my $authorization_name = 'demo';
@@ -370,10 +384,11 @@ my (
      $do_inferences,           $dohelp,
      $do_slow,                 $delete_dataset,
      $nojson,                  $expression_dew_outdir,
-     $force_used_gene_gff_ids, $genome_name_version, $assume_unique_gene_gff_names
+     $force_used_gene_gff_ids, $genome_name_version, 
+     $assume_unique_gene_gff_names
 );
 
-my ( $extra_expression_column_name, $extra_expression_custom_file );
+my ($expression_name, $expression_description, $extra_expression_column_name, $extra_expression_custom_file );
 my $extra_expression_column_type = 'real';
 
 my ( $network_description, $network_type, $network_name );
@@ -388,16 +403,20 @@ my %accepted_linkout_types =
 my (
      $hhr_homology_prob_cut, $hhr_eval_cut,     $hhr_pval_cut,
      $hhr_score_cut,         $hhr_min_filesize, $hhr_max_hits
-) = ( 80, 1e-10, 1e-12, 70, 700, 10 );
+) = ( 70, 1e-8, 1e-10, 70, 700, 100 );
 
 # evidence codes that will NOT be used when assigning metadata to a KNOWN protein (i.e. from UniProt)
 my %NOTALLOWED_EVID = (
-                        'IEA' => 1,
-                        'ISS' => 1,
-                        'IEP' => 1,
-                        'NAS' => 1,
-                        'ND'  => 1,
-                        'NR'  => 1,
+                        'IEA' => 1,         # electronic annotation
+                        'ISS' => 1,         # structural similarity
+                        'ISO' => 1,         # Sequence Ontology ; sub category of above
+                        'ISM' => 1,         # sequence model ; sub of above
+                        'IBA' => 1,         # phylogeny based (SMNP issue!)
+                        'IBD' => 1,         # as above
+                        'IRD' => 1,         # as above, but even worse
+                        'NAS' => 1,         # Non-traceable Author Statement
+                        'ND'  => 1,         # No biological Data available (ND)
+                        'NR'  => 1,         # Not recorded
 );
 
 # database defaults (remove for production)
@@ -419,6 +438,7 @@ pod2usage $! unless &GetOptions(
  'annot_user:s'   => \$annot_username,
  'annot_read:s'   => \$annot_readuser,
  'annot_pass:s'   => \$annot_password,
+ 'ncbi_taxdir:s'  => \$ncbi_taxdir,
 
  #chado database
  'chado_dbname:s' => \$chado_dbname,
@@ -476,8 +496,10 @@ pod2usage $! unless &GetOptions(
  'nojson'                => \$nojson,
 
  #expression
+ 'expression_name:s'   => \$expression_name,
+ 'expression_description:s' => \$expression_description,
  'expression_directory:s'  => \$expression_dew_outdir,
- 'extra_expression_name:s' => \$extra_expression_column_name,
+ 'extra_expression_id:s' => \$extra_expression_column_name,
  'extra_expression_type:s' => \$extra_expression_column_type,
  'extra_expression_file:s' => \$extra_expression_custom_file,
 
@@ -493,19 +515,31 @@ pod2usage $! unless &GetOptions(
 );
 
 die "Cannot provide both a genome-guided annotation and Transdecoder at the same time\n"
-  if $genome_gff_file && $transdecoder;
+  if ($genome_gff_file || $genome_fasta_file) && $transdecoder;
 
 #globals
 my ( $cdna_fasta_file, $cds_gff_file, $protein_fasta_file );
+
+# security
+if ($extra_expression_column_name){
+  $extra_expression_column_name  = lc($extra_expression_column_name );
+  $extra_expression_column_type = lc($extra_expression_column_type);
+  $extra_expression_column_name=~s/[^a-z0-9_]+//g;
+}
 
 if ($transdecoder) {
  $cdna_fasta_file    = $transdecoder . '.mRNA';
  $cds_gff_file       = $transdecoder . '.gff3';
  $protein_fasta_file = $transdecoder . '.pep';
  &check_required_files( $protein_fasta_file, $cds_gff_file, $cdna_fasta_file );
+ die "Transdecoder .mRNA file not found\n" unless $cdna_fasta_file && -s $cdna_fasta_file;
+ die "Transdecoder .gff3 file not found\n" unless $cds_gff_file && -s $cds_gff_file;
+ die "Transdecoder .pep file not found\n" unless $protein_fasta_file && -s $protein_fasta_file;
 }
-elsif ($genome_gff_file) {
+elsif ($genome_gff_file || $genome_fasta_file) {
  &check_required_files( $genome_gff_file, $genome_fasta_file );
+ die "Genome GFF file not found\n" unless $genome_gff_file && -s $genome_gff_file;
+ die "Genome FASTA file not found\n" unless $genome_fasta_file && -s $genome_fasta_file;
  if ( $genome_fasta_file && !$genome_name_version ) {
   $genome_name_version = $genome_fasta_file;
  }
@@ -529,7 +563,7 @@ pod2usage "A required file is missing\n"
    || $expression_dew_outdir
    || $extra_expression_custom_file;
 
-# anyother files
+# any other files
 &check_required_files(
                        $linkout_conf,   @do_protein_hhr,
                        @do_protein_ipr, @do_protein_blasts,
@@ -546,6 +580,12 @@ $blast_format = lc($blast_format);
 
 die "BLAST format can only be 'blast' or 'blastxml'\n"
   unless $blast_format eq 'blast' || $blast_format eq 'blastxml';
+
+my $taxondb = Bio::DB::Taxonomy->new(-source => 'flatfile', -directory => $ncbi_taxdir, -force => 0) || confess ("NCBI Taxonomy DB not there or prepared\n");
+
+################################## 
+# end of checks #
+################################## 
 
 # optionally we can create a database.
 &create_populate_annotation_database()
@@ -589,15 +629,15 @@ elsif ($linkout_conf) {
  }
 }
 
-print "\nDone!\n";
+print &mytime . "\nDone\n";
 ###########################################################################
 sub connect_db() {
  my ( $dbname, $dbhost, $dbport, $username, $password ) = @_;
  my $dbh;
  $username = $ENV{'USER'} unless $username;
  if ($drop_annot_database) {
-  &process_cmd("dropdb -p $dbport -h $dbhost $dbname");
-  &process_cmd("createdb -p $dbport -h $dbhost $dbname");
+  &process_cmd("dropdb -p $dbport -h $dbhost $dbname -U $username ");
+  &process_cmd("createdb -p $dbport -h $dbhost --locale=C --encoding=UTF8 -U $username $dbname ");
   $create_annot_database = 1;
  }
  $dbh = DBI->connect( "dbi:Pg:dbname=$dbname;host=$dbhost;port=$dbport",
@@ -607,8 +647,8 @@ sub connect_db() {
                       '', '', { AutoCommit => 1 } )
    if !$password;
  unless ($dbh) {
-  print "Creating database...\n";
-  &process_cmd("createdb -p $dbport -h $dbhost $dbname");
+  print &mytime . "Creating database...\n";
+  &process_cmd("createdb -p $dbport -h $dbhost --locale=C --encoding=UTF8 -U $username $dbname");
   $dbh = DBI->connect( "dbi:Pg:dbname=$dbname;host=$dbhost;port=$dbport",
                        $username, $password, { AutoCommit => 1 } )
     if $password;
@@ -641,7 +681,7 @@ sub check_dataset() {
 }
 
 sub check_create_native_dataset() {
- my $dbh = shift || die;
+ my $dbh = shift || confess($!);
  my $dataset_id;
  if ($dataset_uname) {
   die "Dataset name must not be just numbers\n" if $dataset_uname =~ /^\d+$/;
@@ -726,7 +766,7 @@ sub check_create_native_dataset() {
 
 sub create_new_annotation_db() {
  my $dbh = shift;
- print "(Re)Creating db\n";
+ print &mytime . "(Re)Creating db\n";
  my $check_sql =
    $dbh->prepare("SELECT * FROM pg_catalog.pg_tables WHERE tablename=?");
  $check_sql->execute('inference');
@@ -737,18 +777,24 @@ sub create_new_annotation_db() {
   return;
  }
 
+ if (!$linkout_conf || !-s $linkout_conf){
+    die "No -linkout configuration file provided for new database. Please give one if you're creating a new annotation database\n";
+ }
+
  $dbh->{"PrintError"} = 0;
  $dbh->do('DROP TABLE datasets');
  $dbh->do('DROP SCHEMA known_proteins CASCADE');
  $dbh->do('CREATE SCHEMA known_proteins');
  $dbh->{"RaiseError"} = 1;
-
  $dbh->begin_work;
  warn "Creating new tables\n";
  ################################ public ################################
+ $dbh->do("SET SEARCH_PATH TO public");
+
  $dbh->do(
 "CREATE TABLE datasets (dataset_id serial primary key, uname varchar UNIQUE, description text, species_name varchar, library_uname varchar UNIQUE, type varchar, date_created date default now() not null,owner varchar default 'demo')"
  );
+
  $dbh->do(
 'CREATE UNIQUE INDEX datasets_species_description_key on datasets (species_name,description)'
  );
@@ -776,7 +822,7 @@ sub create_new_annotation_db() {
 ' );
 
  ################################# known proteins ################################
- $dbh->do("SET SEARCH_PATH='known_proteins");
+ $dbh->do("SET SEARCH_PATH to known_proteins");
  $dbh->do(
 'CREATE TABLE go (go_id integer primary key,name varchar,class char(1),is_synomym boolean)'
  );
@@ -945,7 +991,7 @@ sub create_chado_inference_tables() {
  my $check = $check_sql->fetchrow_arrayref;
  return 1 if $check && $check->[0];
 
- print "Editing Chado\n";
+ print &mytime . "Editing Chado\n";
  $dbh->{"RaiseError"} = 1;
  $dbh->begin_work;
  $dbh->do( '
@@ -1083,7 +1129,7 @@ sub create_native_inference_tables() {
  $dbh->do("CREATE SCHEMA $schema_name")
    ;    # temporary until we shift to &add_dataset
  $dbh->do("SET SEARCH_PATH TO $schema_name");
- print "Creating schema for new dataset $dataset_uname ($schema_name)\n";
+ print &mytime . "Creating schema for new dataset $dataset_uname ($schema_name)\n";
  $dbh->{"PrintError"} = 0;
  $dbh->{"RaiseError"} = 1;
  $dbh->begin_work;
@@ -1337,18 +1383,14 @@ CREATE TABLE network (
 
 # best way to link an image from DEW to a transcript is by using the transcript.nuc_checksum
  $dbh->do( '
- CREATE TABLE transcript_expression_image (
-    transcript_expression_id serial primary key NOT NULL,
-    transcript_uname character varying REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
-    type character varying NOT NULL,
+ CREATE TABLE expression_experiment (
+    uname character varying primary key NOT NULL,
     timeloaded timestamp without time zone DEFAULT now(),
-    image_data bytea,
-    format character(3) NOT NULL
+    system_directory character varying NOT NULL,
+    description text
 )
 ' );
- $dbh->do(
-'CREATE UNIQUE INDEX transcript_expression_uidx ON transcript_expression_image(transcript_uname, type, format)'
- );
+
 
  $dbh->do( '
  CREATE TABLE expression_library (
@@ -1356,6 +1398,15 @@ CREATE TABLE network (
     description text
 )
 ' );
+
+ $dbh->do( '
+ CREATE TABLE expression_library_experiment (
+    expression_library_experiment_id serial primary key NOT NULL,
+    experiment_uname character varying REFERENCES expression_experiment(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
+    library_uname character varying REFERENCES expression_library(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL
+)
+' );
+
 
  $dbh->do( '
  CREATE TABLE expression_library_metadata (
@@ -1370,10 +1421,10 @@ CREATE TABLE network (
  );
 
  $dbh->do( '
- CREATE TABLE transcript_expression_library (
-    transcript_expression_library_id serial primary key NOT NULL,
+ CREATE TABLE transcript_expression (
+    transcript_expression_id serial primary key NOT NULL,
     transcript_uname character varying REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
-    library_uname character varying REFERENCES expression_library(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
+    expression_library_experiment_id integer REFERENCES expression_library_experiment(expression_library_experiment_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
     raw_counts int,
     raw_rpkm real,
     express_fpkm real,
@@ -1387,10 +1438,23 @@ CREATE TABLE network (
 ' );
 
  $dbh->do(
-'CREATE UNIQUE INDEX transcript_expression_library_uidx ON transcript_expression_library(library_uname,transcript_uname)'
+'CREATE UNIQUE INDEX transcript_expression_uidx ON transcript_expression(transcript_uname,expression_library_experiment_id)'
  );
+
+#store SVG. maybe one day will use R/shiny on demand
+ $dbh->do( '
+ CREATE TABLE transcript_expression_image (
+    transcript_expression_image_id serial primary key NOT NULL,
+    transcript_uname character varying REFERENCES transcript(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
+    expression_experiment_uname character varying REFERENCES expression_experiment(uname) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED NOT NULL,
+    type character varying NOT NULL,
+    timeloaded timestamp without time zone DEFAULT now(),
+    image_data bytea,
+    format character(3) NOT NULL
+)
+' );
  $dbh->do(
-'CREATE INDEX transcript_expression_library_idx2 ON transcript_expression_library(transcript_uname)'
+'CREATE UNIQUE INDEX transcript_expression_image_uidx ON transcript_expression_image(transcript_uname, expression_experiment_uname, type, format)'
  );
 
 ################ ################
@@ -1404,8 +1468,8 @@ CREATE TABLE network (
 
 sub delete_dataset() {
  my $dbh = shift;
- my $dataset_id = shift || die;
- print "Attempting to delete dataset $dataset_id\n";
+ my $dataset_id = shift || confess($!);
+ print &mytime . "Attempting to delete dataset $dataset_id\n";
  unless ( $dataset_id =~ /^\d+$/ ) {
   $dataset_id = &check_dataset( $dbh, $dataset_id );
   die "Can't convert it to a dataset ID or it doesn't exist...\n"
@@ -1420,42 +1484,40 @@ sub delete_dataset() {
  $dbh->commit;
  $dbh->{"RaiseError"} = 0;
  $dbh->{"PrintError"} = 1;
- print "Done\n";
+ print &mytime . "Done\n";
 }
 
 sub get_www_files() {
- print "Getting files\n";
  my @files = @_;
  my @new_files;
+ print &mytime . "Getting files ".join(" ",@files)."\n";
  for ( my $i = 0 ; $i < scalar(@files) ; $i++ ) {
   my $f = basename( $files[$i] );
+  my $f_base = $f;
+  &process_cmd("wget --passive-ftp --continue $files[$i]") unless ( -s $f);
+  die "File ".$files[$i]." failed to download\n" unless -s $f;
+
   if ( $f =~ /\.tar\.gz$/ ) {
-   my $f_base = $f;
-   $f_base =~ s/\.tar\.gz$//;
-   &process_cmd("wget --passive-ftp $files[$i]")
-     unless ( -s $f || -s $f_base );
-   my @uncompressed_files = `tar -tzf $f`;
-   chomp(@uncompressed_files);
-   &process_cmd("tar -xzf $f");
-   push( @new_files, @uncompressed_files );
-  }
-  elsif ( $f =~ /\.gz$/ ) {
-   my $f_base = $f;
    $f_base =~ s/\.gz$//;
-   &process_cmd("wget --passive-ftp $files[$i]")
-     unless ( -s $f || -s $f_base );
+   &process_cmd("gunzip -dc $f > $f_base");
+   $f =~ s/\.gz$//;
+   $f_base =~ s/\.tar\.gz$//;
+   my @uncompressed_files = `tar -tf $f`;
+   chomp(@uncompressed_files);
+   &process_cmd("tar -xf $f");
+   push( @new_files, @uncompressed_files );
+  }  elsif ( $f =~ /\.gz$/ ) {
+   $f_base =~ s/\.gz$//;
    &process_cmd("gunzip -dc $f > $f_base")
-     unless ( !-s $f || -s $f_base );
+     unless ( -s $f_base );
    push( @new_files, $f_base );
-  }
-  elsif ( $f =~ /\.bz2$/ ) {
-   my $f_base = $f;
+  }  elsif ( $f =~ /\.bz2$/ ) {
    $f_base =~ s/\.bz2$//;
-   &process_cmd("wget --passive-ftp $files[$i]")
-     unless ( -s $f || -s $f_base );
    &process_cmd("bunzip2 -dck $f > $f_base")
-     unless ( !-s $f || -s $f_base );
+     unless ( -s $f_base );
    push( @new_files, $f_base );
+  }else{
+    push( @new_files, $f );
   }
  }
  return (@new_files);
@@ -1463,28 +1525,56 @@ sub get_www_files() {
 
 sub prepare_uniprot_id_mapping() {
  my $dbh = shift;
- print
-"Parsing Uniprot ID mapping (v slow and will need about 22G of PostGres disk space)\n";
- $dbh->do("COPY uniprot_assoc (uniprot_id,xref_db,xref_accession) FROM STDIN");
- &do_copy_stdin( "idmapping.dat", $dbh );
+ 
+ my $file_to_load = "idmapping.dat.trim";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
 
- print "Indexing (will need about 11Gb...\n";
+ print &mytime . "Parsing Uniprot ID mapping to other IDs (v slow and will need > 22G of PostGres disk space)\n"
+ ."This will delete much of the existing data. Press control-C if you don't want this to continue.\n";
+ sleep(10);
+ print "OK, starting...\n";
+ my @files_to_get = &get_www_files("ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz");
+
+ # we remove about 25% of the data by excluding EMBL, Ensembl and UniParc because I don't know anyone who homology searches against 
+ # these databases, the amount of space we save is much higher than 25% due to the indexes
+ &process_cmd("grep -vP 'Ensembl|EMBL|UniParc' idmapping.dat > idmapping.dat.trim") unless -s "idmapping.dat.trim";
+
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->{"PrintError"} = 0;
+ $dbh->do('TRUNCATE TABLE uniprot_assoc CASCADE');
+ $dbh->{"PrintError"} = 1;
+
+ # do without transcations. too big for xlog
+ $dbh->do("COPY uniprot_assoc (uniprot_id,xref_db,xref_accession) FROM STDIN");
+ &do_copy_stdin( $file_to_load, $dbh );
+ 
+
+ print &mytime . "Indexing (will take hours and need many Gb of PostGres disk space...)\n";
+
  $dbh->do(
          'CREATE INDEX uniprot_assoc_uniprot_idx on uniprot_assoc(uniprot_id)');
 
- # 10Gb
+ # > 10Gb
  $dbh->do(
         'CREATE INDEX uniprot_assoc_xref_idx on uniprot_assoc(xref_accession)');
- print "Indexing complete.\n";
+ system("touch ".$completed_file);
+ unlink("idmapping.dat.trim");
+ unlink("idmapping.dat");
+ print &mytime . "Indexing complete.\n";
 }
 
 sub prepare_ec() {
  my $dbh = shift;
- print "Processing enzyme terms (fast)\n";
- my @files_to_get = qw|
-   ftp://ftp.expasy.org/databases/enzyme/enzyme.dat
-   |;
- @files_to_get = &get_www_files(@files_to_get);
+ print &mytime . "Processing enzyme terms (fast)\n";
+ 
+ my $file_to_load = "enzyme.dat";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+ 
+ my @files_to_get = &get_www_files(
+ "ftp://ftp.expasy.org/databases/enzyme/enzyme.dat"
+ );
 
 =pod
 
@@ -1504,14 +1594,15 @@ sub prepare_ec() {
 
  my $orig_record_sep = $/;
  $/ = "//\n";
- open( IN,   'enzyme.dat' );
- open( OUT1, ">$cwd/.enzyme.psql" );
- open( OUT2, ">$cwd/.enzyme_assoc.psql" );
- open( OUT3, ">$cwd/.enzyme_desc.psql" );
- open( OUT4, ">$cwd/.enzyme_names.psql" );
- open( OUT5, ">$cwd/.enzyme_cat.psql" );
- open( OUT6, ">$cwd/.enzyme_cofact.psql" );
- open( OUT7, ">$cwd/.enzyme_comm.psql" );
+ open( IN,   $file_to_load ) || confess ("Cannot find file $file_to_load $!");
+ open( OUT1, ">$cwd/.enzyme.psql" ) || confess ("Cannot write file .enzyme.psql $!");
+ open( OUT2, ">$cwd/.enzyme_assoc.psql" ) || confess ("Cannot write file .enzyme_assoc.psql $!");
+ open( OUT3, ">$cwd/.enzyme_desc.psql" ) || confess ("Cannot write file .enzyme_desc.psql $!");
+ open( OUT4, ">$cwd/.enzyme_names.psql" ) || confess ("Cannot write file .enzyme_names.psql $!");
+ open( OUT5, ">$cwd/.enzyme_cat.psql" ) || confess ("Cannot write file .enzyme_cat.psql $!");
+ open( OUT6, ">$cwd/.enzyme_cofact.psql" ) || confess ("Cannot write file .enzyme_cofact.psql $!");
+ open( OUT7, ">$cwd/.enzyme_comm.psql" ) || confess ("Cannot write file .enzyme_comm.psql $!");
+
  my $header = <IN>;
 RECORD: while ( my $record = <IN> ) {
   my ( $accession, @descriptions, @alternate_names, @catalytic_activities,
@@ -1607,7 +1698,9 @@ RECORD: while ( my $record = <IN> ) {
  close OUT5;
  close OUT6;
  close OUT7;
+ 
  $dbh->begin_work();
+ $dbh->do('SET search_path TO known_proteins');
  $dbh->do("COPY enzyme (ec_id,primary_name) FROM STDIN");
  &do_copy_stdin( ".enzyme.psql", $dbh );
 
@@ -1634,7 +1727,7 @@ RECORD: while ( my $record = <IN> ) {
  &process_cmd(
 "rm -f  $cwd/.enzyme.psql $cwd/.enzyme_assoc.psql $cwd/.enzyme_desc.psql $cwd/.enzyme_names.psql $cwd/.enzyme_cat.psql $cwd/.enzyme_cofact.psql $cwd/.enzyme_comm.psql"
  );
- print "Indexing...\n";
+ print &mytime . "Indexing...\n";
  $dbh->do('CREATE INDEX enzyme_assoc_ec_idx on enzyme_assoc(ec_id)');
  $dbh->do(
          'CREATE INDEX enzyme_description_ec_idx on enzyme_description(ec_id)');
@@ -1646,45 +1739,39 @@ RECORD: while ( my $record = <IN> ) {
  $dbh->do('CREATE INDEX enzyme_comments_ec_idx on enzyme_comments(ec_id)');
  $dbh->do('CREATE INDEX enzyme_assoc_uniprot_idx on enzyme_assoc(uniprot_id)');
  $dbh->do('CREATE INDEX enzyme_name_idx on enzyme(primary_name)');
- print "Indexing complete.\n";
-}
-
-sub prepare_go_slim() {
- my $dbh = shift;
- print "\t GO slim terms\n";
- open( IN,  'goaslim.map' );
- open( OUT, ">$cwd/.goslim.psql" );
- while ( my $ln = <IN> ) {
-  next unless $ln =~ /^GO:(\d+)\s+GO:(\d+)/;
-  print OUT join( "\t", ( $1, $2 ) ) . "\n";
- }
- close IN;
- close OUT;
- $dbh->do("COPY go_slim (go_id,slim_go_id) FROM STDIN");
- &do_copy_stdin( ".goslim.psql", $dbh );
- unlink("$cwd/.goslim.psql");
+ $dbh->commit();
+ system("touch ".$completed_file);
+ print &mytime . "Indexing complete.\n";
 }
 
 sub prepare_go() {
  my $dbh = shift;
- print "Parsing GO terms (slowish - 8min)\n";
- my @files_to_get = qw|
-   http://www.geneontology.org/ontology/obo_format_1_2/gene_ontology_ext.obo
-   ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/goslim/goaslim.map
-   ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/gp_association.goa_uniprot.gz
-   |;
+ print &mytime . "Parsing GO terms (slowish - 8min)\n";
+ 
+ my $file_to_load = "gene_ontology_ext.obo";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
 
-# ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz
 #ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/gene_association.goa_uniprot.gz
 #ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/gp_information.goa_uniprot.gz
- @files_to_get = &get_www_files(@files_to_get);
+
+# TODO: MISSING ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/gp_association.goa_uniprot.gz
+# also slim is an issue
+#http://www.geneontology.org/faq/how-do-i-map-set-annotations-high-level-go-terms-go-slim
+ my @files_to_get = &get_www_files(
+    "http://www.geneontology.org/ontology/obo_format_1_2/gene_ontology_ext.obo"
+    );
+
+# missing gp_association.goa_uniprot.gz needed for go association to uniprot
+
 
  my $orig_record_sep = $/;
  $/ = "[Term]\n";
- open( IN, "gene_ontology_ext.obo" );
+
+ open( IN, $file_to_load ) || confess ("Cannot find file $file_to_load $!");
  my $header = <IN>;
- open( OUT,  ">$cwd/.go_terms.psql" );
- open( OUT2, ">$cwd/.go_syn.psql" );
+ open( OUT,  ">$cwd/.go_terms.psql" ) || confess ("Cannot write file .go_terms.psql $!");
+ open( OUT2, ">$cwd/.go_syn.psql" ) || confess ("Cannot write file .go_syn.psql $!");
 
  while ( my $record = <IN> ) {
   my @entries = split( "\n", $record );
@@ -1728,7 +1815,7 @@ sub prepare_go() {
  close OUT2;
  &process_cmd("sort -u -o $cwd/.go_syn.psql. $cwd/.go_syn.psql");
  my %uhash;
- open( IN, "$cwd/.go_syn.psql." );
+ open( IN, "$cwd/.go_syn.psql." ) || confess ("Cannot find .go_syn.psql. $!");
 
  while ( my $ln = <IN> ) {
   chomp($ln);
@@ -1738,11 +1825,12 @@ sub prepare_go() {
  }
  close IN;
  unlink("$cwd/.go_syn.psql.");
- open( OUT, ">$cwd/.go_syn.psql" );
+ open( OUT, ">$cwd/.go_syn.psql" )|| confess("Cannot write .go_syn.psql $!");;
  foreach my $id ( keys %uhash ) {
   print OUT $id . "\t", $uhash{$id} . "\n";
  }
  close OUT;
+ $dbh->do('SET search_path TO known_proteins');
  $dbh->begin_work();
  $dbh->do("COPY go (go_id,name,class,is_synomym) FROM STDIN");
  &do_copy_stdin( ".go_terms.psql", $dbh );
@@ -1750,60 +1838,135 @@ sub prepare_go() {
  &do_copy_stdin( ".go_syn.psql", $dbh );
  unlink("$cwd/.go_terms.psql");
  unlink("$cwd/.go_syn.psql");
- &associate_uniprot_gene_ontology();
- &prepare_go_slim();
+
+ system("touch ".$completed_file);
  $dbh->commit();
- print "Indexing...\n";
+
+
  $dbh->do('CREATE INDEX go_class_idx on go(class)');
  $dbh->do('CREATE INDEX go_synonym_idx1 on go_synonym(go_id)');
  $dbh->do('CREATE INDEX go_synonym_idx2 on go_synonym(go_synonym)');
- $dbh->do('CREATE INDEX go_slim_go_id_idx on go_slim(go_id)');
- $dbh->do('CREATE INDEX go_slim_slim_go_id_idx on go_slim(slim_go_id)');
- $dbh->do('CREATE INDEX go_assoc_uniprot_idx on go_assoc(uniprot_id)');
- print "Indexing complete.\n";
+ $dbh->commit();
+
 }
 
 sub associate_uniprot_gene_ontology() {
  my $dbh     = shift;
- my $go_file = 'gp_association.goa_uniprot';
- if ( !$go_file || !-s $go_file ) {
-  warn
-"No GO Uniprot association file found. GO terms cannot be associated with Uniprot.\n";
+ my $file_to_load = 'goa_uniprot_all.gaf';
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
+ my @files_to_get = &get_www_files(
+    "ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/goa_uniprot_all.gaf.gz"
+  );
+
+ if ( !$file_to_load || !-s $file_to_load ) {
+  warn "No GO Uniprot association file ($file_to_load) found. GO terms cannot be associated with Uniprot.\n";
   return;
  }
- print "\t GO uniprot entries\n";
- open( IN,  $go_file );
- open( OUT, ">$cwd/.go.psql" );
+ print &mytime . "\t GO uniprot entries\n";
+ open( IN,  $file_to_load )|| confess("Cannot find $file_to_load $!");;
+ open( OUT, ">$cwd/.go.psql" )|| confess("Cannot write .go.psql $!");
+
+ #0-6 UniProtKB       A0A000  moeA5    empty   GO:0003824      GO_REF:0000002  IEA     
+ #7-12 InterPro:IPR015421|InterPro:IPR015422   F       MoeA5   A0A000_9ACTN|moeA5      proteins   taxon:35758
+ #13-14      20170311        InterPro
  while ( my $ln = <IN> ) {
   next unless $ln =~ /^UniProtKB\b/;
+  chomp($ln);
   my @data = split( "\t", $ln );
-  next if !$do_inferences && $NOTALLOWED_EVID{ $data[5] };
-  $data[3] =~ s/^GO:// || next;
-  $data[4] =~ /^(\S+):(\S+)/;
-  my $ref_db = $1;
-  my $ref_id = $2;
+
+  my $uniprot_id = $data[1];
+  my $evidence = $data[6];
+  my $go_aspect = $data[8]; # C/F/P
+  my $go_id;
+
+  next if !$do_inferences && $NOTALLOWED_EVID{ $evidence };
+
+  if ($data[4] && $data[4] =~/^GO:(\d+)/ ){
+    $go_id = $1;
+  }else{
+    next;
+  }
+
+  my $date = $data[13]; # => 20011005 -> 2001-10-05
+  if ($date=~/^(\d{4})(\d{2})(\d{2})$/){
+    $date = $1.'-'.$2.'-'.$3;
+  }else{$date = 'NULL';}
+
+  my $assigner = 'unknown';
+  if ($data[14]){$assigner = $data[14];}
+
+  my ($ref_db,$ref_id) = ('unknown','unknown');
+
+  
+    my @entries = split('\|',$data[7]);
+    push(@entries,split('\|',$data[5]));
+    foreach my $entry (@entries){
+        ($ref_db,$ref_id) = split(':',$entry);
+        last if $ref_db && $ref_id;
+        # it's actually more than one sometimes so while . maybe one day i will dissociate it
+        # but for time being leave, so add last
+    }
+  
+
+
   print OUT join(
                   "\t",
                   (
-                    $data[1], $data[3], $ref_db, $ref_id,
-                    $data[5], $data[9], $data[8]
+                    $uniprot_id, $go_id, $ref_db, $ref_id,
+                    $evidence, $assigner,$date
                   )
   ) . "\n";
+} 
+ close IN;
+ close OUT;
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->begin_work();
+ $dbh->do("COPY go_assoc (uniprot_id,go_id,reference_db,reference_uid,evidence,annotator,date_annotated) FROM STDIN");
+ &do_copy_stdin( ".go.psql", $dbh );
+ $dbh->commit();
+ $dbh->do('CREATE INDEX go_assoc_uniprot_idx on go_assoc(uniprot_id)');
+
+ unlink("$cwd/.go.psql");
+ system("touch ".$completed_file);
+ print &mytime . "Loading $file_to_load completed\n";
+}
+
+sub prepare_go_slim() {
+ my $dbh = shift;
+ 
+ print &mytime . "\t GO slim terms\n";
+ my $file_to_load = 'goaslim.map';
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
+ my @files_to_get = &get_www_files(
+  "ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/goslim/goaslim.map"
+  );
+ open( IN,  $file_to_load ) || confess ("Cannot find file $file_to_load $!");
+ open( OUT, ">$cwd/.goslim.psql" ) || confess ("Cannot write file $cwd/.goslim.psql $!");;
+ while ( my $ln = <IN> ) {
+  next unless $ln =~ /^GO:(\d+)\s+GO:(\d+)/;
+  print OUT join( "\t", ( $1, $2 ) ) . "\n";
  }
  close IN;
  close OUT;
- $dbh->begin_work();
- $dbh->do(
-"COPY go_assoc (uniprot_id,go_id,reference_db,reference_uid,evidence,annotator,date_annotated) FROM STDIN"
- );
- &do_copy_stdin( ".go.psql", $dbh );
- $dbh->commit();
- unlink("$cwd/.go.psql");
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->do("COPY go_slim (go_id,slim_go_id) FROM STDIN");
+ &do_copy_stdin( "$cwd/.goslim.psql", $dbh );
+
+ $dbh->do('CREATE INDEX go_slim_go_id_idx on go_slim(go_id)');
+ $dbh->do('CREATE INDEX go_slim_slim_go_id_idx on go_slim(slim_go_id)');
+
+ unlink("$cwd/.goslim.psql");
+ system("touch ".$completed_file);
+ print &mytime . "GO slim terms complete.\n";
 }
 
 sub prepare_kegg() {
  my $dbh = shift;
- print "Preparing KEGG terms...\n";
+ print &mytime . "Preparing KEGG terms...\n";
 
 =pod
 
@@ -1829,9 +1992,15 @@ sub prepare_kegg() {
  die "Cannot find $ko_uniprot_file file\n" unless -s $ko_uniprot_file;
  die "Cannot find $pathway_uniprot_file file\n"
    unless -s $pathway_uniprot_file;
- open( IN, $ko_file ) || die;
- open( OUT,  ">$cwd/.$ko_file.ko.psql" );
- open( OUT2, ">$cwd/.$ko_file.names.psql" );
+
+ my $file_to_load = "$ko_file";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
+
+ open( IN, $ko_file ) || confess ("Cannot find file $ko_file $!");
+ open( OUT,  ">$cwd/.$ko_file.ko.psql" )|| confess("Cannot write .$ko_file.ko.psql $!");
+ open( OUT2, ">$cwd/.$ko_file.names.psql" )|| confess("Cannot write .$ko_file.names.psql $!");
 
  while ( my $ln = <IN> ) {
   my @data = split( "\t", $ln );
@@ -1845,6 +2014,7 @@ sub prepare_kegg() {
  close IN;
  close OUT;
  close OUT2;
+ $dbh->do('SET search_path TO known_proteins');
  $dbh->begin_work();
  chmod( 0644, "$cwd/.$ko_file.ko.psql" );
  $dbh->do("COPY ko (ko_id,description) FROM STDIN");
@@ -1877,38 +2047,52 @@ sub prepare_kegg() {
  $dbh->do(
 'CREATE INDEX kegg_pathway_assoc_uniprot_idx on kegg_pathway_assoc(uniprot_id)'
  );
+ $dbh->commit();
+ system("touch ".$completed_file); 
+ print &mytime . " Loading $file_to_load completed\n";
 }
 
 sub prepare_eggnog() {
  my $dbh = shift;
- print "Preparing eggnog...\n";
+ print &mytime . "Preparing eggnog...\n";
+ my $file_to_load = "COG_functional_categories.txt";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
 
  my %eggs_to_store;    # because they have no description etc
 
  my @eggNOG = qw|
-   ftp://eggnog.embl.de/eggNOG/latest/protein.aliases.v3.txt.gz
-   ftp://eggnog.embl.de/eggNOG/latest/UniProtAC2eggNOG.3.0.tsv.gz
-   ftp://eggnog.embl.de/eggNOG/latest/fun.txt.gz
-   ftp://eggnog.embl.de/eggNOG/latest/all.funccat.tar.gz
-   ftp://eggnog.embl.de/eggNOG/latest/all.description.tar.gz
-   ftp://eggnog.embl.de/eggNOG/latest/all.members.tar.gz
+   http://eggnogdb.embl.de/download/latest/COG_functional_categories.txt
+   http://eggnogdb.embl.de/download/latest/data/NOG/NOG.annotations.tsv.gz
+   http://eggnogdb.embl.de/download/latest/data/euNOG/euNOG.annotations.tsv.gz
+   http://eggnogdb.embl.de/download/latest/id_mappings/uniprot/latest.gz
    |;
 
- #  ftp://eggnog.embl.de/eggNOG/latest/protein.sequences.v3.fa.gz
- #  ftp://eggnog.embl.de/eggNOG/latest/all.members.tar.gz
- @eggNOG = &get_www_files(@eggNOG);
 
+
+ @eggNOG = &get_www_files(@eggNOG);
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->{"PrintError"} = 0;
  $dbh->do('DROP INDEX eggnog_assoc_eggnog_id_idx');
  $dbh->do('DROP INDEX eggnog_assoc_uniprot_id_idx');
  $dbh->do('DROP INDEX eggnog_category_eggnog_id_idx');
+ $dbh->do('DROP INDEX eggnog_id_idx');
+ $dbh->do('TRUNCATE TABLE eggnog CASCADE');
+ $dbh->do('TRUNCATE TABLE eggnog_category CASCADE');
+ $dbh->do('TRUNCATE TABLE eggnog_categories CASCADE');
+ $dbh->do('TRUNCATE TABLE eggnog_assoc CASCADE');
+ $dbh->{"PrintError"} = 1;
+ 
 
  $dbh->begin_work;
+ 
+ my $egg = shift(@eggNOG);
 
- # # functinoal cat descs
  my $insert_eggnot_funccat = $dbh->prepare(
   "INSERT INTO eggnog_categories (category,grouping,description) VALUES (?,?,?)"
  );
- open( EGGNOG, "fun.txt" ) || die;
+ open( EGGNOG, $egg ) || confess ("Cannot find file $egg $!");
  while ( my $ln = <EGGNOG> ) {
   next if $ln =~ /^\s*$/;
   if ( $ln =~ /^\w+/ ) {
@@ -1927,169 +2111,116 @@ sub prepare_eggnog() {
  close EGGNOG;
  $dbh->commit;
  $insert_eggnot_funccat->finish();
- print "Parsing eggnog individual files...\n";
- $dbh->begin_work;
- for ( my $i = 0 ; $i < @eggNOG ; $i++ ) {
-  my $egg = $eggNOG[$i];
-  die if !-s $egg;
 
+
+
+
+# 
+## TaxonomicLevel | GroupName | ProteinCount | SpeciesCount | COGFunctionalCategory | ConsensusFunctionalDescription
+## NOG     COG5157 253     225     K       cell division cycle 73, Paf1 RNA polymerase II complex component, homolog (S. cerevisiae)
+
+
+ # need to do the loops because we don't know what the file names within the tar archive are
+ # first do descriptions, commit and then the functions.
+ print &mytime . "Parsing eggnog information...\n";
+ 
+
+ foreach my $egg (@eggNOG){
+    next unless $egg =~/annotations/;
+  $dbh->begin_work;
   # populate descriptions
-  if ( $egg =~ /description/ ) {
-   open( IN,  $egg );
-   open( OUT, ">$egg.trim" );
-   while (<IN>) {
-    my @data = split( "\t", $_ );
-    next if ( !$data[1] || $data[1] =~ /^\s*$/ );
-    print OUT $_;
-    $eggs_to_store{ $data[0] } = 1;
+   open( IN,  $egg ) || confess ("Cannot find file $egg $!");
+   open( OUT1, ">$egg.descr" ) || confess ("Cannot write file $egg.trim $!");
+   open( OUT2, ">$egg.cat" ) || confess ("Cannot write file $egg.trim $!");
+   
+   while (my $ln = <IN>) {
+    chomp($ln);
+    next if !$ln || $ln=~/^\s*$/;
+    my @data = split( "\t", $ln );
+    next if ( !$data[5] || $data[5] =~ /^\s*$/ || $data[5] eq 'NA' );
+    next if $data[4] eq 'X';
+    next if $eggs_to_store{ $data[1] };
+
+    print OUT1 $data[1]."\t".$data[5]."\n";
+    my @categories = split('',$data[4]);
+    foreach my $cat (@categories){
+        print OUT2 $data[1]."\t".$cat."\n";
+    }
+
+    $eggs_to_store{ $data[1] } = 1;
    }
+
    close IN;
-   close OUT;
-   $egg = "$egg.trim";
+   close OUT1;
+   close OUT2;
 
    $dbh->do("COPY eggnog (eggnog_id,description) FROM STDIN");
-   &do_copy_stdin( $egg, $dbh );
-  }
- }
- $dbh->commit;
-
- print "Parsing eggnog individual functions/categories...\n";
- my %protein2eggnog;
-
- my $check_eggnog =
-   $dbh->prepare("SELECT eggnog_id from eggnog WHERE eggnog_id = ?");
-
- $dbh->begin_work;
- foreach my $egg (@eggNOG) {
-
-  # populate func categories
-  #TODO Key (eggnog_id)=(NOG204072) is not present in table "eggnog"
-  if ( $egg =~ /funccat/ ) {
-   open( EGG,    $egg );
-   open( EGGOUT, ">$cwd/.$egg.psql" );
-   while ( my $ln = <EGG> ) {
-    next if $ln =~ /^\s*$/;
-    chomp($ln);
-    my @data = split( "\t", $ln );
-    next unless ( $data[0] && $data[1] && $eggs_to_store{ $data[0] } );
-    my @cats = split( '', $data[1] );
-    foreach my $cat (@cats) {
-     next if $cat eq 'X';
-     $check_eggnog->execute( $data[0] );
-     my $res = $check_eggnog->fetchrow_arrayref();
-     if ($res) {
-      print EGGOUT $data[0] . "\t$cat\n";
-     }
-
-    }
-   }
-   close EGG;
-   close EGGOUT;
+   &do_copy_stdin( "$egg.descr", $dbh );
+   unlink("$egg.descr");
    $dbh->do("COPY eggnog_category (eggnog_id,category) FROM STDIN");
-   &do_copy_stdin( ".$egg.psql", $dbh );
-   unlink("$cwd/.$egg.psql");
+   &do_copy_stdin( "$egg.cat", $dbh );
+   unlink("$egg.cat"); 
+   $dbh->commit;
   }
-  elsif ( $egg =~ /members/ ) {
-   open( EGG, $egg );
-   while ( my $ln = <EGG> ) {
-    next if $ln =~ /^\s*$/;
-    my @data = split( "\t", $ln );
-    next unless ( $data[0] && $data[1] && $eggs_to_store{ $data[0] } );
-    $protein2eggnog{ $data[1] } = $data[0];
-   }
-   close EGG;
-  }
- }
- $dbh->commit;
- print "Indexing...\n";
+  
+  $dbh->do('CREATE INDEX eggnog_category_eggnog_id_idx on eggnog_category(eggnog_id,category)' );
+  $dbh->do('CREATE UNIQUE INDEX eggnog_id_idx on eggnog(eggnog_id)');
 
- # one eggnog, one category
- $dbh->do(
-'CREATE UNIQUE INDEX eggnog_category_eggnog_id_idx on eggnog_category(eggnog_id,category)'
- );
- print "Indexing complete.\n";
+# ###################################################################################
+## #UniprotID      OGs_LUCA        OGs_bacteria    OGs_eukaryotes  OGs_archaea
+## C4GBH2  COG1270 ENOG4105DH2
+## some - some , some tabs. pretty shitty format
+  $egg = 'latest';
+
+ 
+ # don't need these as it is always a uniprot now.
+ #my $find_uniprot = $dbh->prepare("SELECT uniprot_id from uniprot_assoc WHERE xref_accession=?");
 
  # do associations
- print "Associating eggnog with Uniprot (slow)...\n";
- unlink("$cwd/.eggnog_assoc.psql");
+ print &mytime . "Associating eggnog with Uniprot...\n";
 
  #&process_cmd("sort -u -o $cwd/.eggnog_assoc.psql UniProtAC2eggNOG.3.0.tsv");
- open( IN,     "UniProtAC2eggNOG.3.0.tsv" );
- open( EGGOUT, ">.eggnog_assoc.psql" );
- while ( my $ln = <IN> ) {
+ open( IN,     $egg ) || confess ("Cannot find file $egg $!");
+ open( EGGOUT, ">.eggnog_assoc.psql" ) || confess ("Cannot write file .eggnog_assoc.psql $!");
+ while ( my $ln = <IN> ) {  
   chomp($ln);
-  next if $ln =~ /^\s*$/;
+  next if $ln =~ /^\s*$/ || $ln=~/^#/;
   my @data = split( "\t", $ln );
-  next unless ( $data[0] && $data[1] && $eggs_to_store{ $data[1] } );
+  my $uniprot_id = shift(@data);
+  foreach my $column (@data){
+        my @eggnogs = split(',',$column);
+        foreach my $eggnog_id (@eggnogs){
+            next unless $eggs_to_store{$eggnog_id};
+            print EGGOUT join( "\t", ( $uniprot_id, $eggnog_id ) ) . "\n";
+        }
+   } 
  }
  close IN;
-
- my $find_uniprot =
-   $dbh->prepare("SELECT uniprot_id from uniprot_assoc WHERE xref_accession=?");
-
- # this is a check to make sure all aliases are stored as uniprots...
- &process_cmd(
-    "sort -S1G -u -o $cwd/.protein.aliases.v3.txt $cwd/protein.aliases.v3.txt");
- open( EGGNOG, "$cwd/.protein.aliases.v3.txt" );
- my %uniprot_done;
- while ( my $ln = <EGGNOG> ) {
-  chomp($ln);
-  my @data = split( '\|', $ln );
-  next if !$data[1] || $data[1] =~ /^\w{6}_\w{5}$/;
-  my $eggnog_id = $protein2eggnog{ $data[0] } || next;
-  next unless $eggs_to_store{$eggnog_id};
-
-  #delete $protein2eggnog{ $data[0] };
-  if ( length( $data[1] ) == 6 && $data[1] =~ /^\w+$/ ) {
-   next if $uniprot_done{ $data[1] }{$eggnog_id};
-   print EGGOUT join( "\t", ( $data[1], $eggnog_id ) ) . "\n";
-   $uniprot_done{ $data[1] }{$eggnog_id}++;
-  }
-  else {
-   $find_uniprot->execute( $data[1] );
-   my $result = $find_uniprot->fetchrow_arrayref();
-   if ($result) {
-    next if $uniprot_done{ $result->[0] }{$eggnog_id};
-    print EGGOUT join( "\t", ( $result->[0], $eggnog_id ) ) . "\n";
-    $uniprot_done{ $result->[0] }{$eggnog_id}++;
-   }
-  }
- }
  close EGGNOG;
- close EGGOUT;
- &process_cmd(
-            "sort -S1G -u -o $cwd/.eggnog_assoc.psql. $cwd/.eggnog_assoc.psql");
- unlink("$cwd/.eggnog_assoc.psql");
- rename( "$cwd/.eggnog_assoc.psql.", "$cwd/.eggnog_assoc.psql" );
+
  $dbh->begin_work;
  $dbh->do("COPY eggnog_assoc (uniprot_id,eggnog_id) FROM STDIN");
  &do_copy_stdin( ".eggnog_assoc.psql", $dbh );
  $dbh->commit;
  unlink("$cwd/.eggnog_assoc.psql");
 
- print "Indexing...\n";
+ print &mytime . "Indexing...\n";
  $dbh->do('CREATE INDEX eggnog_assoc_eggnog_id_idx on eggnog_assoc(eggnog_id)');
- $dbh->do(
-        'CREATE INDEX eggnog_assoc_uniprot_id_idx on eggnog_assoc(uniprot_id)');
+ $dbh->do('CREATE INDEX eggnog_assoc_uniprot_id_idx on eggnog_assoc(uniprot_id)');
 
- print "Indexing complete.\n";
- $check_eggnog->finish();
- $find_uniprot->finish();
+ print &mytime . "Indexing complete.\n";
  $dbh->{"RaiseError"} = 0;
  $dbh->{"PrintError"} = 1;
 
- print "Cleaning up\n";
- foreach my $f (@eggNOG) {
-  unlink($f);
- }
-
+  system("touch ".$completed_file);
+  print &mytime . "Completed loading eggNOG data\n";
 }
 
 #############################################################
 ###################### parse annotation output  #############
 #############################################################
 sub process_protein_blast() {
- print "Processing BLAST output...\n";
+ print &mytime . "Processing BLAST output...\n";
  my @files = @_;
 
  sub _version_blast() {
@@ -2099,18 +2230,20 @@ sub process_protein_blast() {
  }
 }
 
-sub process_protein_hhr() {
- print "Processing HHR output...\n";
 
+
+sub process_protein_hhr() {
+ print &mytime . "Processing HHR output...\n";
 # this can be multiple hhr files concatanated together but only one database per file.
  my $dbh_store     = shift;
  my $files         = shift;
  my $record_number = int(0);
- open( INFERENCEFEATURECOPY, ">$cwd/.INFERENCEFEATURECOPY.psql" );
+ my $orig_record_sep = $/;
+ open( INFERENCEFEATURECOPY, ">$cwd/.INFERENCEFEATURECOPY.psql" ) || confess ("Cannot write file .INFERENCEFEATURECOPY.psql $!");
 
  foreach my $infile (@$files) {
   next unless $infile && -s $infile && ( -s $infile ) >= $hhr_min_filesize;
-  print "Processing $infile as an hhblits result\n";
+  print &mytime . "Processing $infile as an hhblits result\n";
   my ( %hash, %databases_used, $dontstore );
   my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
 
@@ -2118,36 +2251,30 @@ sub process_protein_hhr() {
   my $inference_exists =
     $sql_hash_ref->{'check_inference'}->fetchrow_arrayref();
   if ( $inference_exists && $inference_exists->[0] ) {
-   warn
-"This file ($absolute_infile_name) has already been processed in the database. I will proceed anyway to link it with current dataset but be careful\n";
+   warn "This file ($absolute_infile_name) has already been processed in the database. I will proceed anyway to link it with current dataset but be careful\n";
    $dontstore = 1;
   }
-  my $record_sep = $/;
-  $/ = "Done!\n";
-  open( IN, $infile ) || die;
-  $| = 1;
+  
+
+  $/ = "Query         ";
+
+  open( IN, $infile ) || confess ("Cannot open file $infile $!");
+
   my ( $last_database, $last_date_searched, $last_command );
-RECORD: while ( my $record = <IN> ) {
+  while ( my $record = <IN> ) {
+   chomp($record);next unless $record;
    $record_number++;
-   print "Processed: $record_number\t\t\r" if ( $record_number % 100 == 0 );
+   print "Processed: $record_number\t\t\r" if ( $record_number % 10 == 0 );
    next unless ( length($record) ) >= $hhr_min_filesize;
    my @record_lines = split( "\n", $record );
-   my ( $query, %check );
-   for ( my $i = 0 ; $i < 10 ; $i++ ) {
-    $query = shift(@record_lines);
-    chomp($query);
-    last if $query =~ s/^Query\s+//;
-   }
-   if ( $query =~ /^(\S+)/ ) {
+   my $query = shift (@record_lines);
+
+   if ($query=~/(\S+)/){
     $query = $1;
     $query =~ s/^cds\.//;
    }
-   else {
-    warn "\nFile $infile is not a .hhr output file; skipping...\n";
-    close IN;
-    next;
-   }
 
+   my ( %check );
    $sql_hash_ref->{'check_cds'}->execute($query);
    my $tres = $sql_hash_ref->{'check_cds'}->fetchrow_arrayref();
    unless ( $tres && $tres->[0] ) {
@@ -2162,8 +2289,8 @@ RECORD: while ( my $record = <IN> ) {
    if ( $date_searched =~ /^Date\s+(.+)/ ) {
     $date_searched = $1;
    }else{
-	$date_searched = 'Unknown';
-	warn "Date is unknown for query $query. Will set as unknown\n";
+    $date_searched = 'Unknown';
+    warn "Date is unknown for query $query. Will set as unknown\n";
    }
    my $command = shift(@record_lines);
    if ( $command =~ /^Command\s+(.+)/ ) {
@@ -2174,143 +2301,135 @@ RECORD: while ( my $record = <IN> ) {
     $database = $1;
    }
    $database = basename($database);
-   my $i = int(0);
+   
+   my $empty_line = shift(@record_lines);
+   my $hhblits_table_header = shift(@record_lines);
 
-   for ( my $i = 0 ; $i < @record_lines ; $i++ ) {
-    my $ln = $record_lines[$i];
+   die "Unexpected HHBlits format" unless $hhblits_table_header=~/No Hit/;
 
-    # if a3m lines, then stop
-    last if $ln =~ /^>$query/;
-    if ( $ln =~ /^\s*No Hit/ ) {
-     for ( my $k = $i + 1 ; $k < @record_lines ; $k++ ) {
-      my $ln2 = $record_lines[$k];
-      last if $ln2 =~ /^\s*$/;
+   # parsing hit table
+   while (my $ln=shift (@record_lines)){
 
-      my $hit_number = int(0);
-      if ( $ln2 =~ /^\s*(\d+)/ ) {
-       $hit_number = $1;
-      }
-      last if $hit_number > $hhr_max_hits;
-      my $hit = substr( $ln2, 35 );
-      my ( $prob, $evalue, $pvalue, $score, $structure_score, $alignment_length,
-           $aligned_query_columns, $aligned_hit_columns );
+    # if a3m lines or empty table, then stop
+    last if !$ln || $ln =~ /^>$query/ || $ln=~/^\s*$/;
+    
+    my $hit_number;
+    if ($ln=~/^\s*(\d+)\s/){
+        $hit_number = $1;
+    }
+    next if (!$hit_number || $hit_number > $hhr_max_hits);
+    my @data = split(/\s+/, $ln);
 
-      # Prob E-value P-value  Score    SS Cols Query HMM  Template HMM
-      if ( $hit =~
-           /^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/ )
-      {
-       (
-         $prob, $evalue, $pvalue, $score, $structure_score, $alignment_length,
-         $aligned_query_columns, $aligned_hit_columns
-       ) = ( $1, $2, $3, $4, $5, $6, $7, $8 );
-      }
-      next if $hhr_homology_prob_cut > $prob;
-      next if $hhr_eval_cut && $hhr_eval_cut < $evalue;
-      next if $hhr_pval_cut && $hhr_pval_cut < $pvalue;
-      next if $hhr_score_cut && $hhr_score_cut > $score;
-      if ( $evalue < 1e-99 ) {
-       $evalue = int(0.00);
-      }
-      if ( $pvalue < 1e-99 ) {
-       $pvalue = int(0.00);
-      }
 
-      my ( $Qstart, $Qstop, $hit_start, $hit_stop );
-      if ( $aligned_query_columns =~ /(\d+)-(\d+)/ ) {
-       $Qstart = $1;
-       $Qstop  = $2;
-      }
-      if ( $aligned_hit_columns =~ /(\d+)-(\d+)/ ) {
-       $hit_start = $1;
-       $hit_stop  = $2;
-      }
-      $hash{$query}{'data'}{$hit_number} = {
+    my $hit = substr( $ln, 35 );
+    $hit=~s/^\s+//;
 
-       #							'prob'       => $prob,
-       #							'eval'       => $evalue,
+    my ( $prob, $evalue, $pvalue, $score, $structure_score, $alignment_length,
+           $aligned_query_columns, $aligned_hit_columns ) = split(/\s+/, $hit);
+    next if $hhr_homology_prob_cut > $prob;
+    next if $hhr_eval_cut && $hhr_eval_cut < $evalue;
+    next if $hhr_pval_cut && $hhr_pval_cut < $pvalue;
+    next if $hhr_score_cut && $hhr_score_cut > $score;
+
+    if ( $evalue < 1e-99 ) {
+     $evalue = int(0.00);
+    }
+    if ( $pvalue < 1e-99 ) {
+     $pvalue = int(0.00);
+    }
+
+    my ( $Qstart, $Qstop, $hit_start, $hit_stop );
+    if ( $aligned_query_columns =~ /(\d+)-(\d+)/ ) {
+     $Qstart = $1;
+     $Qstop  = $2;
+    }
+    if ( $aligned_hit_columns =~ /(\d+)-(\d+)/ ) {
+     $hit_start = $1;
+     $hit_stop  = $2;
+    }
+    $hash{$query}{'data'}{$hit_number} = {
+
+       #                            'prob'       => $prob,
+       #                            'eval'       => $evalue,
        'pval'       => $pvalue,
        'full_score' => $score + $structure_score,
 
-       #							'aln_length' => $alignment_length,
+       #                            'aln_length' => $alignment_length,
        'Qstart'    => $Qstart,
        'Qstop'     => $Qstop,
        'hit_start' => $hit_start,
        'hit_stop'  => $hit_stop
       };
-     }
-     for ( my $k = $i + 1 ; $k < @record_lines ; $k++ ) {
-      my $ln2 = $record_lines[$k];
-      next if $ln2 =~ /^\s*$/;
-      if ( $ln2 =~ /^No\s(\d+)/ ) {
+    }
+
+   while (my $ln=shift (@record_lines)){
+
+    # if a3m lines then stop
+    last if !$ln || $ln =~ /^>$query/ ;
+      next if $ln =~ /^\s*$/;
+      if ( $ln =~ /^No\s(\d+)/ ) {
        my $hit_number = $1;
-       last if $hit_number > $hhr_max_hits;
+       next if $hit_number > $hhr_max_hits;
+       my $desc = shift(@record_lines);
+       my $stats = shift(@record_lines);
 
        # didn't pass criteria
        next unless $hash{$query}{'data'}{$hit_number};
 
-       my $desc = $record_lines[ $k + 1 ];
-       chomp($desc);
-       my $stats = $record_lines[ $k + 2 ];
-       $k += 2;
+       #parse description to get the actual hit
 
-       #TODO parse descriptino to get the actual hit
+#these are taken from uniprot now:
+#>db|UniqueIdentifier|EntryName ProteinName OS=OrganismName[ GN=GeneName]PE=ProteinExistence SV=SequenceVersion
+#db is 'sp' for UniProtKB/Swiss-Prot and 'tr' for UniProtKB/TrEMBL.
+#UniqueIdentifier is the primary accession number of the UniProtKB entry.
+#EntryName is the entry name of the UniProtKB entry.
+#ProteinName is the recommended name of the UniProtKB entry as annotated in the RecName field. For UniProtKB/TrEMBL entries without a RecName field, the SubName field is used. In case of multiple SubNames, the first one is used. The 'precursor' attribute is excluded, 'Fragment' is included with the name if applicable.
+#OrganismName is the scientific name of the organism of the UniProtKB entry.
+#GeneName is the first gene name of the UniProtKB entry. If there is no gene name, OrderedLocusName or ORFname, the GN field is not listed.
+#ProteinExistence is the numerical value describing the evidence for the existence of the protein.
+#SequenceVersion is the version number of the sequence
+#where PE is a number where 1 is highest and 5 lowest (i think). it is the inverse of what is shown on the www under Annotation score
+#we currently won't parse it on the jamp
 
-=pod
 
-=begin comment
-
->UP20|VEGDUSABA|52|169 Ribosomal-protein-alanine acetyltransferase OX=345219; \
- Ribosomal-protein-alanine acetyltransferase OX=665940; Ribosomal-protein-alanine acetyltransferase OX=1144311; Ribosomal-protein-alanine N-acetyltransferase OX=683837;
- Ribosomal-protein-alanine acetyltransferase OX=941639; Ribosomal-protein-alanine acetyltransferase OX=429009. [Clostridium sp. 7_3_54FAA.]
- |G5FC42 [Bacillus coagulans 36D1.]|G2TIN3 [Clostridium symbiosum WAL-14673.]|E9SUK0 [Clostridium symbiosum WAL-14163.]|E7GRC0 [Geobacillus kaustophilus (strain HTA426). GN=]
- |Q5L3F7 [Geobacillus sp. (strain Y412MC52). GN=]|E8SS21 [Geobacillus sp. (strain C56-T3). GN=]|D7CZ50 [Geobacillus sp. (strain Y412MC61). GN=]   .....
-
-The OX (Organism taxonomy cross-reference) line is used to indicate the identifier of a specific organism in a taxonomic database. who knows what they are using....
-
-    Prob: the Probability of target to be a true positive. For the probability of being a true positive,
-the secondary structure score in column SS is taken into account, together with the raw score
-incolumn Score. True positives are dened to be either globally homologous or they are at
-least homologous in parts, and thereby locally similar in structure. More precisely, the latter
-criterion demands that the MAXSUB score between query and hit is at least 0.1. In almost
-all cases the structural similarity will we be due to a global OR LOCAL homology between
-query and target.
-E-value: The E-value gives the average number of false positives ('wrong hits') with a score
-better than the one for the target when scanning the database. It is a measure of reliability:
-E-values near to 0 signify a very reliable hit, an E-value of 10 means about 10 wrong hits are
-expected to be found in the database with a score at least this good. Note that E-value and
-P-value are calculated without taking the secondary structure into account!
-P-value: The P-value is the E-value divided by the number of sequences in the database. It is
-the probability that in a pairwise comparison a wrong hit will score at least this good.
-Score: the raw score, which does not include the secondary structure score.
-    
-* assume NCBI ID
-
-=cut
-
+    #this is the accession from hhblits clustering so not really used
+    # but we still have to remove the >
        my $accession;
        if ( $desc =~ s/^>(\S+)\s+// ) {
         $accession = $1;
        }
 
-       #if ( $accession =~ /^UP/ ) {
        if ($accession) {
         my %hits;
+        
 
-        #while ( $desc =~ /\|(\w{6})[\W]/g ) {
-        while ( $desc =~ /sp:(\w{6})/g ) {
-         if ($1) {
-          next if $check{$1};
+        while ( $desc =~ /[st][pr]\|(\w{6,})/g ) {
+          next if !$1 || $check{$1};
           $check{$1} = 1;
           $hits{$1}  = 1;
-         }
         }
+
+# This code allows for ncbi tax ids to be parsed but it is not currently stored nor visualised, so turning it off
+#        my (%organisms,%ncbi_taxids);
+#        while ( $desc =~ /OS=([A-Z][a-z]+\s[a-z]+)/g ) {
+#      #binomial
+#          next if !$1 || $organisms{$1};
+#          $organisms{$1}++;
+#        }
+
+
+# This code allows for ncbi tax ids to be parsed but it is not currently stored nor visualised, so turning it off
+#    foreach my $org (keys %organisms){
+#        my $ncbi_taxid=&get_ncbitaxid($org,\$taxondb);
+#        $ncbi_taxids{$ncbi_taxid}++ if $ncbi_taxid && $ncbi_taxid > 0;
+#    }
+#    undef %organisms;
+
         my @d = keys %hits;
         $hash{$query}{'data'}{$hit_number}{'uniprots'} = \@d
           if @d;
-       }
-       else {
-        warn "\nThis accession is not from a UniProt search!\n$accession\n";
-       }
+      }
+       
 
        my ( $prob, $evalue, $score, $aln_length, $ident, $simil, $sum_prob );
        if ( $stats =~
@@ -2324,10 +2443,11 @@ Score: the raw score, which does not include the secondary structure score.
        if ( $evalue < 1e-99 ) {
         $evalue = int(0.00);
        }
+       
        $hash{$query}{'data'}{$hit_number}{'prob'}       = $prob;
-       $hash{$query}{'data'}{$hit_number}{'eval'}       = $evalue;
-       $hash{$query}{'data'}{$hit_number}{'score'}      = $score;
-       $hash{$query}{'data'}{$hit_number}{'aln_length'} = $aln_length;
+    #   $hash{$query}{'data'}{$hit_number}{'eval'}       = $evalue;
+    #   $hash{$query}{'data'}{$hit_number}{'score'}      = $score;
+    #   $hash{$query}{'data'}{$hit_number}{'aln_length'} = $aln_length;
        if ( $stats =~ /Identities=(\S+)\s+Similarity=(\S+)\s+Sum_probs=(\S+)/ )
        {
         $ident    = $1;
@@ -2335,39 +2455,38 @@ Score: the raw score, which does not include the secondary structure score.
         $sum_prob = $3;
        }
        $ident =~ s/\%//;
-       $hash{$query}{'data'}{$hit_number}{'descr'}     = $desc;
+   #    $hash{$query}{'data'}{$hit_number}{'descr'}     = $desc;
        $hash{$query}{'data'}{$hit_number}{'ident'}     = $ident;
        $hash{$query}{'data'}{$hit_number}{'simil'}     = $simil;
-       $hash{$query}{'data'}{$hit_number}{'sum_probs'} = $sum_prob;
+   #    $hash{$query}{'data'}{$hit_number}{'sum_probs'} = $sum_prob;
       }
      }
-    }
-   }
+    
 
    # end of a record; check if we got everything
-   die
-"\nI don't know which database this record is from.... (file = $infile ; record: $record_number)"
+   die "\nI don't know which database this record is from.... (file = $infile ; record: $record_number)"
      unless $database;
    if ( !$hash{$query}{'data'} ) {
 
     warn "Query $query had no hits.\n" if $debug;
 
 # anything else we want to do: store that it has been searched and delete from hash.
-#	&_store_hhr_processed_no_hits( $query, $date_searched, $command,					$database );
+#   &_store_hhr_processed_no_hits( $query, $date_searched, $command,                    $database );
     delete( $hash{$query} );
     next RECORD;
    }
+
+
    $hash{$query}{'metadata'}{'date_searched'} = $date_searched;
    $hash{$query}{'metadata'}{'command'}       = $command;
    $hash{$query}{'metadata'}{'database'}      = $database;
    $last_database                             = $database;
    $last_command                              = $command;
    $last_date_searched                        = $date_searched;
-  }
-  close IN;
-  $/ = $record_sep;
 
+  }
   # now have data in hash and can store it.
+
   # store the fact there was a search. assume one file per search (inference)
   unless ($dontstore) {
 
@@ -2392,7 +2511,7 @@ Score: the raw score, which does not include the secondary structure score.
                             keys %{ $hash{$query}{'data'} }
      )
    {
-    last if $hit_number > $hhr_max_hits;
+    next if $hit_number > $hhr_max_hits;
 
     #check_inference_cds
     #store_inference_cds
@@ -2433,14 +2552,17 @@ Score: the raw score, which does not include the secondary structure score.
     }
    }
   }
+  close IN;
+ }
+ #finished searching all files
+ $/ = $orig_record_sep;
 
   # we now store the metadata for the search 'inference'
   # %databases_used
- }
  close(INFERENCEFEATURECOPY);
- print "Processed: $record_number\t\t\n" if ( $record_number % 10 == 0 );
- $| = 0;
- print "\nCommitting to database...\n";
+ print "Processed: $record_number\t\t\n";
+
+ print &mytime . "\nCommitting to database...\n";
 
  # now execute copy statement
  $dbh_store->do('DROP INDEX inference_cds_idx1');
@@ -2450,7 +2572,7 @@ Score: the raw score, which does not include the secondary structure score.
 
  $dbh_store->{"RaiseError"} = 1;
  $dbh_store->begin_work();
- if ($do_chado) { }
+ if ($do_chado) { die "Chado not supported with HHblits"; }
  else {
   $dbh_store->do(
 "COPY inference_cds (cds_uname,inference_id,inference_hit_rank,known_protein_id,rawscore,normscore,significance,identity,similarity,query_start,query_end,hit_start,hit_end,query_strand,hit_strand) FROM STDIN"
@@ -2459,20 +2581,20 @@ Score: the raw score, which does not include the secondary structure score.
   $dbh_store->commit();
   die if $dbh_store->{"ErrCount"};
   unlink("$cwd/.INFERENCEFEATURECOPY.psql");
-  print "Indexing...\n";
+  print &mytime . "Indexing...\n";
 
   $dbh_store->do(
      'CREATE INDEX inference_cds_idx1 ON inference_cds USING btree (cds_uname);'
   );
 
-#		$dbh_store->do('CREATE INDEX inference_cds_idx2 ON inference_cds USING btree (inference_id);'		);
+#       $dbh_store->do('CREATE INDEX inference_cds_idx2 ON inference_cds USING btree (inference_id);'       );
   $dbh_store->do(
 'CREATE INDEX inference_cds_idx3 ON inference_cds USING btree (known_protein_id);'
   );
  }
 
  sub _version_hhblits() {
-  my $version = `hhblits 2>/dev/null|grep version`;
+  my $version = `hhblits 2>/dev/null|grep -m 1 HHblits`;
   chomp($version);
   return $version;
  }
@@ -2487,8 +2609,8 @@ sub process_protein_network_cdhit() {
  for ( my $i = 0 ; $i < scalar(@$files) ; $i++ ) {
   next unless -s $files->[$i];
   my %hash;
-  open( IN,  $files->[$i] );
-  open( OUT, '>' . $files->[$i] . '.tab' );
+  open( IN,  $files->[$i] ) || confess ("Cannot find file ".$files->[$i]." $!");
+  open( OUT, '>' . $files->[$i] . '.tab' ) || confess ("Cannot write file ".$files->[$i] . '.tab'." $!");
   while ( my $record = <IN> ) {
    chomp($record);
    next if $record =~ /^\s*$/;
@@ -2540,7 +2662,7 @@ sub process_protein_network_cdhit() {
 }
 
 sub process_protein_network() {
- print "Processing network output...\n";
+ print &mytime . "Processing network output...\n";
  my $dbh_store = shift;
  my $files     = shift;
  my $separator = shift;
@@ -2603,8 +2725,8 @@ sub process_protein_network_tab() {
   my ( %edges, $weighted );
   next unless $infile && -s $infile && ( -s $infile ) >= 10;
   my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
-  print "Processing $infile as a network result\n";
-  open( IN, $infile ) || die("Cannot open $infile\n");
+  print &mytime . "Processing $infile as a network result\n";
+  open( IN, $infile ) || confess ("Cannot open $infile $!");
   while ( my $network = <IN> ) {
    next if $network =~ /^\s*$/ || $network =~ /^#/;
    chomp($network);
@@ -2631,7 +2753,7 @@ sub process_protein_network_tab() {
    }
   }
   close IN;
-  print "Flattening "
+  print &mytime . "Flattening "
     . scalar( keys %edges )
     . " edges and preparing for database...\n";
   my (@groups);
@@ -2651,7 +2773,7 @@ sub process_protein_network_tab() {
    push( @groups, \@seen );
   }
   %edges_process = ();
-  print "Done, processing up to " . scalar(@groups) . " networks...\n";
+  print &mytime . "Done, processing up to " . scalar(@groups) . " networks...\n";
   my ($record_number);
   $dbh_store->begin_work;
   foreach my $group (@groups) {
@@ -2693,7 +2815,7 @@ sub process_protein_network_tab() {
    $record_number++;
    print "Processed: $record_number\t\t\r" if ( $record_number % 10 == 0 );
   }
-  print "\nStoring in database...\n";
+  print &mytime . "\nStoring in database...\n";
   $dbh_store->commit;
  }
 }
@@ -2712,8 +2834,8 @@ sub process_protein_network_mcl() {
  foreach my $infile (@$files) {
   next unless $infile && -s $infile && ( -s $infile ) >= 10;
   my $absolute_infile_name = File::Spec->rel2abs( $infile, $cwd );
-  print "Processing $infile as a network result\n";
-  open( IN, $infile ) || die("Cannot open $infile\n");
+  print &mytime . "Processing $infile as a network result\n";
+  open( IN, $infile ) || confess ("Cannot open $infile $!");
 
   $dbh_store->begin_work;
   while ( my $network = <IN> ) {
@@ -2809,32 +2931,41 @@ sub process_dew_expression() {
       $gene_coverage_directory, $gene_expression_directory_fpkm,
       $gene_expression_directory_tpm
  ) = @_;
+
  $dbh_store->begin_work();
+
+ &add_expression_experiment();
+
  &store_library_metadata($library_alias_file);
+
+
+ # transcript_expression
+
  &store_expression_library_transcripts($dbh_store, $binary_expression_file, $stats_file );
- print "Committing...\n";
+ print &mytime . "Committing...\n";
  $dbh_store->commit();
 
  $dbh_store->begin_work();
  &store_pictures( $gene_coverage_directory, 'coverage' );
- print "Committing...\n";
+ print &mytime . "Committing...\n";
  $dbh_store->commit();
 
- $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
- print "Committing...\n";
- $dbh_store->commit();
+# i decided that databasing both types of images is a waste of space.
+# $dbh_store->begin_work();
+# &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
+# print &mytime . "Committing...\n";
+# $dbh_store->commit();
 
  $dbh_store->begin_work();
  &store_pictures( $gene_expression_directory_tpm, 'TPM' );
- print "Committing...\n";
+ print &mytime . "Committing...\n";
  $dbh_store->commit();
 
 }
 
 sub process_extra_expression() {
  my ( $dbh_store, $custom_file ) = @_;
- open (IN,$custom_file) || die $!;
+ open (IN,$custom_file) || confess($!);
  my $header_str = <IN>;
  chomp($header_str);
  my %skipped_lib_indexes;
@@ -2851,7 +2982,7 @@ sub process_extra_expression() {
  # all ok.
  $dbh_store->{"PrintError"} = 0;
  $dbh_store->{"RaiseError"} = 0;
- $sql_hash_ref->{'prepare_custom_statistics_transcript_expression_library'}->execute();
+ $sql_hash_ref->{'prepare_custom_statistics_transcript_expression'}->execute();
  my $counter = int(0);
  $dbh_store->{"RaiseError"} = 1;
  $dbh_store->begin_work();
@@ -2877,16 +3008,24 @@ sub process_extra_expression() {
 		confess "No library name for library $h?\n$header_str\n" unless $library_name;
 		my $value = $data[$h];
 		confess "No value for value $h?\n$ln\n" unless defined($value);
-		$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
-		my $check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
+
+        # get linkage between experiment and library
+        $sql_hash_ref->{'check_expression_library_experiment'}->execute($expression_name,$library_name);
+        my $expression_library_experiment_id = $sql_hash_ref->{'check_expression_library_experiment'}->fetchrow_arrayref();
+        die "No linkage between library and experiment $!" unless $expression_library_experiment_id;
+        $expression_library_experiment_id = $expression_library_experiment_id->[0];
+
+        $sql_hash_ref->{'check_transcript_expression'}->execute( $transcript_name, $expression_library_experiment_id );
+        my $check =  $sql_hash_ref->{'check_transcript_expression'}->fetchrow_arrayref();
+
 		if (!$check){
-			$sql_hash_ref->{'store_transcript_expression_library'}->execute( $transcript_name, $library_name );
-			$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
-			$check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-			confess "Cannot add a new transcript_expression_library for \n$ln\n" if !$check;
+			$sql_hash_ref->{'store_transcript_expression'}->execute( $transcript_name, $expression_library_experiment_id );
+			$sql_hash_ref->{'check_transcript_expression'}->execute( $transcript_name, $expression_library_experiment_id );
+			$check =  $sql_hash_ref->{'check_transcript_expression'}->fetchrow_arrayref();
+			confess "Cannot add a new transcript_expression for \n$ln\n" if !$check;
 		}
 		
-	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression_library'}->execute($value,$transcript_name,$check->[0]);
+	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression'}->execute($value,$check->[0]);
 		confess if $dbh_store->{"ErrCount"};
 	}
 	if ($counter % 1000 == 0){
@@ -2896,12 +3035,30 @@ sub process_extra_expression() {
 	 	 $dbh_store->begin_work();
 	}
  }
- print "Committing...\n";
+ print &mytime . "Committing...\n";
  $dbh_store->commit();
  close IN;
  $dbh_store->{"PrintError"} = 1;
  $dbh_store->{"RaiseError"} = 0;
 }
+
+sub add_expression_experiment(){
+  my $dbh_store = shift;
+  # expression_name needed and expression_description optionally
+  die "Expression experiments require an expression name that is up to 32 characters\n" unless $expression_name && length($expression_name) <= 32;
+
+  $sql_hash_ref->{'check_expression_experiment'}->execute($expression_name);
+  if ( !$sql_hash_ref->{'check_expression_experiment'}->fetchrow_arrayref() ) {
+   $sql_hash_ref->{'store_expression_experiment'}->execute($expression_name,"$hostname:$expression_dew_outdir");
+   $sql_hash_ref->{'check_expression_experiment'}->execute($expression_name);
+   die "Cannot store expression experiement $!" if !$sql_hash_ref->{'check_expression_experiment'}->fetchrow_arrayref();
+  }
+  if ($expression_description){
+    $sql_hash_ref->{'store_expression_experiment_description'}->execute($expression_description,$expression_name);
+  }
+
+}
+
 
 sub store_expression_library_transcripts() {
  my $dbh_store = shift;
@@ -2914,18 +3071,18 @@ sub store_expression_library_transcripts() {
 sub process_expression_stats() {
  my $dbh_store = shift;
  my $stats_file = shift;
- open( IN, $stats_file ) || die($!);
+ open( IN, $stats_file ) || confess ("Cannot open file $stats_file $!") ;
  my @headers = split( "\t", <IN> );
  chomp( $headers[-1] );
  my $counter;
 # currently:
 # Checksum Gene alias  Readset Raw_Counts  RPKM    Express_FPKM    Express_TPM Express_eff.counts  KANGADE_counts  TMM_Normalized.count    TMM.FPKM    TMM.TPM
- print "Processing expression statistics via $stats_file\n";
+ print &mytime . "Processing expression statistics via $stats_file\n";
  while ( my $ln = <IN> ) {
   next if $ln =~ /^\s*$/;
   chomp($ln);
   my @data = split( "\t", $ln );
-  next unless $data[9];
+  next unless $data[2];
   my $md5_sum          = $data[0];
   my $transcript_uname = $data[1];
   my $library_uname    = $data[2];
@@ -2940,24 +3097,35 @@ sub process_expression_stats() {
   # do it this way in case headers change again
   my %hash;
   for ( my $i = 3 ; $i < scalar(@data) ; $i++ ) {
+   $data[$i] = int(0) if ($data[$i]=~/^0$/);
    $hash{ $headers[$i] } = $data[$i];
-  }
-  $sql_hash_ref->{'check_transcript_expression_library'}
-    ->execute( $transcript_uname, $library_uname );
-  my $sql_res =
-    $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-  unless ( $sql_res && $sql_res->[0] ) {
 
-#   this is now controlled by the binary file. if the gene is not expressed, don't process.
-#   warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
-#   $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
-   next;
   }
-  my $id = $sql_res->[0];
+
+  # get linkage between experiment and library
+   $sql_hash_ref->{'check_expression_library_experiment'}->execute($expression_name,$library_uname);
+   my $expression_library_experiment_id =$sql_hash_ref->{'check_expression_library_experiment'}->fetchrow_arrayref();
+   die "No linkage between library and experiment $!" unless $expression_library_experiment_id;
+   $expression_library_experiment_id = $expression_library_experiment_id->[0];
+
+  $sql_hash_ref->{'check_transcript_expression'}->execute( $transcript_uname, $expression_library_experiment_id );
+
+  my $sql_res = $sql_hash_ref->{'check_transcript_expression'}->fetchrow_arrayref();
+  unless ( $sql_res && $sql_res->[0] ) {
+   #I've reverted this because binary only includes if something has been searched and had at least one hit
+   # now - i decided - we should store it even if no expression to show it has been tested.
+   #warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
+   #$warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
+   $sql_hash_ref->{'store_transcript_expression'}->execute( $transcript_uname, $expression_library_experiment_id );
+   $sql_hash_ref->{'check_transcript_expression'}->execute( $transcript_uname, $expression_library_experiment_id );
+   $sql_res = $sql_hash_ref->{'check_transcript_expression'}->fetchrow_arrayref();
+   confess ("Can't store expression data...\n") if !$sql_res;
+  }
+  my $id = $sql_res->[0] || die "Cannot get an ID $!";
   $counter++;
   # undefined values are SET as null
 
-  $sql_hash_ref->{'update_statistics_transcript_expression_library'}->execute(
+  $sql_hash_ref->{'update_statistics_transcript_expression'}->execute(
                          $hash{'Raw_Counts'},           $hash{'RPKM'},
                          $hash{'Express_FPKM'},         $hash{'Express_TPM'},
                          $hash{'Express_eff.counts'},   $hash{'KANGADE_counts'},
@@ -2965,62 +3133,90 @@ sub process_expression_stats() {
                          $hash{'TMM.TPM'},              $id
   );
   if ($counter % 1000 == 0){
-	print "Committed $counter    \r";
+	print "Committed transcripts x libraries: $counter    \r";
 	$dbh_store->commit();
 	$dbh_store->begin_work();
   }
  }
- print "Committed $counter    \r";
+ print "Committed transcripts x libraries: $counter    \n";
  $dbh_store->commit();
  $dbh_store->begin_work();
  close IN;
 }
 
 sub process_binary() {
+
+ # header can be multiple lines. First line is always Gene\t@library_names
+ # then different conditions follow.
+
  my $dbh_store = shift;
  my $binary_expression = shift;
- open( IN, $binary_expression ) || die($!);
+ open( IN, $binary_expression ) || confess ("Cannot open file $binary_expression $!");
  my $header_str =  <IN>;chomp($header_str);
  my @headers = split( "\t", $header_str );
  my %libraries_to_do;
+ # first column is 'Gene' and rest is libraries
  for ( my $i = 1 ; $i < scalar(@headers) ; $i++ ) {
   my $library_name = $headers[$i];
   $sql_hash_ref->{'check_expression_library'}->execute($library_name);
-  $libraries_to_do{$i} = 1 if $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
+  my $res = $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
+  if ($res){
+      $libraries_to_do{$i} = $library_name if $res;
+      }else{
+        warn "WARNING: Will not process library $library_name because it does not existing in the expression library table\n";
+      }
  }
 
- print "Linking transcripts to expression libraries via $binary_expression\n";
+ print &mytime . "Linking transcripts to expression libraries via $binary_expression\n";
  my $counter=1;
+
+
 OUTER: while ( my $ln = <IN> ) {
   next if $ln =~ /^\s*$/;
   chomp($ln);
   my @data = split( "\t", $ln );
-  next unless $data[1] && $data[1] =~ /^[01]$/;
+
+  # some header rows may be 0/1 so that will cause a warning. make sure it is not fatal elsewhere
+  for (my $i=1;$i<@data;$i++){
+    my $d = $data[$i];
+    next OUTER unless $d =~ /^[01]$/;
+  }
   $sql_hash_ref->{'check_transcript'}->execute( $data[0]);
   my $tr_check = $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
   if (!$tr_check){
-	warn "Have to skip ".$data[0]." because it doesn't exist in the transcript table\n";
-	next;
+	warn "WARNING: Have to skip ".$data[0]." because it doesn't exist in the transcript table\n";
+	next OUTER;
   }
   $counter++;
   for ( my $i = 1 ; $i < scalar(@data) ; $i++ ) {
    next unless $libraries_to_do{$i};
-   my $library_name = $headers[$i];
-   if ( $data[$i] == 1 ) {
-    $sql_hash_ref->{'check_transcript_expression_library'}
-      ->execute( $data[0], $library_name );
+
+   my $library_name = $libraries_to_do{$i};
+   $sql_hash_ref->{'check_expression_library_experiment'}->execute($expression_name,$library_name);
+   my $expression_library_experiment_id =$sql_hash_ref->{'check_expression_library_experiment'}->fetchrow_arrayref();
+   die "No linkage between library and experiment $!" unless $expression_library_experiment_id;
+   $expression_library_experiment_id = $expression_library_experiment_id->[0];
+
+   
+   # we used to store here if one of the genes
+   # had at least one library expressed
+   # however, this fails to capture the fact that it has
+   # been measured. so let's do all of them
+   #if ( $data[$i] == 1 ) {
+    $sql_hash_ref->{'check_transcript_expression'}
+      ->execute( $data[0], $expression_library_experiment_id );
     my $check =
-      $sql_hash_ref->{'check_transcript_expression_library'}
+      $sql_hash_ref->{'check_transcript_expression'}
       ->fetchrow_arrayref();
     if ( !$check ) {
-     $sql_hash_ref->{'store_transcript_expression_library'}
-       ->execute( $data[0], $library_name );
-     $sql_hash_ref->{'check_transcript_expression_library'}
-       ->execute( $data[0], $library_name );
+     $sql_hash_ref->{'store_transcript_expression'}
+       ->execute( $data[0], $expression_library_experiment_id );
+     $sql_hash_ref->{'check_transcript_expression'}
+       ->execute( $data[0], $expression_library_experiment_id );
      $check =
-       $sql_hash_ref->{'check_transcript_expression_library'}
+       $sql_hash_ref->{'check_transcript_expression'}
        ->fetchrow_arrayref();
-     die "Can't store expression data..."
+     confess ("Can't store expression data...\n")
        if !$check;
 	  if ($counter % 1000 == 0){
 		print "Committed $counter    \r";
@@ -3028,20 +3224,21 @@ OUTER: while ( my $ln = <IN> ) {
 		$dbh_store->begin_work();
 	  }
     }
-   }
+   #}
   }
  }
- print "Committed $counter    \r";
+ print "Committed $counter    \n";
  $dbh_store->commit();
  $dbh_store->begin_work();
  close IN;
+
 }
 
 sub store_pictures() {
  my ( $dir, $graph_type ) = @_;
  my %allowed_formats = ( 'png' => 1, 'svg' => 1 );
  my @pictures = glob( $dir . '/*' );
- print "Storing up to "
+ print &mytime . "Storing up to "
    . scalar(@pictures)
    . " $graph_type pictures from $dir\n";
  foreach my $picture (@pictures) {
@@ -3063,38 +3260,21 @@ sub store_pictures() {
 	  next;
   }
  
-  $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $graph_type, $format );
+  $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $expression_name, $graph_type, $format );
   next if $sql_hash_ref->{'check_transcript_expression_image'}->fetchrow_arrayref();
 
-  #if ( $picture_basename =~ /^([^\-\_\.]+)/ ) {
-#   $md5sum = $1;
-#   $sql_hash_ref->{'get_transcript_from_md5sum'}->execute($md5sum);
-#   my $res = $sql_hash_ref->{'get_transcript_from_md5sum'}->fetchrow_arrayref();
-#   if ($res) {
-#    $transcript_uname = $res->[0];
-#    $sql_hash_ref->{'check_transcript_expression_image'}->execute( $transcript_uname, $graph_type, $format );
-#    next  if $sql_hash_ref->{'check_transcript_expression_image'}->fetchrow_arrayref();
-#   }
-#   else {
-#    warn "No transcript name found for md5sum $md5sum\n";
-#    $warnings_msgs++;
-#    die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
-#    next;
-#   }
-#  }
-#  else {
-#   next;
-#  }
   my $filedata = &read_whole_file($picture);
   next unless $filedata;
   $sql_hash_ref->{'store_transcript_expression_image'}
     ->bind_param( 1, $transcript_uname );
   $sql_hash_ref->{'store_transcript_expression_image'}
-    ->bind_param( 2, $graph_type );
+    ->bind_param( 2, $expression_name );
   $sql_hash_ref->{'store_transcript_expression_image'}
-    ->bind_param( 3, $filedata, { pg_type => DBD::Pg::PG_BYTEA } );
+    ->bind_param( 3, $graph_type );
   $sql_hash_ref->{'store_transcript_expression_image'}
-    ->bind_param( 4, $format );
+    ->bind_param( 4, $filedata, { pg_type => DBD::Pg::PG_BYTEA } );
+  $sql_hash_ref->{'store_transcript_expression_image'}
+    ->bind_param( 5, $format );
   $sql_hash_ref->{'store_transcript_expression_image'}->execute();
  }
 
@@ -3102,8 +3282,8 @@ sub store_pictures() {
 
 sub store_library_metadata() {
  my $file = shift;
- open( LIB, $file );
- print "Reading and storing expression libraries and metadata from $file\n";
+ open( LIB, $file )|| confess("Cannot open file $file $!");
+ print &mytime . "Reading and storing expression libraries and metadata from $file\n";
 
  # 'name' is required; others optional
  my @headers = split( "\t", <LIB> );
@@ -3130,8 +3310,16 @@ sub store_library_metadata() {
   if ( !$sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref() ) {
    $sql_hash_ref->{'store_expression_library'}->execute($library_name);
    $sql_hash_ref->{'check_expression_library'}->execute($library_name);
-   die if !$sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
+   die "Cannot insert expression library $!" if !$sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
   }
+
+  $sql_hash_ref->{'check_expression_library_experiment'}->execute($expression_name,$library_name);
+  if ( !$sql_hash_ref->{'check_expression_library_experiment'}->fetchrow_arrayref() ) {
+    $sql_hash_ref->{'store_expression_library_experiment'}->execute($expression_name,$library_name);
+    $sql_hash_ref->{'check_expression_library_experiment'}->execute($expression_name,$library_name);
+    die "Cannot link expression and library $!" if !$sql_hash_ref->{'check_expression_library_experiment'}->fetchrow_arrayref();
+  }
+
   for ( my $i = 1 ; $i < @data ; $i++ ) {
    next unless $headers[$i];
    if ( $headers[$i] =~ /description/i ) {
@@ -3167,8 +3355,8 @@ sub process_protein_ipr() {
 
  #XML::LibXML::Parser
  foreach my $xmlfile (@$files_ref) {
-  print "Processing $xmlfile\n";
-  my $reader = XML::LibXML::Reader->new( location => $xmlfile ) || die;
+  print &mytime . "Processing $xmlfile\n";
+  my $reader = XML::LibXML::Reader->new( location => $xmlfile ) || confess($!);
 
   die Dumper $reader->read;
 
@@ -3189,11 +3377,11 @@ sub process_protein_ipr() {
 }
 
 sub calculate_protein_properties() {
- my $fastafile = shift || die;
+ my $fastafile = shift || confess($!);
  my $basename  = basename($fastafile);
  my $outfile   = "$cwd/$basename.phys";
- print "Calculating protein physical properties...\n";
- open( FILEPHYS, ">$outfile" );
+ print &mytime . "Calculating protein physical properties...\n";
+ open( FILEPHYS, ">$outfile" ) || confess ("Cannot write file $outfile $!");
 
 #	print FILEPHYS "#ID\tUndefined residues\tmin MW\tmax MW\tPositive aa\tNegative aa\tIso-Electric Potential\tCharge at pH5\tCharge at pH7\tCharge at pH9\n";
  my $protein_obj = Bio::SeqIO->new(
@@ -3252,8 +3440,8 @@ sub calculate_protein_properties() {
 =cut
 
 sub prepare_native_inference_sqls() {
- my $dbh        = shift || die;
- my $dataset_id = shift || die;
+ my $dbh        = shift || confess($!);
+ my $dataset_id = shift || confess($!);
  my %sql_hash;
  $dbh->do( "SET SEARCH_PATH TO dataset_" . $dataset_id );
 
@@ -3404,11 +3592,23 @@ sub prepare_native_inference_sqls() {
 #### expression
 
  $sql_hash{'check_transcript_expression_image'} = $dbh->prepare(
-"SELECT transcript_expression_id from transcript_expression_image WHERE transcript_uname=? AND type=? AND format=?"
+"SELECT transcript_expression_image_id from transcript_expression_image WHERE transcript_uname=? AND expression_experiment_uname=? AND type=? AND format=?"
  );
  $sql_hash{'store_transcript_expression_image'} = $dbh->prepare(
-"INSERT INTO transcript_expression_image (transcript_uname,type,image_data,format) VALUES (?,?,?,?)"
+"INSERT INTO transcript_expression_image (transcript_uname,expression_experiment_uname,type,image_data,format) VALUES (?,?,?,?,?)"
  );
+
+ $sql_hash{'check_expression_experiment'} = $dbh->prepare("SELECT uname from expression_experiment WHERE uname=?");
+ $sql_hash{'delete_expression_experiment'} = $dbh->prepare("DELETE FROM expression_experiment WHERE uname=? CASCADE");
+ $sql_hash{'store_expression_experiment'} = $dbh->prepare("INSERT INTO expression_experiment (uname,system_directory) VALUES (?,?)");
+ $sql_hash{'store_expression_experiment_description'} = $dbh->prepare("UPDATE expression_experiment set description=? WHERE uname=?");
+
+ $sql_hash{'check_expression_library_experiment'} = 
+  $dbh->prepare("SELECT expression_library_experiment_id FROM expression_library_experiment WHERE experiment_uname=? AND library_uname=?");
+
+ $sql_hash{'store_expression_library_experiment'} = 
+  $dbh->prepare("INSERT INTO expression_library_experiment (experiment_uname,library_uname) VALUES (?,?)");
+
 
  $sql_hash{'check_expression_library'} =
    $dbh->prepare("SELECT uname FROM expression_library WHERE uname=?");
@@ -3424,24 +3624,25 @@ sub prepare_native_inference_sqls() {
 "INSERT INTO expression_library_metadata (library_uname,term,value) VALUES (?,?,?)"
  );
 
- $sql_hash{'check_transcript_expression_library'} = $dbh->prepare(
-"SELECT transcript_expression_library_id FROM transcript_expression_library WHERE transcript_uname=? AND library_uname=?"
+ $sql_hash{'check_transcript_expression'} = $dbh->prepare(
+"SELECT transcript_expression_id FROM transcript_expression WHERE transcript_uname=? AND expression_library_experiment_id=?"
  );
- $sql_hash{'store_transcript_expression_library'} = $dbh->prepare(
-"INSERT INTO transcript_expression_library (transcript_uname,library_uname) VALUES (?,?)"
+ $sql_hash{'store_transcript_expression'} = $dbh->prepare(
+"INSERT INTO transcript_expression (transcript_uname,expression_library_experiment_id) VALUES (?,?)"
  );
 
  $sql_hash{'get_transcript_from_md5sum'} = $dbh->prepare("SELECT uname from transcript WHERE nuc_checksum=?");
 
- $sql_hash{'update_statistics_transcript_expression_library'} = $dbh->prepare(
-"UPDATE transcript_expression_library SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_library_id=?"
+ $sql_hash{'update_statistics_transcript_expression'} = $dbh->prepare(
+"UPDATE transcript_expression SET raw_counts=?,raw_rpkm=?,express_fpkm=?,express_tpm=?,express_counts=?,kangade_counts=?,tmm_counts=?,tmm_fpkm=?,tmm_tpm=? WHERE transcript_expression_id=?"
  );
  if ( $extra_expression_column_name && $extra_expression_column_type ) {
-  $extra_expression_column_name  = lc($extra_expression_column_name );
-  $extra_expression_column_type = lc($extra_expression_column_type);
+  # this is really for power user
   die "Extra expression column type must be real, integer or varchar\n" unless $extra_expression_column_type eq 'real' || $extra_expression_column_type eq 'integer' || $extra_expression_column_type eq 'varchar';
-  $sql_hash{'prepare_custom_statistics_transcript_expression_library'} =  $dbh->prepare("ALTER TABLE transcript_expression_library ADD column $extra_expression_column_name $extra_expression_column_type"    );
-  $sql_hash{'store_custom_statistics_transcript_expression_library'} =    $dbh->prepare("UPDATE transcript_expression_library SET $extra_expression_column_name = ? WHERE transcript_uname=? AND transcript_expression_library_id=? "    );
+  $sql_hash{'prepare_custom_statistics_transcript_expression'} = 
+    $dbh->prepare("ALTER TABLE transcript_expression ADD column $extra_expression_column_name $extra_expression_column_type"    );
+  $sql_hash{'store_custom_statistics_transcript_expression'} =   
+    $dbh->prepare("UPDATE transcript_expression SET $extra_expression_column_name = ? WHERE transcript_expression_id=? "    );
  }
 
  #
@@ -3458,7 +3659,7 @@ sub prepare_native_inference_sqls() {
 }
 
 sub prepare_chado_inference_sqls() {
- my $dbh = shift || die;
+ my $dbh = shift || confess($!);
  my %sql_hash;
  $sql_hash{'check_feature'} =
    $dbh->prepare("SELECT feature_id from feature WHERE uniquename=?")
@@ -3551,7 +3752,7 @@ sub parse_transcript_gff() {
  # if using genome gff this has been re-written to a new format/file
  my ( %gene_gff_data, %cds_gff_data, %transcript_gff_data,
       $number_transcripts );
- open( GFF, $cds_gff_file ) || die;
+ open( GFF, $cds_gff_file ) || confess ("Cannot open file $cds_gff_file $!");
  while ( my $ln = <GFF> ) {
   next if ( $ln =~ /^\s*$/ || $ln =~ /^#/ );
   chomp($ln);
@@ -3565,7 +3766,7 @@ sub parse_transcript_gff() {
    if ($genome_gff_file) {
     $genome_reference_sequence = $data[0];
     if ( $data[8] =~ /ID=([^;]+);?/ ) {
-     $gene_uname = $1 || die $ln;
+     $gene_uname = $1 || confess ("$!\nIssue with ").$ln;
     }
    }
    else {
@@ -3618,7 +3819,7 @@ sub parse_transcript_gff() {
    );
    next unless $data[2] eq 'mRNA';
    if ( $data[8] =~ /ID=([^;]+);?/ ) {
-    $transcript_uname = $1 || die $ln;
+    $transcript_uname = $1 || confess ("$!\nIssue with ").$ln;
     if ( $data[8] =~ /Name=([^;]+)/ ) {
      $transcript_alias = uri_unescape($1);
     }
@@ -3668,7 +3869,7 @@ sub parse_transcript_gff() {
 
 # we will use the same ID as the transcript (otherwise cds is just = "cds.$transcript_uname")
 #  if ($data[8] =~ /ID=([^;]+);?/){
-#   #$cds_uname = $1 || die $ln;
+#   #$cds_uname = $1 || confess ("$!\nIssue with ").$ln;
 #  }else{
 #   die "Can't find an ID in the GFF $cds_gff_file for:" . $ln;
 #  }
@@ -3710,7 +3911,7 @@ sub store_native_genes() {
   $number_stored_genes++;
  }
 
- print "Processing genes from $contig_fasta_file\n";
+ print &mytime . "Processing genes from $contig_fasta_file\n";
  print "$number_stored_genes had been previously stored.\n";
  $dbh->{"PrintError"} = 0;
  $dbh->{"RaiseError"} = 1;
@@ -3733,7 +3934,7 @@ sub store_native_genes() {
   die "No gene name!" unless $gene_uname;
   next if $stored_genes_ref->{$gene_uname};
 
-  print "Adding gene $gene_uname\n" if $debug;
+  print &mytime . "Adding gene $gene_uname\n" if $debug;
   my $seq = $seq_obj->get_sequence();
   die "No sequence for $gene_uname!\n" unless $seq;
   $sql_hash_ref->{'store_gene_name_seq'}
@@ -3754,7 +3955,7 @@ sub store_native_genes() {
 
 sub store_native_transcripts() {
  my $dbh = shift;
- print "Parsing transcript data...\n";
+ print &mytime . "Parsing transcript data...\n";
  my ( $gene_gff_data_ref, $transcript_gff_data_ref, $cds_gff_data_ref ) =
    &parse_transcript_gff();
 
@@ -3828,7 +4029,7 @@ sub store_native_transcripts() {
 
  print
 "Processing $number_transcripts coding mRNA sequences from $cdna_fasta_file\n";
- print "$number_stored_transcripts had been previously stored.\n";
+ print &mytime . "$number_stored_transcripts had been previously stored.\n";
  $dbh->{"PrintError"} = 0;
  $dbh->{"RaiseError"} = 1;
  $dbh->begin_work;
@@ -3849,7 +4050,7 @@ sub store_native_transcripts() {
 
   #check if in GFF file
   next unless $transcript_gff_data_ref->{$transcript_uname};
-  print "Adding transcript $transcript_uname\n" if $debug;
+  print &mytime . "Adding transcript $transcript_uname\n" if $debug;
 
   my $seq = $seq_obj->get_sequence();
   my $transcript_length = length($seq);
@@ -3956,7 +4157,7 @@ sub store_native_transcripts() {
 sub do_copy_stdin() {
  my $file = shift;
  my $dbh  = shift;
- open( TMP, $file );
+ open( TMP, $file ) || confess ("Cannot open file $file $!");
  $dbh->pg_putcopydata($_) while (<TMP>);
  close TMP;
  $dbh->pg_putcopyend();
@@ -3966,7 +4167,7 @@ sub add_linkout() {
 
 #  UniProt    http://www.uniprot.org/uniprot
 # The mission of UniProt is to provide the scientific community with a comprehensive, high-quality and freely accessible resource of protein sequence and functional information.
- my $dbh        = shift || die;
+ my $dbh        = shift || confess($!);
  my $conf_file  = shift;
  my $dataset_id = shift;
  my $linkout_sql_prepared =
@@ -3985,7 +4186,7 @@ sub add_linkout() {
    : $dbh->prepare(
                "SELECT linkout_id from public.linkout WHERE name=? AND type=?");
 
- open( IN, $conf_file );
+ open( IN, $conf_file ) || confess ("Cannot open file $conf_file $!");
 
  while ( my $ln = <IN> ) {
   next if $ln =~ /^#/;
@@ -4006,7 +4207,7 @@ sub add_linkout() {
      . " not supported, only CDS, gene and hit! Skipping...\n";
    next;
   }
-  print "Adding " . $data[1] . " for " . $data[0] . "\n";
+  print &mytime . "Adding " . $data[1] . " for " . $data[0] . "\n";
   if ( !$dataset_id ) {
    $linkout_sql_check->execute( $data[1], $data[0] );
   }
@@ -4015,7 +4216,7 @@ sub add_linkout() {
   }
   my $result = $linkout_sql_check->fetchrow_arrayref();
   if ( $result && $result->[0] ) {
-   print "Linkout already exists\n";
+   print &mytime . "Linkout already exists\n";
    next;
   }
 
@@ -4033,11 +4234,15 @@ sub create_populate_annotation_database() {
                                $annot_password
  );
  die "Cannot connect to annotation database...\n" unless $dbh_create;
- $dbh_create->do('SET search_path TO  known_proteins');
+ $dbh_create->do('SET search_path TO known_proteins');
  &create_new_annotation_db($dbh_create)   if $create_annot_database;
  &prepare_uniprot_id_mapping($dbh_create) if $do_uniprot_renaming;
  &prepare_ec($dbh_create)                 if $do_ec;
- &prepare_go($dbh_create)                 if $do_go;
+ if ($do_go){
+    &prepare_go($dbh_create);
+    &associate_uniprot_gene_ontology($dbh_create);
+    &prepare_go_slim($dbh_create);
+}
  &prepare_eggnog($dbh_create)             if $do_eggnog;
  &prepare_kegg($dbh_create)               if $do_kegg;
 
@@ -4075,7 +4280,7 @@ sub store_annotation_of_proteins() {
   $sql_hash_ref = &prepare_chado_inference_sqls($dbh_store);
 
   if ($protein_fasta_file) {
-   print "Processing $protein_fasta_file protein file\n";
+   print &mytime . "Processing $protein_fasta_file protein file\n";
    &store_chado_genes($protein_fasta_file);
   }
  }
@@ -4088,7 +4293,7 @@ sub store_annotation_of_proteins() {
   $sql_hash_ref = &prepare_native_inference_sqls( $dbh_store, $dataset_id );
 
   if ($protein_fasta_file) {
-   print "Processing $protein_fasta_file protein file\n";
+   print &mytime . "Processing $protein_fasta_file protein file\n";
    &store_native_genes($dbh_store);
   }
 
@@ -4097,15 +4302,15 @@ sub store_annotation_of_proteins() {
  $protein_fasta_file = '' if !$protein_fasta_file;    # will grab everything!
 
  if ( scalar(@do_protein_blasts) > 0 ) {
-  print "Processing BLASTs\n";
+  print &mytime . "Processing BLASTs\n";
   &process_protein_blast( $dbh_store, \@do_protein_blasts );
  }
  if ( scalar(@do_protein_hhr) > 0 ) {
-  print "Processing hhblits HHR files\n";
+  print &mytime . "Processing hhblits HHR files\n";
   &process_protein_hhr( $dbh_store, \@do_protein_hhr );
  }
  if ( scalar(@do_protein_networks) > 0 ) {
-  print "Processing network files\n";
+  print &mytime . "Processing network files\n";
   if ( $network_type && $network_name && $network_description ) {
    &process_protein_network( $dbh_store, \@do_protein_networks );
   }
@@ -4116,6 +4321,10 @@ sub store_annotation_of_proteins() {
  }
 
  if ($expression_dew_outdir) {
+    if ($expression_dew_outdir !~/^\//){
+        $expression_dew_outdir = $cwd . '/'. $expression_dew_outdir;
+    }
+
   if ( !-d $expression_dew_outdir ) {
    warn
 "Cannot find DEW output directory $expression_dew_outdir. Skipping expression processing...\n";
@@ -4178,7 +4387,7 @@ sub store_annotation_of_proteins() {
   }
   elsif ( !$extra_expression_column_name ) {
    warn
-"Using an extra expression file requires the -extra_expression_name option\n";
+"Using an extra expression file requires the -extra_expression_id option\n";
   }
   else {
    print
@@ -4191,7 +4400,7 @@ sub store_annotation_of_proteins() {
  }
 
  if ( scalar(@do_protein_ipr) > 0 ) {
-  print "Processing InterProScan files\n";
+  print &mytime . "Processing InterProScan files\n";
   &process_protein_ipr( $dbh_store, \@do_protein_ipr );
  }
  &postgres_permissions( $dbh_store, $annot_username, $annot_readuser );
@@ -4200,7 +4409,7 @@ sub store_annotation_of_proteins() {
 
 sub process_cmd {
  my ($cmd) = @_;
- print "CMD: $cmd\n";
+ print &mytime . "CMD: $cmd\n";
  my $ret = system($cmd);
  if ( $ret && $ret != 256 ) {
   die "Error, cmd died with ret $ret\n";
@@ -4219,20 +4428,20 @@ sub process_for_genome_gff() {
   return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
            $cds_gff_file );
  }
- print "Preparing genome $genome_fasta_file with $genome_gff_file\n";
+ print &mytime . "Preparing genome $genome_fasta_file with $genome_gff_file\n";
  my %unique_names_check;
  my $genome_ref = &read_fasta($genome_fasta_file);
 
- print "Indexing...\n";
+ print &mytime . "Indexing...\n";
  my $gene_obj_indexer =
    new Gene_obj_indexer( { "create" => $genome_gff_file . '.inx' } );
  my $scaffold_to_gene_list_href =
    &GFF3_utils::index_GFF3_gene_objs( $genome_gff_file, $gene_obj_indexer );
- print "Processing...\n";
- open( PROTOUT, ">$protein_fasta_file" );
- open( GENEOUT, ">$contig_fasta_file" );
- open( CDNAOUT, ">$cdna_fasta_file" );
- open( GFFOUT,  ">$cds_gff_file" );
+ print &mytime . "Processing...\n";
+ open( PROTOUT, ">$protein_fasta_file" ) || confess ("Cannot write file $protein_fasta_file $!");
+ open( GENEOUT, ">$contig_fasta_file" ) || confess ("Cannot write file $contig_fasta_file $!");
+ open( CDNAOUT, ">$cdna_fasta_file" ) || confess ("Cannot write file $cdna_fasta_file $!");
+ open( GFFOUT,  ">$cds_gff_file" ) || confess ("Cannot write file $cds_gff_file $!");
  my $master_counter = 0;
 
  foreach my $reference_id ( sort { length($a) <=> length($b) || $a cmp $b }
@@ -4284,7 +4493,7 @@ sub process_for_genome_gff() {
     if ( $gene_common_name =~ /\s/ ) {
      $gene_description .= $gene_common_name;
      $gene_description =~ s/^\s*(\S+)\s*//;
-     $gene_common_name = $1 || die;
+     $gene_common_name = $1 || confess($!);
     }
     if ($unique_names_check{$gene_common_name}){
       if ($debug){
@@ -4357,7 +4566,7 @@ sub process_for_genome_gff() {
      if ( $transcript_common_name =~ /\s/ ) {
       $description .= $transcript_common_name;
       $description =~ s/^\s*(\S+)\s*//;
-      $transcript_common_name = $1 || die;
+      $transcript_common_name = $1 || confess($!);
      }
 
      if ($assume_unique_gene_gff_names || $transcript_common_name =~ /-R[A-Z]+$/ ) {
@@ -4450,7 +4659,7 @@ sub process_for_genome_gff() {
  close CDNAOUT;
  close GENEOUT;
  close GFFOUT;
- print "\nFound $master_counter transcripts...\n";
+ print &mytime . "\nFound $master_counter transcripts...\n";
  return ( $protein_fasta_file, $contig_fasta_file, $cdna_fasta_file,
           $cds_gff_file );
 }
@@ -4469,15 +4678,16 @@ sub get_dataset_connection() {
 }
 
 sub check_required_files() {
- my $death;
- foreach my $_ (@_) {
-  next unless $_;
-  unless ( -s $_ ) {
-   warn $_ . " file does not exist.\n";
-   $death++;
-  }
+ my @files = @_;
 
- }
+ my $death;
+ foreach my $file (@files) {
+    next unless $file;
+    unless ( -s $file ) {
+      warn "* file '$file' does not exist.\n";
+      $death++;
+    }
+  }
  die $death . " files not found.\n" if $death;
 }
 
@@ -4639,7 +4849,7 @@ sub read_whole_file() {
  my $file = shift;
  my $filedata;
  return if ( !-s $file );
- open( IN, $file );
+ open( IN, $file ) || confess ("Cannot open file $file $!");
  while ( my $ln = <IN> ) {
   $filedata .= $ln;
  }
@@ -4652,7 +4862,7 @@ sub read_fasta() {
  my %hash;
  my $orig_sep = $/;
  $/ = '>';
- open( IN, $fasta ) || confess( "Cannot open $fasta : " . $! );
+ open( IN, $fasta ) || confess( "Cannot open file $fasta $!");
  while ( my $record = <IN> ) {
   chomp($record);
   next unless $record;
@@ -4667,4 +4877,193 @@ sub read_fasta() {
  close IN;
  $/ = $orig_sep;
  return \%hash;
+}
+
+
+sub get_ncbitaxid ($){
+        my $species=shift;
+	my $ncbi_taxid;
+
+        if ($species=~/^\d+$/){
+		return $species;
+	}elsif ($get_ncbitaxid_lookup{$species}){
+		return $get_ncbitaxid_lookup{$species};
+	}elsif ( $species =~ /^([A-Za-z]{2})[a-z]+\s/ ) {
+		#at least three letters
+		
+		$ncbi_taxid = $taxondb->get_taxonid($species);
+		if (!$ncbi_taxid){
+			#try URL
+                	my @res = `wget -q 'http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?lvl=0&name=\%22$species\%22' -O /dev/stdout`;
+			#<em>Taxonomy ID: </em>29058<br>
+        	        foreach my $line (@res){
+                	        if ( $line =~ /^\<em\>Taxonomy\sID\:\s*<\/em>(\d+)\</ ) {
+                        	        $ncbi_taxid = $1;
+	                        }
+        	        }
+		}
+        }else{
+		#give up and never try again
+		$ncbi_taxid = int(0);
+	}
+	$get_ncbitaxid_lookup{$species} = $ncbi_taxid if !$get_ncbitaxid_lookup{$species};
+        return $ncbi_taxid;
+} 
+
+sub prepare_taxonomy_ncbitaxid(){
+	my $ncbi_taxid = shift;
+	my $lineage;
+	my (%all_taxa,%all_taxa_sorted);
+	my $sorted_ref=\%all_taxa_sorted;
+	my $taxon = $taxondb->get_taxon(-taxonid => $ncbi_taxid) ;
+	if (!$taxon){
+          	warn "Could not query NCBI for NCBI taxid $ncbi_taxid.\n";
+        	return 'Unknown';
+	}
+	# we want class, order, family, genus, species, common name
+	my ($genus,$species,$class,$order,$family,$i);
+	my $species_rank=$taxon->rank();
+	my $species_name=$taxon->scientific_name();
+	if ($species_rank eq 'genus'){
+           $species = $species_name.' sp.';
+           $genus=$species_name;
+	}elsif($species_rank eq 'species'){
+           $species = $species_name;
+	}
+	if (!$species){
+           my $t=$taxon;
+        	while ($t=$t->ancestor()){
+                	$species_rank=$t->rank();
+	                next if !$species_rank;
+        	        $species = $taxon->scientific_name() if ($species_rank eq 'species');
+	        }
+        	if (!$species){
+                	my $t=$taxon;
+	                while ($t=$t->ancestor()){
+        	                $species_rank=$t->rank();
+                	        next if !$species_rank;
+                        	$species = $taxon->scientific_name().' sp.' if ($species_rank eq 'genus');
+        	                $genus=$taxon->scientific_name();
+	                }
+        	        if (!$species){
+                	        $species = 'Unknown';
+                        	$genus = 'Unknown';
+	                        $i++;$sorted_ref->{$i}={
+        	                        'rank' => $species_rank,
+                	                'name' => $species_name,
+                        	};
+	                }
+        	}
+	}
+	$species =~s/^(\w+)\s//;
+	$i++;$sorted_ref->{$i}={
+        	'rank' => 'species',
+        	'name' => $species,
+	} if $species ne 'Unknown';
+	$all_taxa{$species_rank}=$species;
+	my $t=$taxon;
+	unless ($genus && $genus eq 'Unknown'){
+		while ($t=$t->ancestor()){
+		        my $rank=$t->rank();
+        		next if !$rank;
+		        my $name = $t->scientific_name();
+        		next if !$name;
+	        	$i++;$sorted_ref->{$i}={
+	        	        'rank' => $rank,
+        	        	'name' => $name,
+	        	};
+	        	$all_taxa{$rank}=$name;
+		        if ($rank eq 'genus'){
+                		$genus=$name;
+	                	last;
+	        	}
+	 	}
+	}
+	if (!$genus || !$species){
+		warn "Cannot find genus/species for NCBI tax ID $ncbi_taxid\n";
+		return "Unknown";
+	}elsif(!$species){
+		warn "Cannot find species for genus ($genus)\n";
+		return "Unknown";
+	}elsif(!$genus){
+		warn "Cannot find genus for species ($species)\n";
+		return "Unknown";
+	}
+	my $common="No common name";
+	$common=$taxon->common_names() ? $taxon->common_names() : $genus.' '.$species if $genus ne 'Unknown';
+	$t=$taxon;
+	while ($t=$t->ancestor()){
+        	my $rank=$t->rank();
+	        next if !$rank;
+        	my $name = $t->scientific_name() ;
+	        next if !$name;
+        	$i++;
+	        $sorted_ref->{$i}={
+        	        'rank' => $rank,
+                	'name' => $name,
+	        };
+        	$all_taxa{$rank}=$name;
+	        if ($rank eq 'class'){
+        	        $class=$name;
+                	last if ($genus ne 'Unknown');
+	        }elsif($rank eq 'order'){
+        	        $order=$name;
+	        }elsif($rank eq 'family'){
+        	        $family=$name;
+	        }
+	}
+	if ($genus ne 'Unknown'){
+        	if (!$class){
+	                # go up
+        	        if ($all_taxa{'phylum'}){
+                	        $class=$all_taxa{'phylum'};
+	                }elsif ($all_taxa{'kingdom'}){
+        	                $class=$all_taxa{'kingdom'};
+                	}else{
+	                        $class='unknown';
+        	        }
+	        }if (!$order){
+        	        #go down one, then up one
+                	if ($all_taxa{'suborder'}){
+	                        $order=$all_taxa{'suborder'};
+        	        }elsif ($all_taxa{'subclass'}){
+                	        $order=$all_taxa{'subclass'};
+	                }else{
+        	                $order='unknown';
+                	}
+	        }if (!$family){
+        	        #go down one, then up one
+                	if ($all_taxa{'subfamily'}){
+                        	$family=$all_taxa{'subfamily'};
+	                }elsif ($all_taxa{'superfamily'}){
+        	                $family=$all_taxa{'superfamily'};
+                	}else{
+	                        $family='unknown';
+        	        }
+	        }
+                $lineage = "class:$class;order:$order;family:$family;genus:$genus;species:$species;common:$common;ncbi:$ncbi_taxid\n";
+	}else{
+        	my $print="";
+	        foreach my $sort (sort {$b<=>$a} keys %all_taxa_sorted){
+        	        $print.=$all_taxa_sorted{$sort}{'rank'}.':'.$all_taxa_sorted{$sort}{'name'}.';' unless $all_taxa_sorted{$sort}{'name'} eq 'unknown';
+	        }
+        	$lineage = $print."common:$common;ncbi:$ncbi_taxid\n";
+	}
+	return $lineage;
+}
+
+
+sub mytime() {
+ my @mabbr =
+   qw(January February March April May June July August September October November December);
+ my @wabbr = qw(Sunday Monday Tuesday Wednesday Thursday Friday Saturday);
+ my $sec   = localtime->sec() < 10 ? '0' . localtime->sec() : localtime->sec();
+ my $min   = localtime->min() < 10 ? '0' . localtime->min() : localtime->min();
+ my $hour =
+   localtime->hour() < 10 ? '0' . localtime->hour() : localtime->hour();
+ my $wday = $wabbr[ localtime->wday ];
+ my $mday = localtime->mday;
+ my $mon  = $mabbr[ localtime->mon ];
+ my $year = localtime->year() + 1900;
+ return "$wday, $mon $mday, $year: $hour:$min:$sec\t";
 }

@@ -147,7 +147,6 @@ function chadoviewer() {
                   $cvTermsSumList[ $lib_id ] = cvSummary_expression( $dsid, $cv_id, $lib_name );
                   //$total = totalTranscriptsExpression( $dsid,$lib_name );
                   $cvTermsSumList[ $lib_id ] = addProportion( $cvTermsSumList[ $lib_id ]);
-                  	
                 }
                 if (!empty($cvTermsSumList)){
                 	$data = mergeCvTermsSum( $cvTermsSumList );
@@ -443,7 +442,6 @@ function chadoviewer() {
                 	$data = mergeCvTermsSum( $cvTermsSumList );
                 	$data = sumColumns( $data, $selectedIds );
                 }
-                
                 break;
               case 'dbxref' :
                 /**
@@ -864,7 +862,7 @@ function chadoviewer() {
           $data = featureList();
           break;
         case 'expression_data':
-			$data = feature_expression_metadata($idFeature);
+			    $data = feature_expression_metadata($idFeature);
         	break;
         
         case 'cv' :

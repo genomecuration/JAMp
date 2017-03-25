@@ -71,12 +71,12 @@ function cvSummary_expression($dsid, $cv_id,$expression_lib) {
 	}
 	
 	if ($expression_lib === 'All'){
-	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression_library) ";
+	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression) ";
 	  $library_where = '';
 	}else{
-		$expression_lib = pg_escape_string($expression_lib);
-	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression_library WHERE library_uname='$expression_lib') ";
-	  $library_where = "library_uname='$expression_lib' AND";
+	  $expression_lib = pg_escape_string($expression_lib);
+	  $goFacets .= " AND it.cds_uname IN (SELECT transcript_uname as cds_uname FROM dataset_$dsid.transcript_expression WHERE expression_library_experiment_id IN (SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname='$expression_lib') ) ";
+	  $library_where = "expression_library_experiment_id IN (SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname='$expression_lib') AND";
 	}
 	$librarySql = summarySql($cv_id, $goFacets, $dsid);
 	$data = query_execute(null, $librarySql, null);

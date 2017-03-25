@@ -7,14 +7,17 @@ function autocomplete( $value, $ids,$top_max = 10 ){
 	$uniprotHits = array();
 	
 	$cds_hit_search_sql = $sqlQueries['annotations']['uniprotHits'];
-	
+
 	// if an expression library
 	$libs = convert_expression_lib_ids_to_id_array($ids);
 	if (!empty($libs) && !empty($libs[0]['dsid'])){
 	  $ids = array();
 	  foreach ($libs as $data){
 	    //$ids[] = $data['dsid']; // and $data['uname']
-	    $cds_hit_search_sql .= ' WHERE cds_uname IN (SELECT transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE library_uname=\'%2$s\') ';
+	    $cds_hit_search_sql .= ' WHERE cds_uname IN (SELECT transcript_uname FROM dataset_%1$d.transcript_expression WHERE '
+	    					  .'expression_library_experiment_id IN '.
+	                           '(SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname=\'%2$s\') ) ';
+
 	    array_push( $uniprotHits, sprintf($cds_hit_search_sql, pg_escape_string($data['dsid']),pg_escape_string($data['uname']) ) );
 	  }
 	}else{

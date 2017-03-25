@@ -46,11 +46,11 @@ Ext.define('CV.view.feature.View', {
       items : [grid, {
         xtype : 'panel',
         region : 'east',
-        title:'Metadata',
+        title:'Feature metadata',
         collapsible : true,
         closeable : true,
         split:true,
-        width:400,
+        width:600,
         layout : {
           // layout-specific configs go here
           type : 'accordion',

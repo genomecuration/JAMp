@@ -183,7 +183,7 @@ $sqlQueries = array(
  * @param 2: facet query string i.e. filled itemsFacets query.
  */
  		'itemsCount'=>'SELECT count(*) FROM dataset_%1$d.cds %2$s',
-		'itemsCountExpression'=>'SELECT count(*) FROM dataset_%1$d.transcript_expression_library %2$s',
+		'itemsCountExpression'=>'SELECT count(transcript_expression_id) FROM dataset_%1$d.transcript_expression %2$s',
 /**
  * @param 1: coma separated go_id list
  * @param 2: dataset id
@@ -198,25 +198,25 @@ $sqlQueries = array(
 		 'get_expression_library'=>'SELECT * FROM dataset_%1$d.expression_library order by uname',
 		 'get_expression_library_metadata'=>'SELECT term,value FROM dataset_%1$d.expression_library_metadata WHERE library_uname=\'%2$s\'',
 		 'get_expression_library_metadata_all'=>'SELECT term,value FROM dataset_%1$d.expression_library_metadata',
-		 'get_expression_library_transcripts'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE library_uname=\'%2$s\'',
-		 'get_expression_library_transcripts_all'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression_library',
-		 'count_expression_library_transcripts'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression_library WHERE library_uname=\'%2$s\'',
-		 'count_expression_library_transcripts_all'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression_library',
+		 'get_expression_library_transcripts'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression WHERE expression_library_experiment_id IN (SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname=\'%2$s\')',
+		 'get_expression_library_transcripts_all'=>'SELECT transcript_uname FROM dataset_%1$d.transcript_expression',
+		 'count_expression_library_transcripts'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression WHERE expression_library_experiment_id IN (SELECT expression_library_experiment_id FROM expression_library_experiment WHERE library_uname=\'%2$s\')',
+		 'count_expression_library_transcripts_all'=>'SELECT count(transcript_uname) as count FROM dataset_%1$d.transcript_expression',
   	     
 		 'go_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.go_assoc ga JOIN known_proteins.go ON go.go_id=ga.go_id '
-                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ga.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname '
+                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ga.uniprot_id JOIN dataset_%2$d.transcript_expression tel ON tel.transcript_uname=it.cds_uname '
                                                 .'WHERE ga.go_id = %1$d %3$s ',
  		'kegg_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.kegg_pathway_assoc kpa JOIN known_proteins.kegg_pathway kp ON kpa.pathway_id=kp.pathway_id '
-                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=kpa.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE kp.pathway_id = \'%1$s\'  %3$s ',
- 		'ko_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ka.ko_id=ko.ko_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ka.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE ko.ko_id = \'%1$s\' %3$s ',
- 		'enzyme_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON ea.ec_id=e.ec_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE e.ec_id = \'%1$s\' %3$s ',
- 		'eggnog_expression_library_Transcripts'=>' SELECT distinct(cds_uname) FROM known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON ea.eggnog_id=e.eggnog_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression_library tel ON tel.transcript_uname=it.cds_uname WHERE ea.eggnog_id = \'%1$s\' %3$s ',
-	    'nohits_expression_library_Transcripts'=>'SELECT uname FROM dataset_%1$d.cds c JOIN dataset_%1$d.transcript_expression_library tel ON tel.transcript_uname=c.uname '
+                                                .'JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=kpa.uniprot_id JOIN dataset_%2$d.transcript_expression tel ON tel.transcript_uname=it.cds_uname WHERE kp.pathway_id = \'%1$s\'  %3$s ',
+ 		'ko_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.ko_assoc ka JOIN known_proteins.ko ko ON ka.ko_id=ko.ko_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ka.uniprot_id JOIN dataset_%2$d.transcript_expression tel ON tel.transcript_uname=it.cds_uname WHERE ko.ko_id = \'%1$s\' %3$s ',
+ 		'enzyme_expression_library_Transcripts'=>'SELECT distinct(cds_uname) FROM known_proteins.enzyme_assoc ea JOIN known_proteins.enzyme e ON ea.ec_id=e.ec_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression tel ON tel.transcript_uname=it.cds_uname WHERE e.ec_id = \'%1$s\' %3$s ',
+ 		'eggnog_expression_library_Transcripts'=>' SELECT distinct(cds_uname) FROM known_proteins.eggnog_assoc ea JOIN known_proteins.eggnog e ON ea.eggnog_id=e.eggnog_id JOIN dataset_%2$d.inference_cds it ON it.known_protein_id=ea.uniprot_id JOIN dataset_%2$d.transcript_expression tel ON tel.transcript_uname=it.cds_uname WHERE ea.eggnog_id = \'%1$s\' %3$s ',
+	    'nohits_expression_library_Transcripts'=>'SELECT uname FROM dataset_%1$d.cds c JOIN dataset_%1$d.transcript_expression tel ON tel.transcript_uname=c.uname '
                                                 .'WHERE TRUE %2$s EXCEPT SELECT distinct(cds_uname) as uname FROM dataset_%1$d.inference_cds ',
-        'items_expression_library'=>'SELECT \'dataset_%1$d.\' || transcript_uname AS uname, transcript_uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s %4$s',   
-        'cdss_expression_library'=>'SELECT transcript_uname as uname FROM dataset_%1$d.transcript_expression_library WHERE TRUE %2$s %3$s',
+        'items_expression_library'=>'SELECT \'dataset_%1$d.\' || transcript_uname AS uname, transcript_uname FROM dataset_%1$d.transcript_expression WHERE TRUE %2$s %3$s %4$s',   
+        'cdss_expression_library'=>'SELECT transcript_uname as uname FROM dataset_%1$d.transcript_expression WHERE TRUE %2$s %3$s',
   		'unameFilter_expression_library'=>' AND transcript_uname in (%1$s)',
-		'totalNoHits_expression_library'=>'SELECT %2$s cv_id, 0 AS cvterm_id, COUNT(*), \'-No hit\' AS name FROM dataset_%1$d.transcript_expression_library WHERE %3$s transcript_uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
+		'totalNoHits_expression_library'=>'SELECT %2$s cv_id, 0 AS cvterm_id, COUNT(*), \'-No hit\' AS name FROM dataset_%1$d.transcript_expression WHERE %3$s transcript_uname not in ( SELECT distinct(cds_uname) FROM dataset_%1$d.inference_cds )',
 	),
 
 	'species' => array(
@@ -315,12 +315,19 @@ $sqlQueries = array(
 		 * @param 2: network id
 		 */
 		  'networkcds'=>'SELECT cds_uname AS name, %1$s dataset_id FROM dataset_%1$d.cds_network WHERE network_id = %2$d',
-		  "get_expression_data" => 'SELECT * FROM dataset_%1$d.transcript_expression_library WHERE transcript_uname=\'%2$s\' order by library_uname',
-		// only one picture; PNG preferred over SVG (order by)
-		  "get_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\' AND type=\'%3$s\' ORDER by format limit 1',
-		  "get_one_expression_picture" => 'SELECT transcript_uname,timeloaded,image_data,type,format FROM dataset_%1$d.transcript_expression_image WHERE transcript_expression_id=%2$d',
-		  "list_expression_pictures" => 'SELECT transcript_expression_id as expressionid, transcript_expression_id as id,timeloaded as qtip,type,format, type || \' figure \'  || transcript_expression_id   || \' (\' || format || \')\'    as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\'',
-		  "list_expression_pictures_genes" => 'SELECT transcript_expression_id as expressionid,transcript_expression_id as id,timeloaded as qtip,type,format, type || \' figure \'  || transcript_expression_id   || \' (\' || format || \')\'    as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname IN (%3$s)'
+		
+		  "get_expression_data" => 'SELECT * FROM dataset_%1$d.transcript_expression te JOIN dataset_%1$d.expression_library_experiment ele ON ele.expression_library_experiment_id=te.expression_library_experiment_id '
+		  	.'WHERE transcript_uname=\'%2$s\' order by te.expression_library_experiment_id',
+		
+		// not used
+		  "get_expression_all_pictures" => 'SELECT * FROM dataset_%1$d.transcript_expression_image WHERE transcript_uname=\'%2$s\' AND type=\'%3$s\' ',
+		
+		// only one picture per experiment; 
+		  "get_one_expression_picture" => 'SELECT * FROM dataset_%1$d.transcript_expression_image WHERE transcript_expression_image_id=%2$d ',
+		
+		  "list_expression_pictures" => 'SELECT expression_experiment_uname as expression_name, transcript_expression_image_id as expressionid, transcript_expression_image_id as id,ee.description as qtip,type,format, type || \' figure \' || expression_experiment_uname || \' (\' || format || \')\' as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image  ei JOIN  dataset_%1$d.expression_experiment ee ON ee.uname=ei.expression_experiment_uname WHERE transcript_uname=\'%2$s\'',
+		
+		  "list_expression_pictures_genes" => 'SELECT expression_experiment_uname as expression_name, transcript_expression_image_id as expressionid, transcript_expression_image_id as id,ee.description as qtip,type,format, type || \' figure \' || expression_experiment_uname || \' (\' || format || \')\' as text, \'true\' AS leaf,\'true\' AS expanded FROM dataset_%1$d.transcript_expression_image  ei JOIN dataset_%1$d.expression_experiment ee ON ee.uname=ei.expression_experiment_uname WHERE transcript_uname IN (%3$s)'
 		  ),
 		  /**
 		   * sql for differential expression

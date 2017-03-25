@@ -155,9 +155,10 @@ function feature_expression_metadata($id){
         if (!empty($transcript_expression)){
           foreach ($transcript_expression as $data_array){
             $library_name = $data_array['library_uname'];
+            $experiment_name = $data_array['experiment_uname'];
             foreach ($data_array as $key=>$value){
               if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
-              $key =  $library_name.':'.$key;
+              $key =  $experiment_name.':'.$library_name.':'.$key;
               $transcript_expression_sum[$key]+=$value;
             }
           }
@@ -175,9 +176,15 @@ function feature_expression_metadata($id){
     if (!empty($results)){
       foreach ($results as $data_array){
         $library_name = $data_array['library_uname'];
+        $experiment_name = $data_array['experiment_uname'];
         foreach ($data_array as $key=>$value){
-          if (empty($value) || $key === 'library_uname' || $key === 'transcript_expression_library_id' || $key === 'transcript_uname'){continue;}
-          $key =  $library_name.':'.$key;
+          if (
+            empty($value) 
+            || in_array($key, array('expression_library_experiment_id','experiment_uname','library_uname','transcript_expression_library_id','transcript_uname','transcript_expression_id') )
+            ){
+            continue;
+            }
+          $key =  $experiment_name.':'.$library_name.':'.$key;
           $return_array[] = array('term'=>$key,'value'=>$value);
         }
       }
@@ -571,8 +578,7 @@ function annotations($id, $cv) {
       $result = query_execute(null, $sql, null);
       break;
   }
-  // echo $sql."\n";
-
+  // $sql."\n";
 
 
   foreach ($result as $key => $value) {
@@ -658,11 +664,14 @@ function getNetworkTranscripts($id, $dsId) {
   return $res;
 }
 
-function get_expression_picture($dsId,$graph_type){
+
+// I believe this function is no longer used
+// but code will now return all experiment pictures of a single graph type
+function get_expression_all_pictures($dsId,$graph_type){
   require ('SqlQueries.inc');
   $dsId = datasetType($dsId);
   $return_array = array();
-  $sql = sprintf($sqlQueries['feature']['get_expression_picture'], pg_escape_string($dsId['dataset_id']),pg_escape_string($dsId['id']),pg_escape_string($graph_type));
+  $sql = sprintf($sqlQueries['feature']['get_expression_all_pictures'], pg_escape_string($dsId['dataset_id']),pg_escape_string($dsId['id']),pg_escape_string($graph_type));
   // Some databases (e.g. morgan) are before Pgsql 9.0 which added hex and made it the default.
   query_execute(null, "SET bytea_output = 'escape'");
   $result = query_execute(null, $sql);
@@ -671,6 +680,7 @@ function get_expression_picture($dsId,$graph_type){
     // we expect escaped data, not HEX.
     $return_array['imageData'] = pg_unescape_bytea($result[0]['image_data']); // postgres column names are case insensitive, hates camel case
     $return_array['transcript_uname'] = $result[0]['transcript_uname'];
+    $return_array['experiment_uname'] = $result[0]['expression_experiment_uname'];
     $return_array['timeloaded'] = $result[0]['timeloaded'];
     if ($result[0]['format']==='svg'){
       $return_array['format'] = $result[0]['format'].'+xml';
@@ -696,6 +706,7 @@ function get_one_expression_picture($dsId,$image_id){
     // we expect escaped data, not HEX.
     $return_array['imageData'] = pg_unescape_bytea($result[0]['image_data']); // postgres column names are case insensitive, hates camel case
     $return_array['transcript_uname'] = $result[0]['transcript_uname'];
+    $return_array['experiment_uname'] = $result[0]['expression_experiment_uname'];
     $return_array['timeloaded'] = $result[0]['timeloaded'];
     if ($result[0]['format']==='svg'){
       $return_array['format'] = $result[0]['format'].'+xml';
