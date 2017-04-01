@@ -3450,6 +3450,7 @@ sub store_library_metadata() {
  close LIB;
 }
 
+
 sub process_protein_ipr() {
  my $dbh       = shift;
  my $files_ref = shift;
@@ -3460,147 +3461,75 @@ sub process_protein_ipr() {
  foreach my $xmlfile (@$files_ref) {
   print &mytime . "Processing $xmlfile\n";
   my $reader = XML::LibXML::Reader->new( location => $xmlfile ) || confess($!);
-
- $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
- print "Committing...\n";
- $dbh_store->commit();
-
- $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_tpm, 'TPM' );
- print "Committing...\n";
- $dbh_store->commit();
-
    # remove cds identifier
    # $seq_id=~s/^cds\.//;
-
    _processNode($reader);
   }
+   sub _processNode {
+  my $reader = shift;
+
+  }
  }
 
-sub process_extra_expression() {
- my ( $dbh_store, $custom_file ) = @_;
- open (IN,$custom_file) || die $!;
- my $header_str = <IN>;
- chomp($header_str);
- my %skipped_lib_indexes;
- my @headers = split("\t",$header_str);
- for (my $h=1;$h<(@headers);$h++){
-  my $library_name = $headers[$h];
-    $sql_hash_ref->{'check_expression_library'}->execute( $library_name );
-    my $check = $sql_hash_ref->{'check_expression_library'}->fetchrow_arrayref();
-    if (!$check){
-	$skipped_lib_indexes{$h}=1;
-	    warn "Cannot find library $library_name. Will skip from processing\n";
-    }
- }
- # all ok.
- $dbh_store->{"PrintError"} = 0;
- $dbh_store->{"RaiseError"} = 0;
- $sql_hash_ref->{'prepare_custom_statistics_transcript_expression_library'}->execute();
- my $counter = int(0);
- $dbh_store->{"RaiseError"} = 1;
- $dbh_store->begin_work();
 
- while (my $ln=<IN>){
-	chomp($ln);
-	my @data = split("\t",$ln);
-	confess "There are more data than headers for line:\n$ln\n vs \n$header_str\n\n" unless scalar(@data) == scalar(@headers);
-	next unless $data[1];
-	$counter++;
-	my $transcript_name = $data[0];
-	confess "No transcript name? $ln\n" unless $transcript_name;
-	$sql_hash_ref->{'check_transcript'}->execute( $transcript_name);
-	my $tr_check = $sql_hash_ref->{'check_transcript'}->fetchrow_arrayref();
-	if (!$tr_check){
-		warn "Have to skip $transcript_name because it doesn't exist in the transcript table\n";
-		next;
-	}
-
-	foreach (my $h=1;$h<(@data);$h++){
-		next if $skipped_lib_indexes{$h};
-		my $library_name = $headers[$h];
-		confess "No library name for library $h?\n$header_str\n" unless $library_name;
-		my $value = $data[$h];
-		confess "No value for value $h?\n$ln\n" unless defined($value);
-		$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
-		my $check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-		if (!$check){
-			$sql_hash_ref->{'store_transcript_expression_library'}->execute( $transcript_name, $library_name );
-			$sql_hash_ref->{'check_transcript_expression_library'}->execute( $transcript_name, $library_name );
-			$check =  $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-			confess "Cannot add a new transcript_expression_library for \n$ln\n" if !$check;
-		}
-		
-	 	$sql_hash_ref->{'store_custom_statistics_transcript_expression_library'}->execute($value,$transcript_name,$check->[0]);
-		confess if $dbh_store->{"ErrCount"};
-	}
-	if ($counter % 1000 == 0){
-		 $dbh_store->commit();
-		 print "Committed ($counter) transcripts...   \r";
-		 confess if $dbh_store->{"ErrCount"};
-	 	 $dbh_store->begin_work();
-	}
- }
- print "Committing...\n";
- $dbh_store->commit();
- close IN;
- $dbh_store->{"PrintError"} = 1;
- $dbh_store->{"RaiseError"} = 0;
-}
-
-sub store_expression_library_transcripts() {
- my $dbh_store = shift;
- my $binary_expression = shift;
- my $stats_file        = shift;
- &process_binary($dbh_store,$binary_expression);
- &process_expression_stats($dbh_store,$stats_file);
-}
 
 sub calculate_protein_properties() {
- my $fastafile = shift || confess($!);
+ my $fastafile = shift || die;
  my $basename  = basename($fastafile);
  my $outfile   = "$cwd/$basename.phys";
- print &mytime . "Calculating protein physical properties...\n";
- open( FILEPHYS, ">$outfile" ) || confess ("Cannot write file $outfile $!");
-  # do it this way in case headers change again
-  my %hash;
-  for ( my $i = 3 ; $i < scalar(@data) ; $i++ ) {
-   $hash{ $headers[$i] } = $data[$i];
-  }
-  $sql_hash_ref->{'check_transcript_expression_library'}
-    ->execute( $transcript_uname, $library_uname );
-  my $sql_res =
-    $sql_hash_ref->{'check_transcript_expression_library'}->fetchrow_arrayref();
-  unless ( $sql_res && $sql_res->[0] ) {
+ print "Calculating protein physical properties...\n";
+ open( FILEPHYS, ">$outfile" );
 
-#   this is now controlled by the binary file. if the gene is not expressed, don't process.
-#   warn "Couldn't find expression library for $transcript_uname, $library_uname\n";
-#   $warnings_msgs++;die "Stopping: too many warnings...\n" if $warnings_msgs > 10;
-   next;
-  }
-  my $id = $sql_res->[0];
-  $counter++;
-  # undefined values are SET as null
+#   print FILEPHYS "#ID\tUndefined residues\tmin MW\tmax MW\tPositive aa\tNegative aa\tIso-Electric Potential\tCharge at pH5\tCharge at pH7\tCharge at pH9\n";
+ my $protein_obj = Bio::SeqIO->new(
+                                    -file     => $fastafile,
+                                    -format   => 'Fasta',
+                                    -alphabet => 'protein'
+ );
 
-  $sql_hash_ref->{'update_statistics_transcript_expression_library'}->execute(
-                         $hash{'Raw_Counts'},           $hash{'RPKM'},
-                         $hash{'Express_FPKM'},         $hash{'Express_TPM'},
-                         $hash{'Express_eff.counts'},   $hash{'KANGADE_counts'},
-                         $hash{'TMM_Normalized.count'}, $hash{'TMM.FPKM'},
-                         $hash{'TMM.TPM'},              $id
-  );
-  if ($counter % 1000 == 0){
-	print "Committed $counter    \r";
-	$dbh_store->commit();
-	$dbh_store->begin_work();
-  }
+# initiate calculator
+# http://fields.scripps.edu/DTASelect/20010710-pI-Algorithm.pdf
+# http://us.expasy.org/tools/pi_tool.html
+# There are various sources for the pK values of the amino acids.  The set of pK values chosen will affect the pI reported.
+# The charge state of each residue is assumed to be independent of the others. Protein modifications (such as a phosphate group) that have a charge are ignored.
+ my $calc = Bio::Tools::pICalculator->new( -places => 2, -pKset => 'EMBOSS' );
+ while ( my $seq_obj = $protein_obj->next_seq ) {
+  my $seq = $seq_obj->seq();
+  $seq =~ s/\*$//;
+
+  #make calculations
+  $calc->seq($seq_obj);
+  my $seq_id = $seq_obj->id;
+
+  # remove cds identifier
+  $seq_id =~ s/^cds\.//;
+
+  #print "Processing $seq_id\n";
+  my $iep      = $calc->iep;
+  my $ch_5     = $calc->charge_at_pH("5");
+  my $ch_7     = $calc->charge_at_pH("7");
+  my $ch_9     = $calc->charge_at_pH("9");
+  my $checksum = md5_hex($seq);
+
+#    my $seqobj = Bio::PrimarySeq->new( -seq      => "$string",-alphabet => 'protein' );
+  my $weight   = Bio::Tools::SeqStats->get_mol_wt($seq_obj);
+  my $hash_ref = Bio::Tools::SeqStats->count_monomers($seq_obj);
+  my $minmw    = $$weight[0];
+  my $maxmw    = $$weight[1];
+  my %hash   = %$hash_ref;                   # dereference hash to avoid warning
+  my $ch_pos = ( $hash{"K"} + $hash{"R"} );
+  my $ch_neg = ( $hash{"D"} + $hash{"E"} );
+  my $undefined_residues = $hash{"X"} ? $hash{"X"} : int(0);
+  print FILEPHYS sprintf( "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%.1f\t%.1f\t%.1f\t%s\n",
+                          $seq_id, $undefined_residues, $minmw, $maxmw, $ch_pos,
+                          $ch_neg, $iep, $ch_5, $ch_7, $ch_9, $checksum );
  }
- print "Committed $counter    \r";
- $dbh_store->commit();
- $dbh_store->begin_work();
- close IN;
+ close FILEPHYS;
+ return $outfile;
+
+ # these will go to chado.featureprop
 }
+
 
 sub process_binary() {
  my $dbh_store = shift;
@@ -3785,35 +3714,6 @@ sub store_library_metadata() {
  close LIB;
 }
 
-sub process_protein_ipr() {
- my $dbh       = shift;
- my $files_ref = shift;
- my $ipr_schema =
-'http://www.ebi.ac.uk/interpro/resources/schemas/interproscan5/interproscan-model-1.1.xsd';
-
-
- $dbh_store->begin_work();
- &store_pictures( $gene_coverage_directory, 'coverage' );
- print "Committing...\n";
- $dbh_store->commit();
-
- $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_fpkm, 'FPKM' );
- print "Committing...\n";
- $dbh_store->commit();
-
- $dbh_store->begin_work();
- &store_pictures( $gene_expression_directory_tpm, 'TPM' );
- print "Committing...\n";
- $dbh_store->commit();
-
-   # remove cds identifier
-   # $seq_id=~s/^cds\.//;
-
-   _processNode($reader);
-  }
- }
-
 sub process_extra_expression() {
  my ( $dbh_store, $custom_file ) = @_;
  open (IN,$custom_file) || die $!;
@@ -3883,14 +3783,6 @@ sub process_extra_expression() {
  close IN;
  $dbh_store->{"PrintError"} = 1;
  $dbh_store->{"RaiseError"} = 0;
-}
-
-sub store_expression_library_transcripts() {
- my $dbh_store = shift;
- my $binary_expression = shift;
- my $stats_file        = shift;
- &process_binary($dbh_store,$binary_expression);
- &process_expression_stats($dbh_store,$stats_file);
 }
 
 sub process_expression_stats() {
@@ -4141,97 +4033,6 @@ sub store_library_metadata() {
  close LIB;
 }
 
-sub process_protein_ipr() {
- my $dbh       = shift;
- my $files_ref = shift;
- my $ipr_schema =
-'http://www.ebi.ac.uk/interpro/resources/schemas/interproscan5/interproscan-model-1.1.xsd';
-
- #XML::LibXML::Parser
- foreach my $xmlfile (@$files_ref) {
-  print "Processing $xmlfile\n";
-  my $reader = XML::LibXML::Reader->new( location => $xmlfile ) || die;
-
-  die Dumper $reader->read;
-
-  while ( $reader->read ) {
-
-   # remove cds identifier
-   # $seq_id=~s/^cds\.//;
-
-   _processNode($reader);
-  }
- }
-
- sub _processNode {
-  my $reader = shift;
-
- }
-
-}
-
-sub calculate_protein_properties() {
- my $fastafile = shift || die;
- my $basename  = basename($fastafile);
- my $outfile   = "$cwd/$basename.phys";
- print "Calculating protein physical properties...\n";
- open( FILEPHYS, ">$outfile" );
-
-#	print FILEPHYS "#ID\tUndefined residues\tmin MW\tmax MW\tPositive aa\tNegative aa\tIso-Electric Potential\tCharge at pH5\tCharge at pH7\tCharge at pH9\n";
- my $protein_obj = Bio::SeqIO->new(
-                                    -file     => $fastafile,
-                                    -format   => 'Fasta',
-                                    -alphabet => 'protein'
- );
-
-# initiate calculator
-# http://fields.scripps.edu/DTASelect/20010710-pI-Algorithm.pdf
-# http://us.expasy.org/tools/pi_tool.html
-# There are various sources for the pK values of the amino acids.  The set of pK values chosen will affect the pI reported.
-# The charge state of each residue is assumed to be independent of the others. Protein modifications (such as a phosphate group) that have a charge are ignored.
- my $calc = Bio::Tools::pICalculator->new( -places => 2, -pKset => 'EMBOSS' );
- while ( my $seq_obj = $protein_obj->next_seq ) {
-  my $seq = $seq_obj->seq();
-  $seq =~ s/\*$//;
-
-  #make calculations
-  $calc->seq($seq_obj);
-  my $seq_id = $seq_obj->id;
-
-  # remove cds identifier
-  $seq_id =~ s/^cds\.//;
-
-  #print "Processing $seq_id\n";
-  my $iep      = $calc->iep;
-  my $ch_5     = $calc->charge_at_pH("5");
-  my $ch_7     = $calc->charge_at_pH("7");
-  my $ch_9     = $calc->charge_at_pH("9");
-  my $checksum = md5_hex($seq);
-
-#    my $seqobj = Bio::PrimarySeq->new( -seq      => "$string",-alphabet => 'protein' );
-  my $weight   = Bio::Tools::SeqStats->get_mol_wt($seq_obj);
-  my $hash_ref = Bio::Tools::SeqStats->count_monomers($seq_obj);
-  my $minmw    = $$weight[0];
-  my $maxmw    = $$weight[1];
-  my %hash   = %$hash_ref;                   # dereference hash to avoid warning
-  my $ch_pos = ( $hash{"K"} + $hash{"R"} );
-  my $ch_neg = ( $hash{"D"} + $hash{"E"} );
-  my $undefined_residues = $hash{"X"} ? $hash{"X"} : int(0);
-  print FILEPHYS sprintf( "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%.1f\t%.1f\t%.1f\t%s\n",
-                          $seq_id, $undefined_residues, $minmw, $maxmw, $ch_pos,
-                          $ch_neg, $iep, $ch_5, $ch_7, $ch_9, $checksum );
- }
- close FILEPHYS;
- return $outfile;
-
- # these will go to chado.featureprop
-}
-
-=pod
-
- These store the fact that certain searches have been done and what the result was.
- 
-=cut
 
 sub prepare_native_inference_sqls() {
  my $dbh        = shift || confess($!);
