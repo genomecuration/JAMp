@@ -2,6 +2,7 @@ SHELL := /bin/bash
 
 all: 
 	if [ ! -d 3rd_party/bin ]; then mkdir 3rd_party/bin; fi
+	cd 3rd_party/hhsuite/dependencies/pdb && tar xjf derived.tar.bz2
 	cd 3rd_party/cdbtools/cdbfasta && $(MAKE) && cp cdbfasta ../../bin/ && cp cdbyank ../../bin/ && $(MAKE) clean
 	cd 3rd_party/parafly && ./configure --prefix=`pwd`/../ && if [ ! -d bin ]; then mkdir bin; fi && $(MAKE) install
 	cd 3rd_party/transdecoder && $(MAKE)
