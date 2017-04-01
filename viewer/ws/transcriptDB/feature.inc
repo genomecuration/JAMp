@@ -523,7 +523,6 @@ function get_multiple_featureFasta($feature_ids,$seqtype=NULL){
  	return $return_fasta;
 }
 
-
 function getAnnotations($id) {
   //AP: if it is a gene, then we can get the transcript name and transverse.
   $result = array('text' => 'Vocabularies', 'children' => array());
