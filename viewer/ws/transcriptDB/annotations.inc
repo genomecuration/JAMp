@@ -7,7 +7,6 @@ function autocomplete( $value, $ids,$top_max = 10 ){
 	$uniprotHits = array();
 	
 	$cds_hit_search_sql = $sqlQueries['annotations']['uniprotHits'];
-
 	// if an expression library
 	$libs = convert_expression_lib_ids_to_id_array($ids);
 	if (!empty($libs) && !empty($libs[0]['dsid'])){

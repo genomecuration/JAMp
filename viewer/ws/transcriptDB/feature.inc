@@ -580,7 +580,6 @@ function annotations($id, $cv) {
   }
   // $sql."\n";
 
-
   foreach ($result as $key => $value) {
     if( $value['href'] ){
       $value['href'] = $value['href'] . $value['id'];
