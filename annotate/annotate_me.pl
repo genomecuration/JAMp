@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-#VERSION 0.8 Mar 2017
+#VERSION 0.9 Mar 2017
 
 =pod
 
@@ -826,10 +826,24 @@ sub create_new_annotation_db() {
  $dbh->do(
 'CREATE TABLE go (go_id integer primary key,name varchar,class char(1),is_synomym boolean)'
  );
+#gaf files
  $dbh->do(
 'CREATE TABLE go_assoc (go_assoc_uid serial primary key, uniprot_id varchar, go_id integer REFERENCES go(go_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, '
     . 'reference_db varchar, reference_uid varchar, evidence varchar,annotator varchar, date_annotated date)'
  );
+
+ $dbh->do(
+'CREATE TABLE go_pdb_assoc (go_pdb_assoc_uid serial primary key, pdb_id varchar, go_id integer REFERENCES go(go_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, '
+    . 'reference_db varchar, reference_uid varchar, evidence varchar,annotator varchar, date_annotated date)'
+ );
+
+#not gaf file
+ $dbh->do(
+'CREATE TABLE go_pfam_assoc (go_pfam_assoc_uid serial primary key, pfam_id varchar, go_id integer REFERENCES go(go_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)'
+);
+
+
+
  $dbh->do(
 'CREATE TABLE go_slim (go_slim_uid serial primary key, go_id integer REFERENCES go(go_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, slim_go_id integer REFERENCES go(go_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)'
  );
@@ -1850,9 +1864,90 @@ sub prepare_go() {
 
 }
 
+sub associate_pfam_gene_ontology(){
+ my $dbh     = shift;
+ my $file_to_load = 'pfam2go';
+ my $psql_file = "$cwd/.go.psql";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
+ my @files_to_get = &get_www_files(
+    'http://geneontology.org/external2go/pfam2go'
+    );
+
+ if ( !$file_to_load || !-s $file_to_load ) {
+  warn "No GO PFAM association file ($file_to_load) found. GO terms cannot be associated.\n";
+  return;
+ }
+ print &mytime . "\t GO PFAM entries\n";
+ 
+ open (IN,$file_to_load);
+ open OUT(">$psql_file");
+ while (my $ln=<IN>){
+    next if $ln=~/^;/ || $ln=~/^\s*$/;
+    chomp($ln);
+    my @data = split(";",$ln);
+    next unless $data[1];
+    
+    if ($data[0]=~/^Pfam:(\S+)/){
+        my $pfam_id = $1;
+        if ($data[1]=~/GO:(\d+)/){
+            print OUT $pfam_id."\t".$1."\n";
+        }
+    }
+ }
+ close IN;
+ close OUT;
+
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->begin_work();
+ $dbh->do("COPY go_pfam_assoc (pfam_id,go_id) FROM STDIN");
+ &do_copy_stdin( $psql_file, $dbh );
+ $dbh->commit();
+ $dbh->do('CREATE INDEX go_pfam_assoc_pdb_idx on go_assoc(pfam_id)');
+
+ unlink($psql_file);
+ system("touch ".$completed_file);
+ print &mytime . "Loading $file_to_load completed\n";
+
+}
+
+
+sub associate_pdb_gene_ontology() {
+ my $dbh     = shift;
+ my $file_to_load = 'goa_pdb.gaf';
+ my $psql_file = "$cwd/.go.psql";
+ my $completed_file = $file_to_load.'.completed';
+ return if -f $completed_file;
+
+ my @files_to_get = &get_www_files(
+    'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/PDB/goa_pdb.gaf.gz'
+    );
+
+ if ( !$file_to_load || !-s $file_to_load ) {
+  warn "No GO PDB association file ($file_to_load) found. GO terms cannot be associated.\n";
+  return;
+ }
+ print &mytime . "\t GO PDB entries\n";
+ &process_gaf_file_to_psql($file_to_load,$psql_file);
+
+ $dbh->do('SET search_path TO known_proteins');
+ $dbh->begin_work();
+ $dbh->do("COPY go_pdb_assoc (pdb_id,go_id,reference_db,reference_uid,evidence,annotator,date_annotated) FROM STDIN");
+ &do_copy_stdin( $psql_file, $dbh );
+ $dbh->commit();
+ $dbh->do('CREATE INDEX go_pdb_assoc_pdb_idx on go_assoc(pdb_id)');
+
+ unlink($psql_file);
+ system("touch ".$completed_file);
+ print &mytime . "Loading $file_to_load completed\n";
+
+}
+
 sub associate_uniprot_gene_ontology() {
  my $dbh     = shift;
  my $file_to_load = 'goa_uniprot_all.gaf';
+ my $psql_file = "$cwd/.go.psql";
  my $completed_file = $file_to_load.'.completed';
  return if -f $completed_file;
 
@@ -1861,76 +1956,77 @@ sub associate_uniprot_gene_ontology() {
   );
 
  if ( !$file_to_load || !-s $file_to_load ) {
-  warn "No GO Uniprot association file ($file_to_load) found. GO terms cannot be associated with Uniprot.\n";
+  warn "No GO Uniprot association file ($file_to_load) found. GO terms cannot be associated.\n";
   return;
  }
  print &mytime . "\t GO uniprot entries\n";
- open( IN,  $file_to_load )|| confess("Cannot find $file_to_load $!");;
- open( OUT, ">$cwd/.go.psql" )|| confess("Cannot write .go.psql $!");
-
- #0-6 UniProtKB       A0A000  moeA5    empty   GO:0003824      GO_REF:0000002  IEA     
- #7-12 InterPro:IPR015421|InterPro:IPR015422   F       MoeA5   A0A000_9ACTN|moeA5      proteins   taxon:35758
- #13-14      20170311        InterPro
- while ( my $ln = <IN> ) {
-  next unless $ln =~ /^UniProtKB\b/;
-  chomp($ln);
-  my @data = split( "\t", $ln );
-
-  my $uniprot_id = $data[1];
-  my $evidence = $data[6];
-  my $go_aspect = $data[8]; # C/F/P
-  my $go_id;
-
-  next if !$do_inferences && $NOTALLOWED_EVID{ $evidence };
-
-  if ($data[4] && $data[4] =~/^GO:(\d+)/ ){
-    $go_id = $1;
-  }else{
-    next;
-  }
-
-  my $date = $data[13]; # => 20011005 -> 2001-10-05
-  if ($date=~/^(\d{4})(\d{2})(\d{2})$/){
-    $date = $1.'-'.$2.'-'.$3;
-  }else{$date = 'NULL';}
-
-  my $assigner = 'unknown';
-  if ($data[14]){$assigner = $data[14];}
-
-  my ($ref_db,$ref_id) = ('unknown','unknown');
-
-  
-    my @entries = split('\|',$data[7]);
-    push(@entries,split('\|',$data[5]));
-    foreach my $entry (@entries){
-        ($ref_db,$ref_id) = split(':',$entry);
-        last if $ref_db && $ref_id;
-        # it's actually more than one sometimes so while . maybe one day i will dissociate it
-        # but for time being leave, so add last
-    }
-  
+ &process_gaf_file_to_psql($file_to_load,$psql_file);
 
 
-  print OUT join(
-                  "\t",
-                  (
-                    $uniprot_id, $go_id, $ref_db, $ref_id,
-                    $evidence, $assigner,$date
-                  )
-  ) . "\n";
-} 
- close IN;
- close OUT;
  $dbh->do('SET search_path TO known_proteins');
  $dbh->begin_work();
  $dbh->do("COPY go_assoc (uniprot_id,go_id,reference_db,reference_uid,evidence,annotator,date_annotated) FROM STDIN");
- &do_copy_stdin( ".go.psql", $dbh );
+ &do_copy_stdin( $psql_file, $dbh );
  $dbh->commit();
  $dbh->do('CREATE INDEX go_assoc_uniprot_idx on go_assoc(uniprot_id)');
 
- unlink("$cwd/.go.psql");
+ unlink($psql_file);
  system("touch ".$completed_file);
  print &mytime . "Loading $file_to_load completed\n";
+}
+
+sub process_gaf_file_to_psql(){
+  my ($file_to_load,$file_to_print) = @_;
+
+ open( IN,  $file_to_load )|| confess("Cannot find $file_to_load $!");;
+ open( OUT, ">$file_to_print" )|| confess("Cannot write $file_to_print $!");
+
+  while ( my $ln = <IN> ) {
+    chomp($ln);next if $ln=~/^\s*$/;
+    my @data = split( "\t", $ln );
+    next unless $data[8];
+    my $object_id = $data[1];
+    my $evidence = $data[6];
+    my $go_aspect = $data[8]; # C/F/P
+    my $go_id;
+
+    next if !$do_inferences && $NOTALLOWED_EVID{ $evidence };
+
+    if ($data[4] && $data[4] =~/^GO:(\d+)/ ){
+        $go_id = $1;
+    }else{
+        next;
+    }
+
+    my $date = $data[13]; # => 20011005 -> 2001-10-05
+    if ($date=~/^(\d{4})(\d{2})(\d{2})$/){
+        $date = $1.'-'.$2.'-'.$3;
+    }else{$date = 'NULL';}
+
+    my $assigner = 'unknown';
+    if ($data[14]){$assigner = $data[14];}
+
+      my ($ref_db,$ref_id) = ('unknown','unknown');
+
+        my @entries = split('\|',$data[7]);
+        push(@entries,split('\|',$data[5]));
+        foreach my $entry (@entries){
+            ($ref_db,$ref_id) = split(':',$entry);
+            last if $ref_db && $ref_id;
+        # it's actually more than one sometimes so while . maybe one day i will dissociate it
+        # but for time being leave, so add last
+        }
+  
+    print OUT join(
+                  "\t",
+                  (
+                    $object_id, $go_id, $ref_db, $ref_id,
+                    $evidence, $assigner,$date
+                  )
+    ) . "\n";
+  }
+  close IN;
+  close OUT;
 }
 
 sub prepare_go_slim() {
@@ -1938,6 +2034,7 @@ sub prepare_go_slim() {
  
  print &mytime . "\t GO slim terms\n";
  my $file_to_load = 'goaslim.map';
+ my $psql_file = "$cwd/.goslim.psql";
  my $completed_file = $file_to_load.'.completed';
  return if -f $completed_file;
 
@@ -1945,7 +2042,7 @@ sub prepare_go_slim() {
   "ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/goslim/goaslim.map"
   );
  open( IN,  $file_to_load ) || confess ("Cannot find file $file_to_load $!");
- open( OUT, ">$cwd/.goslim.psql" ) || confess ("Cannot write file $cwd/.goslim.psql $!");;
+ open( OUT, ">$psql_file" ) || confess ("Cannot write file $psql_file $!");;
  while ( my $ln = <IN> ) {
   next unless $ln =~ /^GO:(\d+)\s+GO:(\d+)/;
   print OUT join( "\t", ( $1, $2 ) ) . "\n";
@@ -1954,12 +2051,12 @@ sub prepare_go_slim() {
  close OUT;
  $dbh->do('SET search_path TO known_proteins');
  $dbh->do("COPY go_slim (go_id,slim_go_id) FROM STDIN");
- &do_copy_stdin( "$cwd/.goslim.psql", $dbh );
+ &do_copy_stdin( $psql_file, $dbh );
 
  $dbh->do('CREATE INDEX go_slim_go_id_idx on go_slim(go_id)');
  $dbh->do('CREATE INDEX go_slim_slim_go_id_idx on go_slim(slim_go_id)');
 
- unlink("$cwd/.goslim.psql");
+ unlink($psql_file);
  system("touch ".$completed_file);
  print &mytime . "GO slim terms complete.\n";
 }
