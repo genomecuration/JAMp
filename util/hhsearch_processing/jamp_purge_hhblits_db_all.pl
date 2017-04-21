@@ -1,0 +1,168 @@
+#!/usr/bin/env perl
+
+=pod
+
+=head1 NAME
+
+ jamp_purge_GO_hhblits_db_all.pl
+
+=head1 USAGE 
+
+    -id_go :s	=> List of FASTA IDs to keep (e.g. because they have a GO annotation
+    -db    :s 	=> FFINDEX database of aligned FASTAs. If one aligned sequence is present in the id_go list then alignment is processed, otherwise discarded
+    -index :s 	=> Index file of FFINDEX database 
+    -noss	=> Do not run addss.pl to add 2ndary structure information nor create HHM database (FASTER)
+
+ Can create a id_go list using this JAMp SQL command:
+   psql annotations -c 'select distinct(uniprot_id) from known_proteins.go_assoc;' > uniprot_ids_with_go.txt  
+
+=cut
+
+use strict;
+use warnings;
+use Data::Dumper;
+use Carp;
+use Digest::MD5 qw/md5_base64/;
+use Getopt::Long;
+use Pod::Usage;
+
+my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss);
+
+pod2usage $! unless &GetOptions(
+	'id_go:s' => \$uniprot_ids_with_go,
+	'index:s' => \$index_file,
+	'db:s' => \$db_file,
+	'noss' => \$no_ss
+);
+
+my $a3m_dir = './a3m_dir';
+my $hhm_dir = './hhm_dir';
+
+mkdir $a3m_dir unless -d $a3m_dir;
+mkdir $hhm_dir unless -d $hhm_dir;
+
+my $base_hhblits = $ENV{'HOME'}."/software/hh-suite";
+my $hhmake_exec = $base_hhblits."/bin/hhmake";
+my $addss_exec = $base_hhblits."/scripts/addss.pl";
+my $ffindex_build_exec = $base_hhblits."/bin/ffindex_build";
+
+die unless -d $base_hhblits;
+die unless -x $addss_exec ;
+die unless -x $ffindex_build_exec;
+
+
+pod2usage unless $uniprot_ids_with_go  && -s $uniprot_ids_with_go;
+
+my %uniprot_ids_with_go_hash;
+open (IN,$uniprot_ids_with_go) ||die $!;
+my $discard_header =<IN>;
+while (my $ln = <IN>){
+	chomp($ln);
+	next if $ln=~/^\s*$/ || $ln=~/^-/;
+	$ln=~s/\s+//g;
+	$uniprot_ids_with_go_hash{$ln}++;
+}
+close IN;
+
+
+# first we read every sequence and create an a3m header with all the representatives.
+# if identified in the list, then we carry on and print the a3m
+print "Number of Uniprot IDs kept: ".scalar(keys %uniprot_ids_with_go_hash)."\n";
+
+#rewrite header
+my %header_hash;
+
+open (INDEX,$index_file) ||die($!);
+open (DB,$db_file) ||die($!);
+binmode(DB);
+
+my @index_lines = <INDEX>;
+close INDEX;
+print "Will process these many records: ".scalar(@index_lines)."\n";
+my $counter = int(0);
+my $counter_pass = int(0);
+
+foreach my $index_ln (@index_lines){
+	my (@data,$header,$go_check,$record);
+	my $number_of_seqs = int(0);
+
+	$counter++;
+	print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \r" if ($counter % 100 == 0 && !$no_ss) || ($counter % 1000 == 0 && $no_ss);
+	chomp($index_ln);
+	my @index_data = split("\t",$index_ln);
+	next unless $index_data[2];
+	seek(DB,$index_data[1],0);
+	my $length = read(DB,$record,$index_data[2]);
+	$record=~s/\x00$//;
+	my @lines = split("\n",$record);
+
+    foreach my $ln (@lines){
+	next if $ln=~/^#/ || $ln=~/^\s*$/;
+	if ($ln=~/^>(\S+)/){
+		$ln=~s/->/-/g;
+		$ln=~s/--/-/g;
+		$number_of_seqs++;
+		my $id_str = $1;
+		next unless $id_str;
+		my $id;
+		if ($id_str =~/[st][pr]\|([^\|]+)\|/){
+			$id=$1;
+			##issue createdb will split sequences .e.g tr|H1L0P2_0|H1L0P2_9EURY Split=0
+			if ($id_str=~/Split=/){
+				# first occurence assumed.
+				$id_str=~s/_\d+//;
+				$id=~s/_\d+//;
+				$ln=~s/_\d+//;
+			}
+			$go_check++ if $uniprot_ids_with_go_hash{$id};
+		}
+		next unless $id_str;
+		$header.=$id_str." ";
+		if ($ln=~/\s(OS)=([A-Z][a-z]+\s+[a-z]+)/){
+			$header.="$1=$2 ";
+		}while ($ln=~/\s([A-Z]{2})=(\S+)/g){
+			next if $1 eq 'OS';
+			$header.="$1=$2 ";
+		}
+	}
+	push(@data,$ln."\n");
+    }
+    next unless $go_check;
+    $counter_pass++;
+    chop($header);
+    my $data_str = join("",@data);
+    my $uid = md5_base64($header);
+    $uid=~s/\W+//g;
+    $header = '#cl|'."$uid $header\n";
+
+    my $a3m_file = 'a3m_dir/'.$uid;
+    die "Collision $a3m_file\n" if -s $a3m_file;
+    open (OUT,">$a3m_file");
+    print OUT $header.$data_str;
+    close OUT;
+    unless ($no_ss){
+	    system("$addss_exec $a3m_file -a3m >/dev/null 2>/dev/null");
+	    rename("$a3m_file.a3m",$a3m_file) if -s "$a3m_file.a3m";
+	    &do_hmm($a3m_file,$uid) if (-s $a3m_file >= 10000 && $number_of_seqs > 40);
+    }
+
+}
+close DB;
+print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \n";
+
+unlink("a3m.ffdata");unlink("a3m.ffindex");
+system("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
+
+unless ($no_ss){
+	unlink("hhm.ffdata");unlink("hhm.ffindex");
+	system("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
+}
+
+print "\nDone. Now run:\n mpirun -np \$LOCAL_CPUS $base_hhblits/bin/cstranslate_mpi -i a3m.ffdata -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
+
+
+##########################
+sub do_hmm(){
+ my ($in,$uid) = @_;
+ my $err = system($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
+}
