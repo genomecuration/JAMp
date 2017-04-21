@@ -158,7 +158,7 @@ unless ($no_ss){
 	system("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
 }
 
-print "\nDone. Now run:\n mpirun -np \$LOCAL_CPUS $base_hhblits/bin/cstranslate_mpi -i a3m.ffdata -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
+print "\nDone. Now run:\n mpirun -np \$LOCAL_CPUS $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
 
 
 ##########################
