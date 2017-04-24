@@ -12,6 +12,7 @@
     -db    :s 	=> FFINDEX database of aligned FASTAs. If one aligned sequence is present in the id_go list then alignment is processed, otherwise discarded
     -index :s 	=> Index file of FFINDEX database 
     -noss	=> Do not run addss.pl to add 2ndary structure information nor create HHM database (FASTER)
+    -cpu   :i   => Number of CPUs/threads for final cs219 step (def 10)
 
  Can create a id_go list using this JAMp SQL command:
    psql annotations -c 'select distinct(uniprot_id) from known_proteins.go_assoc;' > uniprot_ids_with_go.txt  
@@ -25,14 +26,19 @@ use Carp;
 use Digest::MD5 qw/md5_base64/;
 use Getopt::Long;
 use Pod::Usage;
+use FindBin qw($RealBin);
+use lib ("$RealBin/../../PerlLib");
+$ENV{'PATH'} .= ":$RealBin:$RealBin/../../3rd_party/bin";
 
-my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss);
-
+my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss,$fix_public);
+my $cpus = 10;
 pod2usage $! unless &GetOptions(
 	'id_go:s' => \$uniprot_ids_with_go,
 	'index:s' => \$index_file,
 	'db:s' => \$db_file,
-	'noss' => \$no_ss
+	'noss' => \$no_ss,
+	'cpus|threads:i' => \$cpus,
+	'fix_public' => \$fix_public
 );
 
 my $a3m_dir = './a3m_dir';
@@ -41,9 +47,10 @@ my $hhm_dir = './hhm_dir';
 mkdir $a3m_dir unless -d $a3m_dir;
 mkdir $hhm_dir unless -d $hhm_dir;
 
-my $base_hhblits = $ENV{'HOME'}."/software/hh-suite";
+my $base_hhblits = "$RealBin/../../3rd_party/hhsuite";
 my $hhmake_exec = $base_hhblits."/bin/hhmake";
 my $addss_exec = $base_hhblits."/scripts/addss.pl";
+my $reformat_exec = $base_hhblits."/scripts/reformat.pl";
 my $ffindex_build_exec = $base_hhblits."/bin/ffindex_build";
 
 die unless -d $base_hhblits;
@@ -133,15 +140,21 @@ foreach my $index_ln (@index_lines){
     my $data_str = join("",@data);
     my $uid = md5_base64($header);
     $uid=~s/\W+//g;
-    $header = '#cl|'."$uid $header\n";
 
     my $a3m_file = 'a3m_dir/'.$uid;
-    die "Collision $a3m_file\n" if -s $a3m_file;
+    next if -s $a3m_file;
     open (OUT,">$a3m_file");
-    print OUT $header.$data_str;
+    print OUT '#cl|'."$uid $header\n".$data_str;
     close OUT;
+
+    if ($fix_public){
+	    &process_cmd("$reformat_exec a3m a3m $a3m_file $a3m_file. >/dev/null 2>/dev/null");
+    }else{
+	    &process_cmd("$reformat_exec fas a3m $a3m_file $a3m_file. -M first >/dev/null 2>/dev/null");
+    }
+    rename("$a3m_file.",$a3m_file) if -s "$a3m_file.";
     unless ($no_ss){
-	    system("$addss_exec $a3m_file -a3m >/dev/null 2>/dev/null");
+	    &process_cmd("$addss_exec $a3m_file -a3m >/dev/null 2>/dev/null"); 
 	    rename("$a3m_file.a3m",$a3m_file) if -s "$a3m_file.a3m";
 	    &do_hmm($a3m_file,$uid) if (-s $a3m_file >= 10000 && $number_of_seqs > 40);
     }
@@ -151,18 +164,30 @@ close DB;
 print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \n";
 
 unlink("a3m.ffdata");unlink("a3m.ffindex");
-system("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
+&process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
 
 unless ($no_ss){
 	unlink("hhm.ffdata");unlink("hhm.ffindex");
-	system("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
+	&process_cmd("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
 }
 
-print "\nDone. Now run:\n mpirun -np \$LOCAL_CPUS $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
-
+print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
+&process_cmd("mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m");
+print "\nDone\n\n";
 
 ##########################
 sub do_hmm(){
  my ($in,$uid) = @_;
- my $err = system($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
+ my $err = &process_cmd($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
 }
+
+sub process_cmd {
+ my ($cmd) = @_;
+ print &mytime . "CMD: $cmd\n";
+ my $ret = &process_cmd($cmd);
+ if ( $ret && $ret != 256 ) {
+  die "Error, cmd died with ret $ret\n";
+ }
+ return $ret;
+}
+
