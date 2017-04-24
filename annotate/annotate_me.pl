@@ -3905,7 +3905,7 @@ OUTER: while ( my $ln = <IN> ) {
    }
   }
  }
- print "Committed $counter    \r";
+ print "Committed $counter    \n";
  $dbh_store->commit();
  $dbh_store->begin_work();
  close IN;

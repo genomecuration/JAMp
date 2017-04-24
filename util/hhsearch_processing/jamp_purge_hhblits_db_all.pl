@@ -90,18 +90,40 @@ my $counter = int(0);
 my $counter_pass = int(0);
 
 foreach my $index_ln (@index_lines){
-	my (@data,$header,$go_check,$record);
-	my $number_of_seqs = int(0);
-
 	$counter++;
 	print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \r" if ($counter % 100 == 0 && !$no_ss) || ($counter % 1000 == 0 && $no_ss);
 	chomp($index_ln);
 	my @index_data = split("\t",$index_ln);
 	next unless $index_data[2];
 	seek(DB,$index_data[1],0);
+	my $record;
 	my $length = read(DB,$record,$index_data[2]);
+	next unless $record;
 	$record=~s/\x00$//;
-	my @lines = split("\n",$record);
+	&process_msa($record);
+}
+
+close DB;
+print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \n";
+
+unlink("a3m.ffdata");unlink("a3m.ffindex");
+&process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
+
+unless ($no_ss){
+	unlink("hhm.ffdata");unlink("hhm.ffindex");
+	&process_cmd("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
+}
+
+print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
+&process_cmd("mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m");
+print "\nDone\n\n";
+
+##########################
+sub process_msa(){
+    my $record = shift;
+    my @lines = split("\n",$record);
+    my (@data,$header,$go_check);
+    my $number_of_seqs = int(0);
 
     foreach my $ln (@lines){
 	next if $ln=~/^#/ || $ln=~/^\s*$/;
@@ -134,7 +156,7 @@ foreach my $index_ln (@index_lines){
 	}
 	push(@data,$ln."\n");
     }
-    next unless $go_check;
+    return unless $go_check;
     $counter_pass++;
     chop($header);
     my $data_str = join("",@data);
@@ -142,7 +164,7 @@ foreach my $index_ln (@index_lines){
     $uid=~s/\W+//g;
 
     my $a3m_file = 'a3m_dir/'.$uid;
-    next if -s $a3m_file;
+    return if -s $a3m_file;
     open (OUT,">$a3m_file");
     print OUT '#cl|'."$uid $header\n".$data_str;
     close OUT;
@@ -158,24 +180,10 @@ foreach my $index_ln (@index_lines){
 	    rename("$a3m_file.a3m",$a3m_file) if -s "$a3m_file.a3m";
 	    &do_hmm($a3m_file,$uid) if (-s $a3m_file >= 10000 && $number_of_seqs > 40);
     }
+ }
 
-}
-close DB;
-print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \n";
 
-unlink("a3m.ffdata");unlink("a3m.ffindex");
-&process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
 
-unless ($no_ss){
-	unlink("hhm.ffdata");unlink("hhm.ffindex");
-	&process_cmd("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
-}
-
-print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
-&process_cmd("mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m");
-print "\nDone\n\n";
-
-##########################
 sub do_hmm(){
  my ($in,$uid) = @_;
  my $err = &process_cmd($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
@@ -183,11 +191,7 @@ sub do_hmm(){
 
 sub process_cmd {
  my ($cmd) = @_;
- print &mytime . "CMD: $cmd\n";
- my $ret = &process_cmd($cmd);
- if ( $ret && $ret != 256 ) {
-  die "Error, cmd died with ret $ret\n";
- }
+ my $ret = system($cmd);
  return $ret;
 }
 
