@@ -118,7 +118,7 @@ unless ($no_ss){
 	&process_cmd("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
 }
 
-print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m\n\n";
+print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219 -A $base_hhblits/data/cs219.lib -I a3m\n\n";
 &process_cmd("mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m");
 print "\nDone\n\n";
 
@@ -132,11 +132,13 @@ sub process_msa(){
     foreach my $ln (@lines){
 	next if $ln=~/^#/ || $ln=~/^\s*$/;
 	if ($ln=~/^>(\S+)/){
-		$ln=~s/->/-/g;
-		$ln=~s/--/-/g;
-		$number_of_seqs++;
 		my $id_str = $1;
 		next unless $id_str;
+		$id_str=~s/->/-/g;
+		$id_str=~s/</-/g;
+		$id_str=~s/>/-/g;
+		$id_str=~s/--/-/g;
+		$number_of_seqs++;
 		my $id;
 		if ($id_str =~/[st][pr]\|([^\|]+)\|/){
 			$id=$1;
@@ -145,11 +147,11 @@ sub process_msa(){
 				# first occurence assumed.
 				$id_str=~s/_\d+//;
 				$id=~s/_\d+//;
-				$ln=~s/_\d+//;
 			}
 			$go_check++ if $uniprot_ids_with_go_hash{$id};
 		}
-		next unless $id_str;
+		next unless $id;
+		$ln = '>'.$id_str;
 		$header.=$id_str." ";
 		if ($ln=~/\s(OS)=([A-Z][a-z]+\s+[a-z]+)/){
 			$header.="$1=$2 ";
