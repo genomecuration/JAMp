@@ -27,6 +27,7 @@ use Digest::MD5 qw/md5_base64/;
 use Getopt::Long;
 use Pod::Usage;
 use FindBin qw($RealBin);
+#use threads;
 use lib ("$RealBin/../../PerlLib");
 $ENV{'PATH'} .= ":$RealBin:$RealBin/../../3rd_party/bin";
 
@@ -80,18 +81,17 @@ print "Number of Uniprot IDs kept: ".scalar(keys %uniprot_ids_with_go_hash)."\n"
 my %header_hash;
 
 open (INDEX,$index_file) ||die($!);
+my $index_lines = `wc -l < $index_file`;chomp($index_lines);
+
+print "Will process these many records: $index_lines\n";
 open (DB,$db_file) ||die($!);
 binmode(DB);
-
-my @index_lines = <INDEX>;
-close INDEX;
-print "Will process these many records: ".scalar(@index_lines)."\n";
 my $counter = int(0);
 my $counter_pass = int(0);
 
-foreach my $index_ln (@index_lines){
+while (my $index_ln=<INDEX>){
 	$counter++;
-	print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \r" if ($counter % 100 == 0 && !$no_ss) || ($counter % 1000 == 0 && $no_ss);
+	print "Processed $counter / $index_lines ($counter_pass passed)     \r" if ($counter % 100 == 0 && !$no_ss) || ($counter % 1000 == 0 && $no_ss);
 	chomp($index_ln);
 	my @index_data = split("\t",$index_ln);
 	next unless $index_data[2];
@@ -101,10 +101,14 @@ foreach my $index_ln (@index_lines){
 	next unless $record;
 	$record=~s/\x00$//;
 	&process_msa($record);
+#	my $thr = threads->create('process_msa', $record);
+#	$thr->detach();	print "$counter \r";
+#	sleep(1);
 }
 
 close DB;
-print "Processed $counter / ".scalar(@index_lines)."  ($counter_pass passed)     \n";
+close INDEX;
+print "Processed $counter / $index_lines ($counter_pass passed)     \n";
 
 unlink("a3m.ffdata");unlink("a3m.ffindex");
 &process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
