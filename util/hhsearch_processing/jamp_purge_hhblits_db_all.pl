@@ -11,8 +11,8 @@
     -id_go :s	=> List of FASTA IDs to keep (e.g. because they have a GO annotation
     -db    :s 	=> FFINDEX database of aligned FASTAs. If one aligned sequence is present in the id_go list then alignment is processed, otherwise discarded
     -index :s 	=> Index file of FFINDEX database 
-    -noss	=> Do not run addss.pl to add 2ndary structure information nor create HHM database (FASTER)
-    -cpu   :i   => Number of CPUs/threads for final cs219 step (def 10)
+    -noss	=> Do not run addss.pl to add 2ndary structure information (FASTER)
+    -cpu   :i   => Number of CPUs/threads for building HHBlits databases (def 10). Set to 0 to disable it and only do GO term ID and reformating.
 
  Can create a id_go list using this JAMp SQL command:
    psql annotations -c 'select distinct(uniprot_id) from known_proteins.go_assoc;' > uniprot_ids_with_go.txt  
@@ -27,37 +27,42 @@ use Digest::MD5 qw/md5_base64/;
 use Getopt::Long;
 use Pod::Usage;
 use FindBin qw($RealBin);
-#use threads;
 use lib ("$RealBin/../../PerlLib");
 $ENV{'PATH'} .= ":$RealBin:$RealBin/../../3rd_party/bin";
 
-my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss,$fix_public);
+my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss,$fix_public,$use_a3m_dir,$debug);
 my $cpus = 10;
 pod2usage $! unless &GetOptions(
+	'debug' => \$debug,
 	'id_go:s' => \$uniprot_ids_with_go,
 	'index:s' => \$index_file,
 	'db:s' => \$db_file,
 	'noss' => \$no_ss,
 	'cpus|threads:i' => \$cpus,
-	'fix_public' => \$fix_public
+	'fix_public' => \$fix_public,
+	'use_a3m_dir' => \$use_a3m_dir,
 );
 
 my $a3m_dir = './a3m_dir';
 my $hhm_dir = './hhm_dir';
 
 mkdir $a3m_dir unless -d $a3m_dir;
-mkdir $hhm_dir unless -d $hhm_dir;
 
 my $base_hhblits = "$RealBin/../../3rd_party/hhsuite";
 my $hhmake_exec = $base_hhblits."/bin/hhmake";
 my $addss_exec = $base_hhblits."/scripts/addss.pl";
-my $reformat_exec = $base_hhblits."/scripts/reformat.pl";
+#my $reformat_exec = $base_hhblits."/scripts/reformat.pl";
+my $reformat_exec = $base_hhblits."/bin/hhconsensus";
 my $ffindex_build_exec = $base_hhblits."/bin/ffindex_build";
+my $ffindex_order_exec = $base_hhblits."/bin/ffindex_order";
+my $mpirun_exec = `which mpirun`; die "No mpirun installed\n" unless $mpirun_exec;chomp($mpirun_exec);
 
-die unless -d $base_hhblits;
-die unless -x $addss_exec ;
-die unless -x $ffindex_build_exec;
-
+die "Can't find hhsuite directory $base_hhblits\n" unless -d $base_hhblits;
+die "Can't find executable $addss_exec\n" unless -x $addss_exec ;
+die "Can't find executable $ffindex_build_exec\n" unless -x $ffindex_build_exec;
+die "Can't find executable $ffindex_order_exec\n" unless -x $ffindex_order_exec;
+die "Can't find executable $reformat_exec\n" unless -x $reformat_exec;
+die "Can't find executable $hhmake_exec\n" unless -x $hhmake_exec;
 
 pod2usage unless $uniprot_ids_with_go  && -s $uniprot_ids_with_go;
 
@@ -72,6 +77,7 @@ while (my $ln = <IN>){
 }
 close IN;
 
+die "No Uniprot IDs found!\n" unless scalar(keys %uniprot_ids_with_go_hash) > 0;
 
 # first we read every sequence and create an a3m header with all the representatives.
 # if identified in the list, then we carry on and print the a3m
@@ -89,9 +95,14 @@ binmode(DB);
 my $counter = int(0);
 my $counter_pass = int(0);
 
-while (my $index_ln=<INDEX>){
+
+if ($use_a3m_dir){
+ $counter_pass = `find $a3m_dir -type f|wc -l`;chomp($counter_pass);
+  $counter = $index_lines;
+}else{
+  while (my $index_ln=<INDEX>){
 	$counter++;
-	print "Processed $counter / $index_lines ($counter_pass passed)     \r" if ($counter % 100 == 0 && !$no_ss) || ($counter % 1000 == 0 && $no_ss);
+	print "Processed $counter / $index_lines ($counter_pass passed)     \r" if ($counter_pass % 1000 == 0);
 	chomp($index_ln);
 	my @index_data = split("\t",$index_ln);
 	next unless $index_data[2];
@@ -101,25 +112,71 @@ while (my $index_ln=<INDEX>){
 	next unless $record;
 	$record=~s/\x00$//;
 	&process_msa($record);
-#	my $thr = threads->create('process_msa', $record);
-#	$thr->detach();	print "$counter \r";
-#	sleep(1);
+ }
 }
-
 close DB;
 close INDEX;
 print "Processed $counter / $index_lines ($counter_pass passed)     \n";
 
+
+if (!$debug){
 unlink("a3m.ffdata");unlink("a3m.ffindex");
 &process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
 
-unless ($no_ss){
-	unlink("hhm.ffdata");unlink("hhm.ffindex");
-	&process_cmd("$ffindex_build_exec -s hhm.ffdata hhm.ffindex hhm_dir/");
-}
+exit(0) if !$cpus || $cpus < 1;
 
-print "\nNow running:\n mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219 -A $base_hhblits/data/cs219.lib -I a3m\n\n";
-&process_cmd("mpirun -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219.ffdata -A $base_hhblits/data/cs219.lib -I a3m");
+#system("rm -rf a3m_dir");
+
+unlink("temp.ffdata");unlink("temp.ffindex");
+
+print "Formatting...\n";
+if ($fix_public){
+    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+		."$reformat_exec -maxres 34000 -v 0 -M a2m -i /dev/stdin -oa3m /dev/stdout >/dev/null 2>/dev/null");
+}else{
+    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+	."$reformat_exec -maxres 34000 -v -M 40 0 -i /dev/stdin -oa3m /dev/stdout >/dev/null 2>/dev/null");
+}
+  sleep(3);
+  die "Failed... $reformat_exec " unless -s "temp.ffdata" && -s "temp.ffindex";
+  rename("temp.ffdata","a3m.ffdata");
+  rename("temp.ffindex","a3m.ffindex");
+  system("rm -f temp.ffdata* temp.ffindex*");
+  die "Failed $reformat_exec " unless -s "a3m.ffdata" && -s "a3m.ffindex";
+  unless ($no_ss){
+	&process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+	."$addss_exec /dev/stdin /dev/stdout -a3m 2>/dev/null >/dev/null"); 
+	sleep(3);
+	die "Failed... $addss_exec " unless -s "temp.ffdata" && -s "temp.ffindex";
+	rename("temp.ffdata","a3m.ffdata");
+	rename("temp.ffindex","a3m.ffindex");
+	system("rm -f temp.ffdata* temp.ffindex*");
+    }
+die "Failed $addss_exec " unless -s "a3m.ffdata" && -s "a3m.ffindex";
+}
+print "Creating HHM...\n";
+  unlink("hhm.ffdata");unlink("hhm.ffindex");
+  &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d hhm.ffdata -i hhm.ffindex -- "
+	."$hhmake_exec -i /dev/stdin -o /dev/stdout -v 0 -id 100 -diff 500 2>/dev/null >/dev/null");
+ 
+print "Creating column states...\n";
+  unlink("cs219.ffdata");unlink("cs219.ffindex");
+  &process_cmd("$mpirun_exec -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219 -A $base_hhblits/data/cs219.lib -I a3m >/dev/null 2>/dev/null");
+  sleep(3);
+ die "Failed to create cs219.ffdata" unless -s "cs219.ffdata" && -s "cs219.ffindex";
+
+print "Sorting...\n";
+  &process_cmd("sort -nk3 cs219.ffindex | cut -f1 > sorting.dat");
+  die "Can't sort cs219.ffindex" unless -s "sorting.dat";;
+  &process_cmd("$ffindex_order_exec sorting.dat hhm.ff{data,index} hhm_ordered.ff{data,index}");
+  rename("hhm_ordered.ffdata","hhm.ffdata") if -s "hhm_ordered.ffdata";
+  rename("hhm_ordered.ffindex","hhm.ffindex") if -s "hhm_ordered.ffindex";
+
+  &process_cmd("$ffindex_order_exec sorting.dat a3m.ff{data,index} a3m_ordered.ff{data,index}");
+  rename("a3m_ordered.ffdata","a3m.ffdata") if -s "a3m_ordered.ffdata";
+  rename("a3m_ordered.ffindex","a3m.ffindex") if -s "a3m_ordered.ffindex";
+  unlink("sorting.dat");
+
 print "\nDone\n\n";
 
 ##########################
@@ -138,6 +195,12 @@ sub process_msa(){
 		$id_str=~s/</-/g;
 		$id_str=~s/>/-/g;
 		$id_str=~s/--/-/g;
+
+		$ln=~s/->/-/g;
+		$ln=~s/</-/g;
+		$ln=~s/(.+)>/$1-/g;
+		$ln=~s/--/-/g;
+
 		$number_of_seqs++;
 		my $id;
 		if ($id_str =~/[st][pr]\|([^\|]+)\|/){
@@ -151,7 +214,6 @@ sub process_msa(){
 			$go_check++ if $uniprot_ids_with_go_hash{$id};
 		}
 		next unless $id;
-		$ln = '>'.$id_str;
 		$header.=$id_str." ";
 		if ($ln=~/\s(OS)=([A-Z][a-z]+\s+[a-z]+)/){
 			$header.="$1=$2 ";
@@ -159,6 +221,7 @@ sub process_msa(){
 			next if $1 eq 'OS';
 			$header.="$1=$2 ";
 		}
+		$ln = '>'.$id_str;
 	}
 	push(@data,$ln."\n");
     }
@@ -170,33 +233,25 @@ sub process_msa(){
     $uid=~s/\W+//g;
 
     my $a3m_file = 'a3m_dir/'.$uid;
-    return if -s $a3m_file;
+    if (-s $a3m_file){
+	return;
+    }
     open (OUT,">$a3m_file");
     print OUT '#cl|'."$uid $header\n".$data_str;
     close OUT;
-
-    if ($fix_public){
-	    &process_cmd("$reformat_exec a3m a3m $a3m_file $a3m_file. >/dev/null 2>/dev/null");
-    }else{
-	    &process_cmd("$reformat_exec fas a3m $a3m_file $a3m_file. -M first >/dev/null 2>/dev/null");
-    }
-    rename("$a3m_file.",$a3m_file) if -s "$a3m_file.";
-    unless ($no_ss){
-	    &process_cmd("$addss_exec $a3m_file -a3m >/dev/null 2>/dev/null"); 
-	    rename("$a3m_file.a3m",$a3m_file) if -s "$a3m_file.a3m";
-	    &do_hmm($a3m_file,$uid) if (-s $a3m_file >= 10000 && $number_of_seqs > 40);
-    }
- }
+}
 
 
 
 sub do_hmm(){
  my ($in,$uid) = @_;
- my $err = &process_cmd($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
+ return if -s "$hhm_dir/$uid";
+ my $err = system($hhmake_exec." -i $in -o $hhm_dir/$uid -v 0 &");
 }
 
 sub process_cmd {
  my ($cmd) = @_;
+ print "CMD: $cmd\n";
  my $ret = system($cmd);
  return $ret;
 }
