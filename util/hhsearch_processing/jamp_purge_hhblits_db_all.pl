@@ -13,7 +13,8 @@
     -index :s 	=> Index file of FFINDEX database 
     -noss	=> Do not run addss.pl to add 2ndary structure information (FASTER)
     -cpu   :i   => Number of CPUs/threads for building HHBlits databases (def 10). Set to 0 to disable it and only do GO term ID and reformating.
-
+    -out   :s   => Basename for output files (defaults to hhsearch_db)
+ 
  Can create a id_go list using this JAMp SQL command:
    psql annotations -c 'select distinct(uniprot_id) from known_proteins.go_assoc;' > uniprot_ids_with_go.txt  
 
@@ -30,9 +31,11 @@ use FindBin qw($RealBin);
 use lib ("$RealBin/../../PerlLib");
 $ENV{'PATH'} .= ":$RealBin:$RealBin/../../3rd_party/bin";
 
+my $db_out_name = 'hhsearch_db';
 my ($uniprot_ids_with_go,$index_file,$db_file,$no_ss,$fix_public,$use_a3m_dir,$debug);
 my $cpus = 10;
 pod2usage $! unless &GetOptions(
+	'out:s' => \$db_out_name,
 	'debug' => \$debug,
 	'id_go:s' => \$uniprot_ids_with_go,
 	'index:s' => \$index_file,
@@ -95,6 +98,7 @@ binmode(DB);
 my $counter = int(0);
 my $counter_pass = int(0);
 
+die $db_out_name."_a3m.ff{data,index} still exist!" if -s $db_out_name."_a3m.ffdata" || -s $db_out_name."_a3m.index";
 
 if ($use_a3m_dir){
  $counter_pass = `find $a3m_dir -type f|wc -l`;chomp($counter_pass);
@@ -119,65 +123,65 @@ close INDEX;
 print "Processed $counter / $index_lines ($counter_pass passed)     \n";
 
 
-if (!$debug){
-unlink("a3m.ffdata");unlink("a3m.ffindex");
-&process_cmd("$ffindex_build_exec -s a3m.ffdata a3m.ffindex a3m_dir/");
+&process_cmd("$ffindex_build_exec -s ".$db_out_name."_a3m.ffdata ".$db_out_name."_a3m.ffindex a3m_dir/");
 
 exit(0) if !$cpus || $cpus < 1;
 
-#system("rm -rf a3m_dir");
+system("rm -rf a3m_dir");
 
 unlink("temp.ffdata");unlink("temp.ffindex");
 
 print "Formatting...\n";
 if ($fix_public){
-    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi ".$db_out_name."_a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
 		."$reformat_exec -maxres 34000 -v 0 -M a2m -i /dev/stdin -oa3m /dev/stdout >/dev/null 2>/dev/null");
 }else{
-    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+    &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi ".$db_out_name."_a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
 	."$reformat_exec -maxres 34000 -v -M 40 0 -i /dev/stdin -oa3m /dev/stdout >/dev/null 2>/dev/null");
 }
   sleep(3);
   die "Failed... $reformat_exec " unless -s "temp.ffdata" && -s "temp.ffindex";
-  rename("temp.ffdata","a3m.ffdata");
-  rename("temp.ffindex","a3m.ffindex");
+  rename("temp.ffdata",$db_out_name."_a3m.ffdata");
+  rename("temp.ffindex",$db_out_name."_a3m.ffindex");
   system("rm -f temp.ffdata* temp.ffindex*");
-  die "Failed $reformat_exec " unless -s "a3m.ffdata" && -s "a3m.ffindex";
+  die "Failed $reformat_exec " unless -s $db_out_name."_a3m.ffdata" && -s $db_out_name."_a3m.ffindex";
   unless ($no_ss){
-	&process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
+	&process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi ".$db_out_name."_a3m.ff{data,index} -d temp.ffdata -i temp.ffindex -- "
 	."$addss_exec /dev/stdin /dev/stdout -a3m 2>/dev/null >/dev/null"); 
 	sleep(3);
 	die "Failed... $addss_exec " unless -s "temp.ffdata" && -s "temp.ffindex";
-	rename("temp.ffdata","a3m.ffdata");
-	rename("temp.ffindex","a3m.ffindex");
+	rename("temp.ffdata", $db_out_name."_a3m.ffdata");
+	rename("temp.ffindex", $db_out_name."_a3m.ffindex");
 	system("rm -f temp.ffdata* temp.ffindex*");
     }
-die "Failed $addss_exec " unless -s "a3m.ffdata" && -s "a3m.ffindex";
-}
+die "Failed $addss_exec " unless -s $db_out_name."_a3m.ffdata" && -s $db_out_name."_a3m.ffindex";
+
 print "Creating HHM...\n";
-  unlink("hhm.ffdata");unlink("hhm.ffindex");
-  &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi a3m.ff{data,index} -d hhm.ffdata -i hhm.ffindex -- "
+  unlink($db_out_name."_hhm.ffdata");
+  unlink($db_out_name."_hhm.ffindex");
+  &process_cmd("$mpirun_exec -np $cpus ffindex_apply_mpi ".$db_out_name."_a3m.ff{data,index} -d ".$db_out_name."_hhm.ffdata -i ".$db_out_name."_hhm.ffindex -- "
 	."$hhmake_exec -i /dev/stdin -o /dev/stdout -v 0 -id 100 -diff 500 2>/dev/null >/dev/null");
  
 print "Creating column states...\n";
-  unlink("cs219.ffdata");unlink("cs219.ffindex");
-  &process_cmd("$mpirun_exec -np $cpus $base_hhblits/bin/cstranslate_mpi -i a3m -o cs219 -A $base_hhblits/data/cs219.lib -I a3m >/dev/null 2>/dev/null");
+  unlink($db_out_name."_cs219.ffdata");
+  unlink($db_out_name."_cs219.ffindex");
+  &process_cmd("$mpirun_exec -np $cpus $base_hhblits/bin/cstranslate_mpi -i ".$db_out_name."_a3m -o ".$db_out_name."_cs219 -A $base_hhblits/data/cs219.lib -I a3m >/dev/null 2>/dev/null");
   sleep(3);
- die "Failed to create cs219.ffdata" unless -s "cs219.ffdata" && -s "cs219.ffindex";
+ die "Failed to create ".$db_out_name."_cs219.ffdata" unless -s $db_out_name."_cs219.ffdata" && -s $db_out_name."_cs219.ffindex";
 
 print "Sorting...\n";
-  &process_cmd("sort -nk3 cs219.ffindex | cut -f1 > sorting.dat");
-  die "Can't sort cs219.ffindex" unless -s "sorting.dat";;
-  &process_cmd("$ffindex_order_exec sorting.dat hhm.ff{data,index} hhm_ordered.ff{data,index}");
-  rename("hhm_ordered.ffdata","hhm.ffdata") if -s "hhm_ordered.ffdata";
-  rename("hhm_ordered.ffindex","hhm.ffindex") if -s "hhm_ordered.ffindex";
+  &process_cmd("sort -nk3 ".$db_out_name."_cs219.ffindex | cut -f1 > sorting.dat");
+  die "Can't sort ".$db_out_name."_cs219.ffindex" unless -s "sorting.dat";;
+  &process_cmd("$ffindex_order_exec sorting.dat ".$db_out_name."_hhm.ff{data,index} ".$db_out_name."_hhm_ordered.ff{data,index}");
+  rename($db_out_name."_hhm_ordered.ffdata",$db_out_name."_hhm.ffdata") if -s $db_out_name."_hhm_ordered.ffdata";
+  rename($db_out_name."_hhm_ordered.ffindex",$db_out_name."_hhm.ffindex") if -s $db_out_name."_hhm_ordered.ffindex";
 
-  &process_cmd("$ffindex_order_exec sorting.dat a3m.ff{data,index} a3m_ordered.ff{data,index}");
-  rename("a3m_ordered.ffdata","a3m.ffdata") if -s "a3m_ordered.ffdata";
-  rename("a3m_ordered.ffindex","a3m.ffindex") if -s "a3m_ordered.ffindex";
+  &process_cmd("$ffindex_order_exec sorting.dat ".$db_out_name."_a3m.ff{data,index} ".$db_out_name."_a3m_ordered.ff{data,index}");
+  rename($db_out_name."_a3m_ordered.ffdata",$db_out_name."_a3m.ffdata") if -s $db_out_name."_a3m_ordered.ffdata";
+  rename($db_out_name."_a3m_ordered.ffindex",$db_out_name."_a3m.ffindex") if -s $db_out_name."_a3m_ordered.ffindex";
   unlink("sorting.dat");
 
-print "\nDone\n\n";
+print "\nDone, see ".$db_out_name."_*\n\n";
 
 ##########################
 sub process_msa(){
@@ -228,7 +232,7 @@ sub process_msa(){
     return unless $go_check;
     $counter_pass++;
     chop($header);
-    my $data_str = join("",@data);
+    my $data_str = join('',@data);
     my $uid = md5_base64($header);
     $uid=~s/\W+//g;
 
