@@ -52,7 +52,7 @@ ffindex_from_fasta $PROTEIN_FILE.le5000.ff{data,index} $PROTEIN_FILE.le5000 > /d
 shuf $PROTEIN_FILE.le5000.ffindex > $PROTEIN_FILE.le5000.ffindex.
 mv -f $PROTEIN_FILE.le5000.ffindex. $PROTEIN_FILE.le5000.ffindex
 
-split -d -a 3 -l 100 $PROTEIN_FILE.le5000.ffindex $PROTEIN_FILE.le5000.ffindex.
+split -d -a 3 -l 5000 $PROTEIN_FILE.le5000.ffindex $PROTEIN_FILE.le5000.ffindex.
 let NUMBERSPROCESSES=`ls -l $PROTEIN_FILE.le5000.ffindex.???|wc -l`-1
 
 for (( i=0; i<=$NUMBERSPROCESSES; i++ )); do
@@ -62,7 +62,7 @@ for (( i=0; i<=$NUMBERSPROCESSES; i++ )); do
 	DTX=$PROTEIN_FILE.le5000.$INDEX_PADDED.ffdata
 	ln -s $PROTEIN_FILE.le5000.ffdata $DTX
 	echo hhblits_omp -maxmem 3 -d $DBDIR/$DB -mact 0.3 -cpu $LOWMEM_CPUS -i $PROTEIN_FILE.le5000.$INDEX_PADDED -o $PROTEIN_FILE.le5000.$INDEX_PADDED.out \
-         -id 100 -noprefilt -maxres 32769 -e 0.0001 -p 60 -E 1E-03 -z 0 -b 0 -v 0 -n 2 >> commands.small
+         -id 100 -noprefilt -maxres 42769 -e 0.0001 -p 60 -E 1E-03 -z 0 -b 0 -v 0 -n 2 >> commands.small
 done
 
 	echo See commands.small
@@ -74,7 +74,7 @@ if [ -f $PROTEIN_FILE.le5000.discard ]; then
 	shuf $PROTEIN_FILE.le5000.discard.ffindex > $PROTEIN_FILE.le5000.discard.ffindex.
 	mv -f $PROTEIN_FILE.le5000.discard.ffindex. $PROTEIN_FILE.le5000.discard.ffindex
 
-	split -d -a 3 -l 10 $PROTEIN_FILE.le5000.discard.ffindex $PROTEIN_FILE.le5000.discard.ffindex.
+	split -d -a 3 -l 100 $PROTEIN_FILE.le5000.discard.ffindex $PROTEIN_FILE.le5000.discard.ffindex.
 	let NUMBERSPROCESSES=`ls -l $PROTEIN_FILE.le5000.discard.ffindex.???|wc -l`-1
 
 	for (( i=0; i<=$NUMBERSPROCESSES; i++ )); do
@@ -84,7 +84,7 @@ if [ -f $PROTEIN_FILE.le5000.discard ]; then
 		DTX=$PROTEIN_FILE.le5000.discard.$INDEX_PADDED.ffdata
 		ln -s $PROTEIN_FILE.le5000.discard.ffdata $DTX
 		echo hhblits_omp -maxmem 10 -d $DBDIR/$DB -mact 0.3 -cpu $HIGHMEM_CPUS -i $PROTEIN_FILE.le5000.discard.$INDEX_PADDED -o $PROTEIN_FILE.le5000.discard.$INDEX_PADDED.out \
-        	 -id 100 -noprefilt -maxres 32769 -e 0.0001 -p 60 -E 1E-03 -z 0 -b 0 -v 0 -n 2 >> commands.large
+        	 -id 100 -noprefilt -maxres 42769 -e 0.0001 -p 60 -E 1E-03 -z 0 -b 0 -v 0 -n 2 >> commands.large
 	done
 
 	echo See commands.large

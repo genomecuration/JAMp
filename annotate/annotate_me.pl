@@ -645,7 +645,7 @@ sub connect_db() {
  $dbh = DBI->connect( "dbi:Pg:dbname=$dbname;host=$dbhost;port=$dbport",
                       '', '', { AutoCommit => 1 } )
    if !$password;
- unless ($dbh) {
+ if (!$dbh && $create_annot_database) {
   print &mytime . "Creating database...\n";
   &process_cmd("createdb -p $dbport -h $dbhost --locale=C --encoding=UTF8 -U $username $dbname");
   $dbh = DBI->connect( "dbi:Pg:dbname=$dbname;host=$dbhost;port=$dbport",
@@ -654,6 +654,8 @@ sub connect_db() {
   $dbh = DBI->connect( "dbi:Pg:dbname=$dbname;host=$dbhost;port=$dbport",
                        '', '', { AutoCommit => 1 } )
     if !$password;
+ }elsif(!$dbh){
+	die "Cannot connect to the database using the credentials you provided\n";
  }
  return $dbh;
 }
@@ -2359,7 +2361,7 @@ sub process_protein_hhr() {
   while ( my $record = <IN> ) {
    chomp($record);next unless $record;
    $record_number++;
-   print "Processed: $record_number\t\t\r" if ( $record_number % 10 == 0 );
+   print "Processed: $record_number\t\t\r" if ( $record_number % 100 == 0 );
    next unless ( length($record) ) >= $hhr_min_filesize;
    my @record_lines = split( "\n", $record );
    my $query = shift (@record_lines);

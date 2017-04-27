@@ -137,6 +137,10 @@ if ( $informat eq "hmm" && !$outfile ) {
 # Reformat input alignment to a3m and psiblast-readable format and generate file with query sequence
 ###############################################################################################
 
+
+
+
+
 my $inbase;    # $inbasename of infile: remove extension
 my $inroot;    # $inbasename of infile: remove path and extension
 if ( $infile =~ /(.*)\..*/ ) { $inbase = $1; }
@@ -164,7 +168,7 @@ if ( $infile eq "stdin" ) {
 	$infile = "$tmpfile.stdin";
 	open(OUT, ">$infile");
 	foreach my $line (@stdin) {
-  	print OUT $line;
+	  	print OUT $line;
 	}
 	close(OUT);
 }
@@ -207,7 +211,6 @@ if ( $informat ne "hmm" ) {
 	$/ = "\n";    # set input field separator
 
 	if ( $qseq =~ /\-/ ) {
-
 		# First sequence contains gaps => calculate consensus sequence
 		&HHPaths::System(
 			"hhconsensus -i $tmpfile.in.a3m -s $tmpfile.sq -o $tmpfile.in.a3m > /dev/null"
