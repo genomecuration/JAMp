@@ -1,0 +1,15 @@
+==SQL: 
+ 
+ to create tab delimited output:
+ \a
+ \f '	' (control v-i within quotes)
+ \o filename
+ sql cmd
+ \o
+
+
+  Get all mRNA/GOs for dataset X: 
+  select ic.cds_uname,go_id from dataset_X.inference_cds ic JOIN known_proteins.go_assoc ga ON ic.known_protein_id=ga.uniprot_id;
+
+  Some formatting:
+  select ic.cds_uname,'Dbxref','GO:'||go_id from dataset_X.inference_cds ic JOIN known_proteins.go_assoc ga ON ic.known_protein_id=ga.uniprot_id;
